@@ -1,0 +1,341 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { Note } from '@/types';
+import RichTextEditor from './RichTextEditor';
+import SimpleTextEditor from './SimpleTextEditor';
+import { ParsedTask } from '@/lib/taskParser';
+
+interface NoteEditorProps {
+  note: Note;
+  onSave: (note: Note) => void;
+  onClose: () => void;
+  isInTab?: boolean;
+}
+
+export default function NoteEditor({ note, onSave, onClose, isInTab = false }: NoteEditorProps) {
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [useRichText, setUseRichText] = useState(true);
+  const [parsedTasks, setParsedTasks] = useState<ParsedTask[]>([]);
+  const [taskMap, setTaskMap] = useState<Record<string, string>>({});
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setTitle(note.title);
+    setContent(note.content);
+    setHasChanges(false);
+    
+    // Load existing task mappings from localStorage (legacy support)
+    // TODO: Migrate to database-backed mapping system
+    const storedTaskMap = localStorage.getItem(`taskMap-${note.id}`);
+    if (storedTaskMap) {
+      try {
+        setTaskMap(JSON.parse(storedTaskMap));
+        console.log('[NoteEditor] Loaded task map for note:', JSON.parse(storedTaskMap));
+      } catch (error) {
+        console.error('[NoteEditor] Error parsing stored task map:', error);
+        setTaskMap({});
+      }
+    } else {
+      setTaskMap({});
+    }
+  }, [note]);
+
+  useEffect(() => {
+    setHasChanges(title !== note.title || content !== note.content);
+  }, [title, content, note]);
+
+  useEffect(() => {
+    // Focus title input when editor opens
+    if (titleRef.current) {
+      titleRef.current.focus();
+    }
+  }, []);
+
+  const getTextContent = () => {
+    if (useRichText) {
+      if (typeof document !== 'undefined') {
+        const div = document.createElement('div');
+        div.innerHTML = content;
+        return div.textContent || div.innerText || '';
+      }
+      return '';
+    }
+    return content;
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      alert('Please enter a title for the note');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Process any pending tasks before saving
+      console.log('[NoteEditor] Processing tasks before save...');
+      const { parseTasksFromContent } = await import('@/lib/taskParser');
+      const textContent = getTextContent();
+      const { tasks } = parseTasksFromContent(textContent);
+      
+      if (tasks.length > 0) {
+        await handleTasksFound(tasks);
+      }
+
+      const response = await fetch(`/api/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        const updatedNote = await response.json();
+        onSave(updatedNote);
+        setHasChanges(false);
+      } else {
+        alert('Failed to save note');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      alert('Error saving note');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (isInTab) {
+      // In tab mode, don't close on unsaved changes, just show warning
+      if (hasChanges) {
+        alert('Please save your changes first');
+        return;
+      }
+    } else {
+      // In modal mode, ask for confirmation
+      if (hasChanges) {
+        if (!confirm('You have unsaved changes. Are you sure you want to close?')) {
+          return;
+        }
+      }
+    }
+    onClose();
+  };
+
+  const handleTasksFound = async (tasks: ParsedTask[]) => {
+    console.log('[NoteEditor] Processing', tasks.length, 'new tasks with UUIDs...');
+    setParsedTasks(tasks);
+    
+    // Send new tasks to API for database creation
+    try {
+      const response = await fetch('/api/tasks/from-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tasks,
+          noteId: note.id,
+          existingTaskMap: taskMap
+        }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[NoteEditor] ✅ Tasks processed:`, {
+          created: result.tasksCreated,
+          updated: result.tasksUpdated,
+          deleted: result.tasksDeleted
+        });
+        
+        // Update and persist the task map (legacy support for now)
+        if (result.taskMap) {
+          setTaskMap(result.taskMap);
+          localStorage.setItem(`taskMap-${note.id}`, JSON.stringify(result.taskMap));
+        }
+      } else {
+        console.error('[NoteEditor] API response not ok:', response.status, await response.text());
+      }
+    } catch (error) {
+      console.error('[NoteEditor] Error processing tasks from note:', error);
+    }
+  };
+
+  const handleManualTaskProcessing = async () => {
+    console.log('[NoteEditor] Manual task processing triggered');
+    const { parseTasksFromContent } = await import('@/lib/taskParser');
+    const textContent = getTextContent();
+    const { tasks } = parseTasksFromContent(textContent);
+    await handleTasksFound(tasks);
+  };
+
+  const handleTaskToggle = async (taskId: string, completed: boolean) => {
+    try {
+      // Find the database task ID from our mapping
+      const dbTaskId = taskMap[taskId];
+      if (!dbTaskId) {
+        console.error('[NoteEditor] No database task ID found for inline task:', taskId);
+        return;
+      }
+      
+      const response = await fetch('/api/tasks/from-note', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: dbTaskId, // Use database task ID
+          completed,
+          noteId: note.id
+        }),
+      });
+      
+      if (response.ok) {
+        console.log(`[NoteEditor] Task ${dbTaskId} (inline: ${taskId}) marked as ${completed ? 'completed' : 'incomplete'}`);
+      } else {
+        console.error('[NoteEditor] Failed to toggle task:', response.status, await response.text());
+      }
+    } catch (error) {
+      console.error('[NoteEditor] Error updating task:', error);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === 'w') {
+        e.preventDefault();
+        handleClose();
+      } else if (e.key === 't') {
+        e.preventDefault();
+        handleManualTaskProcessing();
+      }
+    }
+  };
+
+  const containerClasses = isInTab 
+    ? "h-full flex flex-col bg-white dark:bg-gray-800"
+    : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+    
+  const editorClasses = isInTab 
+    ? "h-full flex flex-col"
+    : "bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl h-5/6 mx-4 flex flex-col";
+
+  return (
+    <div className={containerClasses}>
+      <div className={editorClasses}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <input
+              ref={titleRef}
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-xl font-semibold bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 flex-1 min-w-0"
+              placeholder="Note title..."
+              onKeyDown={handleKeyDown}
+            />
+            {hasChanges && (
+              <span className="text-sm text-orange-600 dark:text-orange-400">
+                Unsaved changes
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !hasChanges}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+            {!isInTab && (
+              <button
+                onClick={handleClose}
+                className="px-3 py-1 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Content Editor */}
+        <div className="flex-1 p-4 overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setUseRichText(!useRichText)}
+                className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                {useRichText ? 'Rich Text' : 'Plain Text'}
+              </button>
+              
+              {parsedTasks.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {parsedTasks.length} task{parsedTasks.length !== 1 ? 's' : ''} found
+                </div>
+              )}
+              
+              <button
+                onClick={handleManualTaskProcessing}
+                className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-700 text-blue-600 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-600"
+                title="Process tasks now (auto-processes after 3s of no typing)"
+              >
+                Process Tasks
+              </button>
+            </div>
+          </div>
+          
+          {useRichText ? (
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              placeholder="Start writing your note..."
+              className="h-full"
+              noteId={note.id}
+              onTasksFound={handleTasksFound}
+              onTaskToggle={handleTaskToggle}
+            />
+          ) : (
+            <SimpleTextEditor
+              content={content}
+              onChange={setContent}
+              placeholder="Start writing your note..."
+              className="h-full"
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between">
+          {mounted && (
+            <div>
+              Created: {new Date(note.createdAt).toLocaleDateString()} at{' '}
+              {new Date(note.createdAt).toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </div>
+          )}
+          <div>
+            Ctrl/Cmd + S to save • Ctrl/Cmd + W to close • Ctrl/Cmd + T to process tasks
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
