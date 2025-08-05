@@ -18,12 +18,14 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
   const [dueDate, setDueDate] = useState(
     task?.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : ''
   );
+  const [completed, setCompleted] = useState(task?.completed || false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (task) {
       setContent(task.content);
       setDueDate(task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '');
+      setCompleted(task.completed || false);
     }
   }, [task]);
 
@@ -43,6 +45,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
           body: JSON.stringify({
             content: content.trim(),
             dueDate: dueDate || null,
+            completed: completed,
           }),
         });
 
@@ -154,6 +157,29 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             </div>
           </div>
 
+          {/* Task Completion */}
+          {task && (
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="task-completed"
+                checked={completed}
+                onChange={(e) => setCompleted(e.target.checked)}
+                className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              />
+              <label 
+                htmlFor="task-completed" 
+                className={`text-sm font-medium cursor-pointer ${
+                  completed 
+                    ? 'text-green-700 dark:text-green-400 line-through' 
+                    : 'text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                Mark as completed
+              </label>
+            </div>
+          )}
+
           {/* Source Note Info */}
           {task?.sourceNote && (
             <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
@@ -176,6 +202,22 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             >
               Cancel
             </button>
+            {task && (
+              <button
+                onClick={() => {
+                  setCompleted(!completed);
+                  // Auto-save when toggling completion
+                  setTimeout(handleSave, 100);
+                }}
+                className={`px-4 py-2 text-sm rounded transition-colors ${
+                  completed
+                    ? 'bg-orange-500 text-white hover:bg-orange-600'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+              >
+                {completed ? 'Mark Incomplete' : 'Mark Complete'}
+              </button>
+            )}
             <button
               onClick={handleSave}
               disabled={isSaving || !content.trim()}

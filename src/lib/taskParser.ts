@@ -78,19 +78,22 @@ export function parseTasksFromContent(content: string): TaskParsingResult {
     const endIndex = startIndex + fullMatch.length;
 
     // Manually parse task content and date from the line
+    // Remove any existing task ID comments from the line content before parsing
+    const cleanLineContent = lineContent.replace(/\s*<!-- task-id:[^>]+ -->/g, '').trim();
+    
     const dateRegex = /(\s+@(\w+|\d{4}-\d{2}-\d{2}))(?=\s|$)/;
-    const dateMatch = lineContent.match(dateRegex);
+    const dateMatch = cleanLineContent.match(dateRegex);
     
     let taskContent;
     let dateString = null;
 
     if (dateMatch) {
       // If date is found, content is everything before it
-      taskContent = lineContent.slice(0, dateMatch.index).trim();
+      taskContent = cleanLineContent.slice(0, dateMatch.index).trim();
       dateString = dateMatch[2] || null;
     } else {
       // Otherwise, the whole line is content
-      taskContent = lineContent.trim();
+      taskContent = cleanLineContent.trim();
     }
 
     if (!taskContent) continue; // Skip empty tasks

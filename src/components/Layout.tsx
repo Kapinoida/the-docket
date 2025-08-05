@@ -23,7 +23,7 @@ export default function Layout({ children }: LayoutProps) {
       type: 'home',
       title: 'Home',
       content: {},
-      isPinned: true,
+      isPinned: false,
     }
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('home');
@@ -79,12 +79,17 @@ export default function Layout({ children }: LayoutProps) {
     const tab = tabs.find(t => t.id === tabId);
     if (tab?.isPinned) return; // Can't close pinned tabs
 
-    setTabs(prev => prev.filter(t => t.id !== tabId));
+    const remainingTabs = tabs.filter(t => t.id !== tabId);
+    setTabs(remainingTabs);
     
-    // If closing active tab, switch to home or first available tab
+    // If closing active tab, switch to first available tab or create a blank state
     if (tabId === activeTabId) {
-      const remainingTabs = tabs.filter(t => t.id !== tabId);
-      setActiveTabId(remainingTabs.length > 0 ? remainingTabs[0].id : 'home');
+      if (remainingTabs.length > 0) {
+        setActiveTabId(remainingTabs[0].id);
+      } else {
+        // No tabs left, set to null to show empty state
+        setActiveTabId('');
+      }
     }
   }, [tabs, activeTabId]);
 
@@ -94,19 +99,36 @@ export default function Layout({ children }: LayoutProps) {
     ));
   }, []);
 
-  const handleNotesChange = useCallback(() => {
+  const handleNotesChange = useCallback(async () => {
     // Trigger refresh of sidebar notes when notes are modified
     setSidebarRefreshTrigger(prev => prev + 1);
     
-    // Update any note tabs that might have changed
-    setTabs(prev => prev.map(tab => {
-      if (tab.type === 'note' && tab.content.note) {
-        // In a real app, you'd fetch the updated note here
-        return { ...tab, title: tab.content.note.title };
-      }
-      return tab;
-    }));
-  }, []);
+    // Update any note tabs that might have changed by fetching fresh data
+    const updatedTabs = await Promise.all(
+      tabs.map(async (tab) => {
+        if (tab.type === 'note' && tab.content.noteId) {
+          try {
+            console.log(`[Layout] Refreshing note data for tab ${tab.id}, noteId: ${tab.content.noteId}`);
+            const response = await fetch(`/api/notes/${tab.content.noteId}`);
+            if (response.ok) {
+              const updatedNote = await response.json();
+              console.log(`[Layout] Updated note data:`, { id: updatedNote.id, title: updatedNote.title, contentLength: updatedNote.content?.length });
+              return { 
+                ...tab, 
+                title: updatedNote.title,
+                content: { ...tab.content, note: updatedNote }
+              };
+            }
+          } catch (error) {
+            console.error(`[Layout] Error fetching updated note ${tab.content.noteId}:`, error);
+          }
+        }
+        return tab;
+      })
+    );
+    
+    setTabs(updatedTabs);
+  }, [tabs]);
 
   const handleCreateNote = useCallback(async (folderId: string) => {
     try {
@@ -147,6 +169,19 @@ export default function Layout({ children }: LayoutProps) {
     setActiveTabId(newTab.id);
   }, [tabs, createTab]);
 
+  const handleTasksViewClick = useCallback(() => {
+    // Check if tasks view is already open in a tab
+    const existingTab = tabs.find(tab => tab.type === 'tasks');
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+    } else {
+      // Create new tasks tab
+      const newTasksTab = createTab('tasks', 'All Tasks', {});
+      setTabs(prev => [...prev, newTasksTab]);
+      setActiveTabId(newTasksTab.id);
+    }
+  }, [tabs, createTab]);
+
   const handleCreateTask = useCallback(async (folderId: string) => {
     // Task creation will be handled by the TabContent component's modals
     // This is just a placeholder for the sidebar button
@@ -158,6 +193,19 @@ export default function Layout({ children }: LayoutProps) {
     console.log('Create standalone task');
     // TODO: Implement standalone task creation
   }, []);
+
+  const handleHomeClick = useCallback(() => {
+    // Check if home tab exists
+    const homeTab = tabs.find(tab => tab.type === 'home');
+    if (homeTab) {
+      setActiveTabId(homeTab.id);
+    } else {
+      // Create new home tab
+      const newHomeTab = createTab('home', 'Home', {});
+      setTabs(prev => [...prev, newHomeTab]);
+      setActiveTabId(newHomeTab.id);
+    }
+  }, [tabs, createTab]);
 
   const handleDeleteNote = useCallback(async (noteId: string) => {
     try {
@@ -176,7 +224,7 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [handleNotesChange]);
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
+  const activeTab = tabs.find(tab => tab.id === activeTabId) || null;
 
   // Keyboard shortcuts for tab management
   useEffect(() => {
@@ -185,13 +233,13 @@ export default function Layout({ children }: LayoutProps) {
         switch (e.key) {
           case 't':
             e.preventDefault();
-            // Focus home tab
-            setActiveTabId('home');
+            // Open or focus home tab
+            handleHomeClick();
             break;
           case 'w':
             e.preventDefault();
             // Close current tab (if not pinned)
-            if (activeTabId && activeTabId !== 'home') {
+            if (activeTabId) {
               handleTabClose(activeTabId);
             }
             break;
@@ -238,9 +286,13 @@ export default function Layout({ children }: LayoutProps) {
         >
           <div className="px-3 py-3 flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-3">
-              <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+              <button
+                onClick={handleHomeClick}
+                className="text-base font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left"
+                title="Go to Home"
+              >
                 The Docket
-              </h1>
+              </button>
               <button
                 onClick={() => setLeftSidebarVisible(false)}
                 className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -260,6 +312,22 @@ export default function Layout({ children }: LayoutProps) {
               onCreateTask={handleCreateStandaloneTask}
               onDeleteNote={handleDeleteNote}
             />
+            
+            {/* Quick Actions */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Quick Actions
+              </div>
+              <button
+                onClick={handleTasksViewClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                All Tasks
+              </button>
+            </div>
           </div>
           
 
@@ -314,12 +382,47 @@ export default function Layout({ children }: LayoutProps) {
         
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <TabContent
-            tab={activeTab}
-            onNotesChange={handleNotesChange}
-            onNoteSelect={handleNoteSelect}
-            onTaskSelect={handleTaskSelect}
-          />
+          {activeTab ? (
+            <TabContent
+              tab={activeTab}
+              onNotesChange={handleNotesChange}
+              onNoteSelect={handleNoteSelect}
+              onTaskSelect={handleTaskSelect}
+              onTasksViewClick={handleTasksViewClick}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  No tabs open
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Select a folder or note from the sidebar to get started, or click "The Docket" to open the dashboard.
+                </p>
+                <button
+                  onClick={handleHomeClick}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Open Dashboard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

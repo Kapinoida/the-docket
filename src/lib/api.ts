@@ -147,15 +147,15 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'co
     let paramCount = 1;
 
     if (updates.content !== undefined) {
-      setClauses.push(`content = ${paramCount++}`);
+      setClauses.push(`content = $${paramCount++}`);
       values.push(updates.content);
     }
     if (updates.dueDate !== undefined) {
-      setClauses.push(`due_date = ${paramCount++}`);
+      setClauses.push(`due_date = $${paramCount++}`);
       values.push(updates.dueDate);
     }
     if (updates.completed !== undefined) {
-      setClauses.push(`completed = ${paramCount++}::boolean`);
+      setClauses.push(`completed = $${paramCount++}::boolean`);
       values.push(updates.completed);
       if (updates.completed) {
         setClauses.push(`completed_at = NOW()`);
@@ -176,7 +176,7 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'co
     const query = `
       UPDATE tasks 
       SET ${setClauses.join(', ')}
-      WHERE id = ${paramCount}
+      WHERE id = $${paramCount}
       RETURNING *
     `;
     

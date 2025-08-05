@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Tab, TabType, TabContent } from '@/types';
-import { X, Pin, Home, FileText, CheckSquare, Calendar, Folder } from 'lucide-react';
+import { X, Pin, Home, FileText, CheckSquare, Calendar, Folder, List } from 'lucide-react';
 
 interface TabManagerProps {
   tabs: Tab[];
@@ -16,6 +16,7 @@ const tabIcons: Record<TabType, React.ComponentType<{ className?: string }>> = {
   home: Home,
   note: FileText,
   task: CheckSquare,
+  tasks: List,
   agenda: Calendar,
   folder: Folder,
 };

@@ -3,11 +3,11 @@ import { updateTask, deleteTask, markTaskCompleted } from '@/lib/api';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { content, dueDate, completed } = await request.json();
-    const taskId = params.id;
+    const { id: taskId } = await params;
     
     const updates: any = {};
     if (content !== undefined) updates.content = content;
@@ -24,10 +24,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const taskId = params.id;
+    const { id: taskId } = await params;
     await deleteTask(taskId);
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -38,11 +38,11 @@ export async function DELETE(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { completed } = await request.json();
-    const taskId = params.id;
+    const { id: taskId } = await params;
     
     if (completed) {
       await markTaskCompleted(taskId);

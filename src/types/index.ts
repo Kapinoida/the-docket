@@ -76,7 +76,7 @@ export interface TaskRow {
 }
 
 // Tab management interfaces
-export type TabType = 'home' | 'note' | 'task' | 'agenda' | 'folder';
+export type TabType = 'home' | 'note' | 'task' | 'tasks' | 'agenda' | 'folder';
 
 export interface Tab {
   id: string;

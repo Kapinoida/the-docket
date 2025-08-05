@@ -6,16 +6,25 @@ import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
 import TaskList from './TaskList';
 import TaskEditor from './TaskEditor';
+import WeeklyAgenda from './WeeklyAgenda';
+import RecentNotes from './RecentNotes';
+import TaskListView from './TaskListView';
 
 interface TabContentProps {
   tab: Tab;
   onNotesChange?: () => void;
   onNoteSelect?: (note: Note) => void;
   onTaskSelect?: (task: TaskInstance) => void;
+  onTasksViewClick?: () => void;
 }
 
-export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSelect }: TabContentProps) {
-  const [stats, setStats] = useState({ notes: 0, tasks: 0 });
+export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSelect, onTasksViewClick }: TabContentProps) {
+  const [stats, setStats] = useState({ 
+    notes: 0, 
+    tasks: 0, 
+    overdueTasks: 0, 
+    dueTodayTasks: 0 
+  });
   const [mounted, setMounted] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskInstance | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
@@ -40,11 +49,29 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
         setStats(prev => ({ ...prev, notes: notes.length }));
       }
       
-      // Fetch all tasks to count them
+      // Fetch all tasks to count them and categorize by due date
       const tasksResponse = await fetch('/api/tasks');
       if (tasksResponse.ok) {
         const tasks = await tasksResponse.json();
-        setStats(prev => ({ ...prev, tasks: tasks.length }));
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        
+        const overdueTasks = tasks.filter(task => 
+          !task.completed && task.dueDate && new Date(task.dueDate) < today
+        ).length;
+        
+        const dueTodayTasks = tasks.filter(task => 
+          !task.completed && task.dueDate && 
+          new Date(task.dueDate) >= today && new Date(task.dueDate) < tomorrow
+        ).length;
+        
+        setStats(prev => ({ 
+          ...prev, 
+          tasks: tasks.length,
+          overdueTasks,
+          dueTodayTasks
+        }));
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -75,32 +102,19 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
   };
 
   const renderHomeContent = () => (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-blue-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
+    <div className="flex-1 p-6 overflow-y-auto">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Dashboard
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Your productivity overview
+          </p>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Welcome to The Docket
-        </h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Your personal productivity hub. Create notes, manage tasks, and stay organized.
-        </p>
         
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.notes}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Notes</div>
@@ -109,11 +123,54 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.tasks}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Tasks</div>
           </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.overdueTasks}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Overdue</div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.dueTodayTasks}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Due Today</div>
+          </div>
         </div>
         
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Select a folder from the sidebar to get started
-        </p>
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={onTasksViewClick}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+              View All Tasks
+            </button>
+          </div>
+        </div>
+        
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Weekly Agenda */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              This Week's Tasks
+            </h3>
+            <WeeklyAgenda 
+              onTaskSelect={onTaskSelect} 
+              onTaskComplete={(taskId) => {
+                // Refresh stats when task is completed
+                fetchStats();
+              }}
+            />
+          </div>
+          
+          {/* Recent Notes */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Recent Notes
+            </h3>
+            <RecentNotes onNoteSelect={onNoteSelect} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -126,6 +183,7 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
         <NoteEditor
           note={tab.content.note}
           onSave={(updatedNote) => {
+            console.log('[TabContent] Note saved, triggering notes change refresh');
             onNotesChange?.();
           }}
           onClose={() => {
@@ -208,6 +266,20 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
     );
   };
 
+  const renderTasksContent = () => {
+    return (
+      <div className="h-full">
+        <TaskListView
+          onTaskSelect={onTaskSelect}
+          onTaskComplete={(taskId) => {
+            // Refresh stats when task is completed
+            fetchStats();
+          }}
+        />
+      </div>
+    );
+  };
+
   const content = (() => {
     switch (tab.type) {
       case 'home':
@@ -220,6 +292,8 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
         return renderAgendaContent();
       case 'task':
         return renderTaskContent();
+      case 'tasks':
+        return renderTasksContent();
       default:
         return <div>Unknown tab type</div>;
     }
