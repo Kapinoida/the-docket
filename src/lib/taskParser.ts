@@ -32,6 +32,14 @@ function generateOrExtractTaskId(fullMatch: string): string {
 }
 
 // Parse date strings like @today, @tomorrow, @2024-12-25
+// Format a date for display in tasks (MM/DD/YY format)
+export function formatTaskDateForDisplay(date: Date): string {
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const year = date.getFullYear().toString().slice(-2); // Last 2 digits
+  return `${month}/${day}/${year}`;
+}
+
 export function parseTaskDate(dateString: string): Date | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Reset time to start of day
@@ -98,12 +106,15 @@ export function parseTasksFromContent(content: string): TaskParsingResult {
 
     if (!taskContent) continue; // Skip empty tasks
 
+    const parsedDate = dateString ? parseTaskDate(dateString) : null;
+    const displayDateString = parsedDate ? formatTaskDateForDisplay(parsedDate) : dateString;
+    
     const task: ParsedTask = {
       id: generateOrExtractTaskId(fullMatch),
       content: taskContent,
       completed: checkboxState.toLowerCase() === 'x',
-      dueDate: dateString ? parseTaskDate(dateString) : null,
-      dateString: dateString,
+      dueDate: parsedDate,
+      dateString: dateString, // Keep original input for reference
       startIndex: startIndex + offset,
       endIndex: endIndex + offset,
       fullMatch
@@ -112,8 +123,8 @@ export function parseTasksFromContent(content: string): TaskParsingResult {
     tasks.push(task);
 
     // Insert task ID as a data attribute in the processed content
-    // This allows us to link the task back to its position in the note
-    const replacement = `${indent}- [${checkboxState}] ${taskContent}${dateString ? ` @${dateString}` : ''} <!-- task-id:${task.id} -->`;
+    // Use the resolved date format for display (e.g., @today becomes @08/07/25)
+    const replacement = `${indent}- [${checkboxState}] ${taskContent}${displayDateString ? ` @${displayDateString}` : ''} <!-- task-id:${task.id} -->`;
     
     processedContent = processedContent.slice(0, startIndex + offset) + 
                      replacement + 

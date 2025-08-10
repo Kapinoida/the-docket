@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       tasksCount: tasks?.length, 
       noteId,
       existingTaskMapKeys: Object.keys(existingTaskMap),
-      tasks: tasks?.map(t => ({ content: t.content, dueDate: t.dueDate, completed: t.completed, id: t.id }))
+      tasks: tasks?.map((t: any) => ({ content: t.content, dueDate: t.dueDate, completed: t.completed, id: t.id }))
     });
     
     if (!Array.isArray(tasks) || !noteId) {
@@ -146,20 +146,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'TaskId and completed status are required' }, { status: 400 });
     }
     
-    // Update task completion status
-    if (completed) {
-      const updatedTask = await markTaskCompleted(taskId);
+    // Update task completion status using the standard updateTask function
+    console.log(`[API] Updating task ${taskId} completion status to ${completed}`);
+    const updatedTask = await updateTask(taskId, { completed });
+    
+    if (updatedTask) {
+      console.log(`[API] Task ${taskId} successfully updated:`, { completed: updatedTask.completed });
       return NextResponse.json({ 
         success: true, 
         task: updatedTask 
       });
     } else {
-      // For now, we'll need to add an unmarkTaskCompleted function
-      // For this demo, we'll just return success
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Task unmarked (not fully implemented yet)' 
-      });
+      console.error(`[API] Task ${taskId} not found for update`);
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
   } catch (error) {
     console.error('Error updating task completion:', error);

@@ -15,8 +15,8 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
-  const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
-  const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
+  const [leftSidebarExpanded, setLeftSidebarExpanded] = useState(true);
+  const [rightSidebarVisible, setRightSidebarVisible] = useState(false);
   const [tabs, setTabs] = useState<Tab[]>([
     {
       id: 'home',
@@ -82,10 +82,27 @@ export default function Layout({ children }: LayoutProps) {
     const remainingTabs = tabs.filter(t => t.id !== tabId);
     setTabs(remainingTabs);
     
-    // If closing active tab, switch to first available tab or create a blank state
+    // If closing active tab, switch to tab on the left or previous tab
     if (tabId === activeTabId) {
       if (remainingTabs.length > 0) {
-        setActiveTabId(remainingTabs[0].id);
+        // Find the index of the closed tab in the original tabs array
+        const closedTabIndex = tabs.findIndex(t => t.id === tabId);
+        
+        // Try to select the tab to the left (previous index)
+        let targetTabIndex = closedTabIndex - 1;
+        
+        // If there's no tab to the left, select the tab that will be at the same position
+        // (which is effectively the tab that was to the right)
+        if (targetTabIndex < 0) {
+          targetTabIndex = 0;
+        }
+        
+        // Make sure we don't go beyond the remaining tabs array bounds
+        if (targetTabIndex >= remainingTabs.length) {
+          targetTabIndex = remainingTabs.length - 1;
+        }
+        
+        setActiveTabId(remainingTabs[targetTabIndex].id);
       } else {
         // No tabs left, set to null to show empty state
         setActiveTabId('');
@@ -179,6 +196,19 @@ export default function Layout({ children }: LayoutProps) {
       const newTasksTab = createTab('tasks', 'All Tasks', {});
       setTabs(prev => [...prev, newTasksTab]);
       setActiveTabId(newTasksTab.id);
+    }
+  }, [tabs, createTab]);
+
+  const handleCalendarViewClick = useCallback(() => {
+    // Check if calendar view is already open in a tab
+    const existingTab = tabs.find(tab => tab.type === 'calendar');
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+    } else {
+      // Create new calendar tab
+      const newCalendarTab = createTab('calendar', 'Calendar', {});
+      setTabs(prev => [...prev, newCalendarTab]);
+      setActiveTabId(newCalendarTab.id);
     }
   }, [tabs, createTab]);
 
@@ -277,26 +307,38 @@ export default function Layout({ children }: LayoutProps) {
   }, [tabs, activeTabId, handleTabClose]);
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Left Sidebar - File Navigator */}
-      {leftSidebarVisible && (
-        <div 
-          className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 flex flex-col relative"
-          style={{ width: leftSidebar.width }}
-        >
+      <div 
+        className="flex-shrink-0 flex flex-col relative"
+        style={{ 
+          width: leftSidebarExpanded ? leftSidebar.width : 60,
+          backgroundColor: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border-default)'
+        }}
+      >
+        {leftSidebarExpanded ? (
           <div className="px-3 py-3 flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={handleHomeClick}
-                className="text-base font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left"
+                className="text-base font-semibold truncate transition-colors cursor-pointer text-left"
+                style={{ 
+                  color: 'var(--text-primary)',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-blue)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
                 title="Go to Home"
               >
                 The Docket
               </button>
               <button
-                onClick={() => setLeftSidebarVisible(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                title="Hide sidebar"
+                onClick={() => setLeftSidebarExpanded(false)}
+                className="p-1 transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                title="Collapse sidebar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -314,45 +356,150 @@ export default function Layout({ children }: LayoutProps) {
             />
             
             {/* Quick Actions */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+            <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
                 Quick Actions
               </div>
               <button
                 onClick={handleTasksViewClick}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
                 All Tasks
               </button>
+              <button
+                onClick={handleCalendarViewClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Calendar
+              </button>
             </div>
           </div>
-          
-
-          {/* Resize Handle */}
+        ) : (
+          /* Collapsed Sidebar - Icon Only */
+          <div className="py-3 flex flex-col items-center gap-3 flex-1">
+            {/* Expand Button */}
+            <button
+              onClick={() => setLeftSidebarExpanded(true)}
+              className="p-2 rounded transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-muted)';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Expand sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            
+            {/* Home Button */}
+            <button
+              onClick={handleHomeClick}
+              className="p-2 rounded transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--accent-blue)';
+                e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Home"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </button>
+            
+            <div className="w-6 h-px bg-gray-200 dark:bg-gray-700"></div>
+            
+            {/* Quick Create Actions */}
+            <button
+              onClick={() => handleCreateNote('1')}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="New Note"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleCreateStandaloneTask}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="New Task"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </button>
+            
+            <div className="w-6 h-px bg-gray-200 dark:bg-gray-700"></div>
+            
+            {/* Quick Views */}
+            <button
+              onClick={handleTasksViewClick}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="All Tasks"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleCalendarViewClick}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Calendar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
+        )}
+        
+        {/* Resize Handle - Only show when expanded */}
+        {leftSidebarExpanded && (
           <div
             ref={leftSidebar.resizeHandleRef}
             onMouseDown={leftSidebar.handleMouseDown}
             className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500 hover:opacity-50 transition-all duration-150"
             style={{ transform: 'translateX(50%)' }}
           />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Left Sidebar Toggle Button */}
-      {!leftSidebarVisible && (
-        <button
-          onClick={() => setLeftSidebarVisible(true)}
-          className="fixed top-4 left-4 z-10 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm hover:shadow-md transition-shadow"
-          title="Show sidebar"
-        >
-          <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -389,16 +536,18 @@ export default function Layout({ children }: LayoutProps) {
               onNoteSelect={handleNoteSelect}
               onTaskSelect={handleTaskSelect}
               onTasksViewClick={handleTasksViewClick}
+              onCalendarViewClick={handleCalendarViewClick}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                   <svg
-                    className="w-8 h-8 text-gray-400"
+                    className="w-8 h-8"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     <path
                       strokeLinecap="round"
@@ -408,15 +557,21 @@ export default function Layout({ children }: LayoutProps) {
                     />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                   No tabs open
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
                   Select a folder or note from the sidebar to get started, or click "The Docket" to open the dashboard.
                 </p>
                 <button
                   onClick={handleHomeClick}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  className="px-4 py-2 rounded-lg transition-colors"
+                  style={{ 
+                    backgroundColor: 'var(--accent-blue)', 
+                    color: 'white' 
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-blue-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
                 >
                   Open Dashboard
                 </button>
@@ -428,11 +583,20 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Right Sidebar - Tasks/Properties */}
       {rightSidebarVisible && (
-        <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex-shrink-0 relative">
-          <div className="absolute top-3 right-3 z-10">
+        <div className="w-80 flex-shrink-0 relative" style={{ 
+          backgroundColor: 'var(--bg-secondary)', 
+          borderLeft: '1px solid var(--border-default)' 
+        }}>
+          <div className="flex items-center justify-between p-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <h2 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Productivity Panel
+            </h2>
             <button
               onClick={() => setRightSidebarVisible(false)}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="p-1 transition-colors rounded"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
               title="Hide right panel"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,7 +604,10 @@ export default function Layout({ children }: LayoutProps) {
               </svg>
             </button>
           </div>
-          <RightSidebar selectedFolder={selectedFolder} />
+          <RightSidebar 
+            selectedFolder={selectedFolder} 
+            onTaskSelect={handleTaskSelect}
+          />
         </div>
       )}
     </div>

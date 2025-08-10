@@ -24,7 +24,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { content, dueDate } = await request.json();
+    const body = await request.json();
+    
+    // Check if this is a request to fetch tasks by IDs
+    if (body.taskIds && Array.isArray(body.taskIds)) {
+      // Fetch tasks by IDs
+      const { getTasksByIds } = await import('@/lib/api');
+      const tasks = await getTasksByIds(body.taskIds);
+      return NextResponse.json(tasks);
+    }
+    
+    // Otherwise, handle task creation
+    const { content, dueDate } = body;
     
     if (!content) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -33,7 +44,7 @@ export async function POST(request: NextRequest) {
     const task = await createTask(content, dueDate ? new Date(dueDate) : undefined);
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
-    console.error('Error creating task:', error);
-    return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
+    console.error('Error handling task request:', error);
+    return NextResponse.json({ error: 'Failed to process task request' }, { status: 500 });
   }
 }

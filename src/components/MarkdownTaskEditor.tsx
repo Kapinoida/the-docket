@@ -11,6 +11,7 @@ interface MarkdownTaskEditorProps {
   placeholder?: string;
   className?: string;
   noteId?: string;
+  readOnly?: boolean;
 }
 
 export default function MarkdownTaskEditor({
@@ -20,7 +21,8 @@ export default function MarkdownTaskEditor({
   onTaskToggle,
   placeholder = 'Start writing...',
   className = '',
-  noteId
+  noteId,
+  readOnly = false
 }: MarkdownTaskEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [currentTasks, setCurrentTasks] = useState<ParsedTask[]>([]);
@@ -345,19 +347,22 @@ export default function MarkdownTaskEditor({
       <textarea
         ref={textareaRef}
         value={content}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
+        onChange={readOnly ? undefined : handleChange}
+        onKeyDown={readOnly ? undefined : handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
-        className="w-full h-full p-4 resize-none outline-none border-0 bg-transparent"
+        placeholder={readOnly ? '' : placeholder}
+        readOnly={readOnly}
+        className={`w-full h-full p-4 resize-none outline-none border-0 bg-transparent ${
+          readOnly ? 'cursor-default text-gray-600 dark:text-gray-400' : ''
+        }`}
         style={{
           fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
           fontSize: '14px',
           lineHeight: '1.5',
         }}
         spellCheck={false}
-        autoFocus
+        autoFocus={!readOnly}
       />
     </div>
   );

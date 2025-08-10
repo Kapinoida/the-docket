@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { TaskInstance } from '@/types';
 import { isTaskOverdue, formatTaskDate } from '@/lib/taskParser';
 import { Search, Filter, Calendar, CheckSquare, Clock, AlertCircle } from 'lucide-react';
+import TaskCheckbox from './TaskCheckbox';
 
 interface TaskListViewProps {
   onTaskSelect?: (task: TaskInstance) => void;
@@ -19,6 +20,10 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('dueDate');
+  const [draggedTask, setDraggedTask] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<FilterType | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -38,48 +43,209 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
     }
   };
 
-  const handleTaskComplete = async (taskId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    
+  const handleTaskToggleComplete = async (taskId: string, newCompletedStatus: boolean) => {
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: true })
+        body: JSON.stringify({ completed: newCompletedStatus })
       });
       
       if (response.ok) {
         // Update the task in our local state
         setTasks(prev => prev.map(task => 
-          task.id === taskId ? { ...task, completed: true, completedAt: new Date().toISOString() } : task
+          task.id === taskId 
+            ? { 
+                ...task, 
+                completed: newCompletedStatus, 
+                completedAt: newCompletedStatus ? new Date().toISOString() : null
+              } 
+            : task
         ));
         onTaskComplete?.(taskId);
       }
     } catch (error) {
-      console.error('Error completing task:', error);
+      console.error('Error toggling task completion:', error);
     }
   };
 
-  const handleTaskUncomplete = async (taskId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTask(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+    setDropTarget(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, filterType: FilterType) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget(filterType);
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const calculateNewDueDate = (filterType: FilterType): Date | null => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+    switch (filterType) {
+      case 'today':
+        return today;
+      case 'week':
+        // Set to end of this week (Sunday)
+        const daysUntilSunday = 7 - today.getDay();
+        return new Date(today.getTime() + daysUntilSunday * 24 * 60 * 60 * 1000);
+      case 'all':
+      case 'pending':
+      case 'completed':
+      case 'overdue':
+        // Don't change the date for these filters
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, filterType: FilterType) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain');
+    
+    if (!taskId || !draggedTask) return;
+    
+    const newDueDate = calculateNewDueDate(filterType);
+    
+    // Only update if we have a meaningful date change
+    if (newDueDate && filterType !== 'all' && filterType !== 'pending' && filterType !== 'completed' && filterType !== 'overdue') {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dueDate: newDueDate.toISOString() })
+        });
+        
+        if (response.ok) {
+          // Update the task in our local state
+          setTasks(prev => prev.map(task => 
+            task.id === taskId ? { ...task, dueDate: newDueDate } : task
+          ));
+          
+          console.log(`Task rescheduled to ${filterType}:`, newDueDate);
+        }
+      } catch (error) {
+        console.error('Error rescheduling task:', error);
+      }
+    }
+    
+    setDraggedTask(null);
+    setDropTarget(null);
+  };
+
+  // Bulk operation handlers
+  const handleBulkComplete = async (completed: boolean) => {
+    const taskIds = Array.from(selectedTasks);
+    const promises = taskIds.map(taskId => 
+      fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: false })
-      });
-      
-      if (response.ok) {
-        // Update the task in our local state
-        setTasks(prev => prev.map(task => 
-          task.id === taskId ? { ...task, completed: false, completedAt: undefined } : task
-        ));
-        onTaskComplete?.(taskId);
-      }
+        body: JSON.stringify({ completed })
+      })
+    );
+    
+    try {
+      await Promise.all(promises);
+      // Update local state
+      setTasks(prev => prev.map(task => {
+        if (selectedTasks.has(task.id)) {
+          return { 
+            ...task, 
+            completed, 
+            completedAt: completed ? new Date().toISOString() : undefined 
+          };
+        }
+        return task;
+      }));
+      setSelectedTasks(new Set());
+      setIsSelectionMode(false);
     } catch (error) {
-      console.error('Error uncompleting task:', error);
+      console.error('Error bulk updating tasks:', error);
     }
+  };
+
+  const handleBulkDateChange = async (date: Date | null) => {
+    const taskIds = Array.from(selectedTasks);
+    const promises = taskIds.map(taskId => 
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueDate: date?.toISOString() || null })
+      })
+    );
+    
+    try {
+      await Promise.all(promises);
+      // Update local state
+      setTasks(prev => prev.map(task => {
+        if (selectedTasks.has(task.id)) {
+          return { ...task, dueDate: date };
+        }
+        return task;
+      }));
+      setSelectedTasks(new Set());
+      setIsSelectionMode(false);
+    } catch (error) {
+      console.error('Error bulk updating task dates:', error);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedTasks.size} selected tasks? This action cannot be undone.`)) {
+      return;
+    }
+    
+    const taskIds = Array.from(selectedTasks);
+    const promises = taskIds.map(taskId => 
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE'
+      })
+    );
+    
+    try {
+      await Promise.all(promises);
+      // Update local state
+      setTasks(prev => prev.filter(task => !selectedTasks.has(task.id)));
+      setSelectedTasks(new Set());
+      setIsSelectionMode(false);
+    } catch (error) {
+      console.error('Error bulk deleting tasks:', error);
+    }
+  };
+
+  const handleTaskSelect = (taskId: string, selected: boolean) => {
+    setSelectedTasks(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(taskId);
+      } else {
+        newSet.delete(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const allTaskIds = filteredAndSortedTasks.map(task => task.id);
+    setSelectedTasks(new Set(allTaskIds));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTasks(new Set());
+    setIsSelectionMode(false);
   };
 
   // Filter and sort tasks
@@ -206,6 +372,19 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
           </div>
+          
+          {/* Drag and Drop Instructions */}
+          {filteredAndSortedTasks.some(task => !task.completed) && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">Tip:</span>
+                Drag tasks to reschedule them! Drop on "Today" or "This Week" to change due dates.
+              </div>
+            </div>
+          )}
 
           {/* Filter Buttons */}
           <div className="flex flex-wrap gap-2">
@@ -220,10 +399,15 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
               <button
                 key={key}
                 onClick={() => setFilter(key as FilterType)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                onDragOver={(e) => handleDragOver(e, key as FilterType)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, key as FilterType)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
                   filter === key
                     ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : dropTarget === key
+                      ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 border-2 border-blue-400 border-dashed'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -231,29 +415,113 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
                 <span className={`px-1.5 py-0.5 rounded text-xs ${
                   filter === key
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400'
+                    : dropTarget === key
+                      ? 'bg-blue-300 dark:bg-blue-700 text-blue-800 dark:text-blue-200'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400'
                 }`}>
                   {count}
                 </span>
+                {dropTarget === key && (
+                  <div className="absolute inset-0 bg-blue-500 bg-opacity-10 rounded-lg pointer-events-none" />
+                )}
               </button>
             ))}
           </div>
 
-          {/* Sort Options */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortType)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-            >
-              <option value="dueDate">Due Date</option>
-              <option value="created">Created Date</option>  
-              <option value="name">Name</option>
-            </select>
+          {/* Sort Options and Bulk Actions Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortType)}
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="dueDate">Due Date</option>
+                <option value="created">Created Date</option>  
+                <option value="name">Name</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSelectionMode(!isSelectionMode)}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  isSelectionMode 
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {isSelectionMode ? 'Exit Selection' : 'Select Multiple'}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Bulk Action Toolbar */}
+        {isSelectionMode && selectedTasks.size > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
+                <CheckSquare className="w-4 h-4" />
+                <span className="font-medium">{selectedTasks.size} tasks selected</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSelectAll}
+                  className="px-3 py-1.5 text-sm bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={handleClearSelection}
+                  className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Clear
+                </button>
+                
+                <div className="w-px h-6 bg-blue-300 dark:bg-blue-600 mx-2"></div>
+                
+                <button
+                  onClick={() => handleBulkComplete(true)}
+                  className="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
+                >
+                  Mark Complete
+                </button>
+                <button
+                  onClick={() => handleBulkComplete(false)}
+                  className="px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded hover:bg-orange-200 dark:hover:bg-orange-700 transition-colors"
+                >
+                  Mark Incomplete
+                </button>
+                
+                <button
+                  onClick={() => handleBulkDateChange(new Date())}
+                  className="px-3 py-1.5 text-sm bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors"
+                >
+                  Due Today
+                </button>
+                <button
+                  onClick={() => handleBulkDateChange(null)}
+                  className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Clear Due Date
+                </button>
+                
+                <div className="w-px h-6 bg-blue-300 dark:bg-blue-600 mx-2"></div>
+                
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+                >
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Task List */}
         <div className="space-y-3">
@@ -278,27 +546,64 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
               return (
                 <div 
                   key={task.id}
+                  draggable={!task.completed && !isSelectionMode}
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
                   className={`p-4 rounded-lg border transition-colors ${
-                    task.completed
-                      ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
-                      : isOverdue 
-                        ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
-                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                    isSelectionMode ? 'cursor-pointer' : 'cursor-move'
+                  } ${
+                    draggedTask === task.id
+                      ? 'opacity-50 transform rotate-2 scale-105'
+                      : selectedTasks.has(task.id)
+                        ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                        : task.completed
+                          ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                          : isOverdue 
+                            ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  } ${
+                    !task.completed && !isSelectionMode ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600' : ''
+                  } ${
+                    isSelectionMode ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600' : ''
                   }`}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      handleTaskSelect(task.id, !selectedTasks.has(task.id));
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
+                    {/* Multi-select checkbox (only in selection mode) */}
+                    {isSelectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedTasks.has(task.id)}
+                        onChange={(e) => handleTaskSelect(task.id, e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 mt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    
+                    {/* Drag Handle */}
+                    {!task.completed && !isSelectionMode && (
+                      <div className="flex flex-col items-center justify-center w-4 h-6 mt-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing">
+                        <div className="w-1 h-1 bg-current rounded-full mb-0.5"></div>
+                        <div className="w-1 h-1 bg-current rounded-full mb-0.5"></div>
+                        <div className="w-1 h-1 bg-current rounded-full"></div>
+                      </div>
+                    )}
+                    
+                    <TaskCheckbox
                       checked={task.completed}
-                      onChange={(e) => task.completed 
-                        ? handleTaskUncomplete(task.id, e as any)
-                        : handleTaskComplete(task.id, e as any)
-                      }
-                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2 mt-1"
+                      onChange={(checked) => handleTaskToggleComplete(task.id, checked)}
+                      size="md"
+                      className="mt-1"
                     />
                     <div 
-                      className="flex-1 min-w-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 -m-2 p-2 rounded"
-                      onClick={() => onTaskSelect?.(task)}
+                      className={`flex-1 min-w-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 -m-2 p-2 rounded ${
+                        isSelectionMode ? 'pointer-events-none' : ''
+                      }`}
+                      onClick={() => !isSelectionMode && onTaskSelect?.(task)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">

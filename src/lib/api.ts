@@ -65,6 +65,52 @@ export async function getAllTasks(): Promise<TaskInstance[]> {
   }
 }
 
+export async function getTasksByIds(taskIds: string[]): Promise<TaskInstance[]> {
+  if (taskIds.length === 0) {
+    return [];
+  }
+  
+  // Filter and validate task IDs
+  const validTaskIds = taskIds.filter(id => {
+    const parsed = parseInt(id);
+    return !isNaN(parsed) && parsed > 0 && id.trim() !== '' && id !== 'NaN' && id !== 'null' && id !== 'undefined';
+  });
+  
+  if (validTaskIds.length === 0) {
+    console.warn('[API] No valid task IDs provided:', taskIds);
+    return [];
+  }
+  
+  console.log('[API] Fetching tasks with IDs:', validTaskIds);
+  
+  const client = await pool.connect();
+  try {
+    const placeholders = validTaskIds.map((_, index) => `$${index + 1}`).join(',');
+    const query = `
+      SELECT t.*, n.title as note_title 
+      FROM tasks t
+      LEFT JOIN notes n ON t.source_note_id = n.id
+      WHERE t.id IN (${placeholders})
+    `;
+    const result = await client.query(query, validTaskIds.map(id => parseInt(id)));
+    
+    return result.rows.map((row): TaskInstance => ({
+      id: row.id.toString(),
+      content: row.content,
+      dueDate: row.due_date,
+      completed: row.completed,
+      completedAt: row.completed_at || undefined,
+      sourceNote: row.source_note_id ? {
+        id: row.source_note_id.toString(),
+        title: row.note_title || 'Untitled Note'
+      } : undefined,
+      recurrenceRule: row.recurrence_rule || undefined,
+    }));
+  } finally {
+    client.release();
+  }
+}
+
 export async function getTasksForDateRange(startDate: Date, endDate: Date): Promise<TaskInstance[]> {
   const client = await pool.connect();
   try {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TaskInstance } from '@/types';
+import { TaskInstance, Note } from '@/types';
 import { format } from 'date-fns';
 import { Calendar, X } from 'lucide-react';
 
@@ -11,9 +11,10 @@ interface TaskEditorProps {
   onSave: (task: TaskInstance) => void;
   onClose: () => void;
   isInTab?: boolean;
+  onNoteSelect?: (note: Note) => void;
 }
 
-export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = false }: TaskEditorProps) {
+export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = false, onNoteSelect }: TaskEditorProps) {
   const [content, setContent] = useState(task?.content || '');
   const [dueDate, setDueDate] = useState(
     task?.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : ''
@@ -184,7 +185,29 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
           {task?.sourceNote && (
             <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                Created from note: <span className="font-medium">{task.sourceNote.title}</span>
+                Created from note:{' '}
+                {onNoteSelect ? (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/notes/${task.sourceNote!.id}`);
+                        if (response.ok) {
+                          const fullNote = await response.json();
+                          onNoteSelect(fullNote);
+                        } else {
+                          console.error('Failed to fetch note');
+                        }
+                      } catch (error) {
+                        console.error('Error fetching note:', error);
+                      }
+                    }}
+                    className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
+                  >
+                    {task.sourceNote.title}
+                  </button>
+                ) : (
+                  <span className="font-medium">{task.sourceNote.title}</span>
+                )}
               </div>
             </div>
           )}

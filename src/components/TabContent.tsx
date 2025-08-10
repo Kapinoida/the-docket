@@ -9,6 +9,7 @@ import TaskEditor from './TaskEditor';
 import WeeklyAgenda from './WeeklyAgenda';
 import RecentNotes from './RecentNotes';
 import TaskListView from './TaskListView';
+import CalendarView from './CalendarView';
 
 interface TabContentProps {
   tab: Tab;
@@ -16,9 +17,10 @@ interface TabContentProps {
   onNoteSelect?: (note: Note) => void;
   onTaskSelect?: (task: TaskInstance) => void;
   onTasksViewClick?: () => void;
+  onCalendarViewClick?: () => void;
 }
 
-export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSelect, onTasksViewClick }: TabContentProps) {
+export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSelect, onTasksViewClick, onCalendarViewClick }: TabContentProps) {
   const [stats, setStats] = useState({ 
     notes: 0, 
     tasks: 0, 
@@ -145,6 +147,15 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
               </svg>
               View All Tasks
             </button>
+            <button
+              onClick={onCalendarViewClick}
+              className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Calendar View
+            </button>
           </div>
         </div>
         
@@ -159,6 +170,10 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
               onTaskComplete={(taskId) => {
                 // Refresh stats when task is completed
                 fetchStats();
+                // Trigger note refresh for any open note tabs
+                if (onNotesChange) {
+                  onNotesChange();
+                }
               }}
             />
           </div>
@@ -261,6 +276,7 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
             // Tab-based editor doesn't close on its own, parent handles tab management
           }}
           isInTab={true}
+          onNoteSelect={onNoteSelect}
         />
       </div>
     );
@@ -274,6 +290,28 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
           onTaskComplete={(taskId) => {
             // Refresh stats when task is completed
             fetchStats();
+            // Trigger note refresh for any open note tabs
+            if (onNotesChange) {
+              onNotesChange();
+            }
+          }}
+        />
+      </div>
+    );
+  };
+
+  const renderCalendarContent = () => {
+    return (
+      <div className="h-full">
+        <CalendarView
+          onTaskSelect={onTaskSelect}
+          onTaskComplete={(taskId) => {
+            // Refresh stats when task is completed
+            fetchStats();
+            // Trigger note refresh for any open note tabs
+            if (onNotesChange) {
+              onNotesChange();
+            }
           }}
         />
       </div>
@@ -294,6 +332,8 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
         return renderTaskContent();
       case 'tasks':
         return renderTasksContent();
+      case 'calendar':
+        return renderCalendarContent();
       default:
         return <div>Unknown tab type</div>;
     }
@@ -309,6 +349,7 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
           task={editingTask}
           onSave={handleTaskSave}
           onClose={handleTaskEditorClose}
+          onNoteSelect={onNoteSelect}
         />
       )}
       
@@ -317,6 +358,7 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
           folderId={tab.content.folderId}
           onSave={handleTaskSave}
           onClose={handleTaskEditorClose}
+          onNoteSelect={onNoteSelect}
         />
       )}
     </>
