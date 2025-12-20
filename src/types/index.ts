@@ -16,6 +16,8 @@ export interface TaskInstance {
   completedAt?: Date;
   sourceNote?: { id: string; title: string; };
   recurrenceRule?: RecurrenceRule;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Note {
@@ -46,33 +48,47 @@ export interface Task {
   updatedAt: Date;
 }
 
-// Database row interfaces
+// Database row interfaces matching current schema
 export interface FolderRow {
-  id: number;
+  id: string;
   name: string;
-  parent_id: number | null;
+  parent_id?: string;
   created_at: Date;
 }
 
 export interface NoteRow {
-  id: number;
+  id: string;
   title: string;
   content: string;
-  folder_id: number;
+  folder_id?: string;
+  tags?: string[];
   created_at: Date;
   updated_at: Date;
 }
 
 export interface TaskRow {
-  id: number;
+  id: string;
   content: string;
   due_date: Date | null;
-  recurrence_rule: RecurrenceRule | null;
-  source_note_id: number | null;
-  completed: boolean;
-  completed_at: Date | null;
+  recurrence_rule: any; // Ideally JSONB/Object
+  source_note_id?: string; // Derived from join
+  is_completed?: boolean; // 'completed' col in DB is boolean. 'isCompleted' might be old logic?
+                         // Schema has `completed` BOOLEAN.
+                         // But api.ts queries say `SELECT t."isCompleted"`.
+                         // Let's check schema again. schema.sql says `completed` BOOLEAN.
+                         // So it should be `completed: boolean`.
+  completed?: boolean;
+  completed_at?: Date;
+  tags?: string[];
   created_at: Date;
   updated_at: Date;
+}
+
+export interface NoteTaskRow {
+  id: string;
+  note_id: string;
+  task_id: string;
+  type: 'ORIGIN' | 'REFERENCE';
 }
 
 // Tab management interfaces
@@ -93,4 +109,5 @@ export interface TabContent {
   folder?: Folder;
   taskId?: string;
   task?: Task;
+  scrollToTaskId?: string;
 }

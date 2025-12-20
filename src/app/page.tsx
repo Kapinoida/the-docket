@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { TaskEditProvider } from '@/contexts/TaskEditContext';
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -22,5 +23,9 @@ export default function Home() {
     );
   }
 
-  return <Layout />;
+  return (
+    <TaskEditProvider>
+      <Layout />
+    </TaskEditProvider>
+  );
 }

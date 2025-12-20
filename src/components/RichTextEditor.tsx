@@ -4,12 +4,15 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Underline } from '@tiptap/extension-underline';
+import { Strike } from '@tiptap/extension-strike';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { useCallback, useEffect, useState } from 'react';
 import { TaskExtension } from '@/lib/tiptap-task-extension';
 import { TaskNode } from '@/lib/tiptap-task-node';
+import { TaskWidgetExtension } from '@/extensions/TaskWidgetExtension';
 import { ParsedTask } from '@/lib/taskParser';
+import { useTaskEdit } from '@/contexts/TaskEditContext';
 
 interface RichTextEditorProps {
   content: string;
@@ -58,6 +61,7 @@ export default function RichTextEditor({
   onTaskToggle
 }: RichTextEditorProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const { openTaskEdit } = useTaskEdit();
 
   const editor = useEditor({
     extensions: [
@@ -68,21 +72,16 @@ export default function RichTextEditor({
           keepAttributes: false,
         },
         taskList: false, // Disable built-in task list to use custom handler
+        strike: false, // Disable built-in strike to add it separately
       }),
       Placeholder.configure({
         placeholder,
       }),
       Underline,
+      Strike,
       TextStyle,
       Color,
-      TaskNode.configure({
-        onTaskToggle: onTaskToggle ? (taskId: string, completed: boolean) => onTaskToggle(taskId, completed) : undefined,
-      }),
-      TaskExtension.configure({
-        noteId,
-        onTasksFound: onTasksFound ? (tasks: ParsedTask[]) => onTasksFound(tasks) : undefined,
-        onTaskToggle: onTaskToggle ? (taskId: string, completed: boolean) => onTaskToggle(taskId, completed) : undefined,
-      }),
+      TaskWidgetExtension,
     ],
     content,
     editable: !readOnly,
@@ -97,12 +96,131 @@ export default function RichTextEditor({
     setIsMounted(true);
   }, []);
 
+  // Handle task widget events
+  const handleTaskEdit = useCallback(async (data: { taskId: string }) => {
+    console.log('Task edit requested:', data.taskId);
+    
+    try {
+      // Fetch the full task data
+      const response = await fetch(`/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds: [data.taskId] }),
+      });
+      
+      if (response.ok) {
+        const tasks = await response.json();
+        const task = tasks[0];
+        if (task) {
+          openTaskEdit(task);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch task for editing:', error);
+    }
+  }, [openTaskEdit]);
+
+  const handleCreateNewTask = useCallback(async () => {
+    console.log('Create new task requested');
+    
+    if (!editor || !noteId) return;
+    
+    try {
+      // Create a new task
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: 'New task',
+          dueDate: null,
+        }),
+      });
+      
+      if (response.ok) {
+        const task = await response.json();
+        // Insert task widget at cursor
+        editor.commands.insertTaskWidget(task.id);
+      }
+    } catch (error) {
+      console.error('Failed to create new task:', error);
+    }
+  }, [editor, noteId]);
+
+  // Convert markdown tasks to widgets on content update
+  const convertMarkdownTasks = useCallback(async () => {
+    if (!editor || !noteId || readOnly) return;
+    
+    const { convertMarkdownTasksToWidgets } = await import('@/lib/taskPosition');
+    
+    const createTaskFromMarkdown = async (content: string, dueDate?: Date): Promise<string> => {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          dueDate: dueDate?.toISOString(),
+        }),
+      });
+      
+      if (response.ok) {
+        const task = await response.json();
+        return task.id;
+      }
+      
+      throw new Error('Failed to create task');
+    };
+    
+    try {
+      const conversions = await convertMarkdownTasksToWidgets(
+        editor,
+        noteId,
+        createTaskFromMarkdown
+      );
+      
+      if (conversions > 0) {
+        console.log(`Converted ${conversions} markdown tasks to widgets`);
+        onChange(editor.getHTML());
+      }
+    } catch (error) {
+      console.error('Failed to convert markdown tasks:', error);
+    }
+  }, [editor, noteId, readOnly, onChange]);
+
   // Update editor content when prop changes
   useEffect(() => {
     if (editor && isMounted && editor.getHTML() !== content) {
-      editor.commands.setContent(content, false);
+      // Wrap in setTimeout to avoid flushSync error during React lifecycle
+      setTimeout(() => {
+        if (editor.getHTML() !== content) {
+          editor.commands.setContent(content, false);
+        }
+      }, 0);
     }
   }, [editor, content, isMounted]);
+
+  // Set up task widget event listeners
+  useEffect(() => {
+    if (editor) {
+      editor.on('taskEdit', handleTaskEdit);
+      editor.on('createNewTask', handleCreateNewTask);
+      
+      return () => {
+        editor.off('taskEdit', handleTaskEdit);
+        editor.off('createNewTask', handleCreateNewTask);
+      };
+    }
+  }, [editor, handleTaskEdit, handleCreateNewTask]);
+
+  // Convert markdown tasks to widgets after content stabilizes
+  useEffect(() => {
+    if (editor && isMounted && !readOnly) {
+      const timeoutId = setTimeout(() => {
+        convertMarkdownTasks();
+      }, 1000); // Wait 1 second after content change
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [editor, content, isMounted, readOnly, convertMarkdownTasks]);
 
   const toggleBold = useCallback(() => {
     editor?.chain().focus().toggleBold().run();
@@ -137,6 +255,29 @@ export default function RichTextEditor({
   const setParagraph = useCallback(() => {
     editor?.chain().focus().setParagraph().run();
   }, [editor]);
+
+  const insertTaskWidget = useCallback(async () => {
+    if (!editor || !noteId) return;
+    
+    try {
+      // Create a new task
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: 'New task',
+          dueDate: new Date(),
+        }),
+      });
+      
+      if (response.ok) {
+        const task = await response.json();
+        editor.commands.insertTaskWidget(task.id);
+      }
+    } catch (error) {
+      console.error('Failed to create task widget:', error);
+    }
+  }, [editor, noteId]);
 
   // Show loading state during SSR and initial client render
   if (!isMounted || !editor) {
@@ -249,6 +390,25 @@ export default function RichTextEditor({
               title="Quote"
             >
               &quot;
+            </ToolbarButton>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+            {/* Task Widget */}
+            <ToolbarButton
+              onClick={insertTaskWidget}
+              title="Insert Task Widget (Ctrl+Shift+T)"
+            >
+              ☐
+            </ToolbarButton>
+
+            {/* Convert Markdown Tasks */}
+            <ToolbarButton
+              onClick={convertMarkdownTasks}
+              title="Convert Markdown Tasks to Widgets"
+            >
+              ⚡
             </ToolbarButton>
           </div>
         </div>

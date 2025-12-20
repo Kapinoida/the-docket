@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Folder, Note } from '@/types';
 
 interface FolderTreeProps {
@@ -31,7 +31,7 @@ interface FolderNodeProps {
   onDeleteNote?: (noteId: string) => void;
 }
 
-function FolderNode({ 
+const FolderNode = memo(function FolderNode({ 
   folder, 
   allFolders,
   level, 
@@ -50,9 +50,12 @@ function FolderNode({
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesLoaded, setNotesLoaded] = useState(false);
   
-  const children = allFolders
-    .filter(f => f.parentId === folder.id)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const children = useMemo(() => 
+    allFolders
+      .filter(f => f.parentId === folder.id)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [allFolders, folder.id]
+  );
   
   const hasChildren = children.length > 0 || notes.length > 0;
   const isExpanded = expandedFolders.has(folder.id);
@@ -202,7 +205,7 @@ function FolderNode({
       )}
     </div>
   );
-}
+});
 
 interface FolderContentsProps {
   folder: Folder;
@@ -221,7 +224,7 @@ interface FolderContentsProps {
   onDeleteNote?: (noteId: string) => void;
 }
 
-function FolderContents({
+const FolderContents = memo(function FolderContents({
   folder,
   allFolders,
   level,
@@ -238,6 +241,7 @@ function FolderContents({
   onDeleteNote
 }: FolderContentsProps) {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [deletingNote, setDeletingNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -271,9 +275,12 @@ function FolderContents({
     return title.slice(0, maxLength) + '...';
   };
 
-  const children = allFolders
-    .filter(f => f.parentId === folder.id)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const children = useMemo(() => 
+    allFolders
+      .filter(f => f.parentId === folder.id)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [allFolders, folder.id]
+  );
 
   return (
     <div>
@@ -311,7 +318,7 @@ function FolderContents({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteNote(note.id);
+                    setDeletingNote(note);
                   }}
                   className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
                   title="Delete note"
@@ -364,9 +371,51 @@ function FolderContents({
           ))}
         </div>
       )}
+          {/* Delete Note Modal */}
+      {deletingNote && onDeleteNote && (
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Delete Note
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete "{deletingNote.title}"? This will also delete all tasks associated with this note.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDeletingNote(null);
+                }}
+                className="px-4 py-2 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDeleteNote(deletingNote.id);
+                    setDeletingNote(null);
+                }}
+                className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+});
 
 export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSelect, selectedNoteId, refreshTrigger, onCreateNote, onCreateTask, onDeleteNote }: FolderTreeProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -397,26 +446,28 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
     }
   };
 
-  const buildFolderTree = (parentId?: string): Folder[] => {
+  const buildFolderTree = useCallback((parentId?: string): Folder[] => {
     return folders
-      .filter(f => f.parentId === parentId)
+      .filter(f => (parentId === undefined ? !f.parentId : f.parentId === parentId))
       .sort((a, b) => a.name.localeCompare(b.name));
-  };
+  }, [folders]);
 
-  const handleToggleExpand = (folderId: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (expandedFolders.has(folderId)) {
-      newExpanded.delete(folderId);
-    } else {
-      newExpanded.add(folderId);
-    }
-    setExpandedFolders(newExpanded);
-  };
+  const handleToggleExpand = useCallback((folderId: string) => {
+    setExpandedFolders(prev => {
+      const newExpanded = new Set(prev);
+      if (prev.has(folderId)) {
+        newExpanded.delete(folderId);
+      } else {
+        newExpanded.add(folderId);
+      }
+      return newExpanded;
+    });
+  }, []);
 
-  const handleCreateSubfolder = (parentId: string) => {
+  const handleCreateSubfolder = useCallback((parentId: string | undefined) => {
     setNewFolderParentId(parentId);
     setIsCreatingFolder(true);
-  };
+  }, []);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -478,16 +529,16 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
     }
   };
 
-  const rootFolders = buildFolderTree();
+  const rootFolders = useMemo(() => buildFolderTree(), [buildFolderTree]);
 
-  const getHomeFolderId = () => {
+  const getHomeFolderId = useCallback(() => {
     return folders.find(f => f.name === 'Home')?.id || '1';
-  };
+  }, [folders]);
 
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between mb-1.5 bg-gray-50 dark:bg-gray-700 rounded px-2 py-1">
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Quick Actions</span>
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Folders</span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleCreateSubfolder(undefined)}

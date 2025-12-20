@@ -2,14 +2,15 @@ import pool from './db';
 import { Task, TaskInstance, Note, Folder, TaskRow, NoteRow, FolderRow } from '@/types';
 
 // Helper function to convert database rows to API objects
+// Helper function to convert database rows to API objects
 function taskRowToTask(row: TaskRow): Task {
   return {
-    id: row.id.toString(),
+    id: String(row.id), // Ensure ID is string for frontend
     content: row.content,
     dueDate: row.due_date,
-    recurrenceRule: row.recurrence_rule || undefined,
-    sourceNoteId: row.source_note_id?.toString(),
-    completed: row.completed,
+    recurrenceRule: row.recurrence_rule ? (row.recurrence_rule as any) : undefined,
+    sourceNoteId: row.source_note_id ? String(row.source_note_id) : undefined,
+    completed: row.completed || false,
     completedAt: row.completed_at || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -18,20 +19,21 @@ function taskRowToTask(row: TaskRow): Task {
 
 function noteRowToNote(row: NoteRow): Note {
   return {
-    id: row.id.toString(),
+    id: String(row.id),
     title: row.title,
     content: row.content,
-    folderId: row.folder_id.toString(),
+    folderId: row.folder_id ? String(row.folder_id) : 'home_folder',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
+// Helper function for folders
 function folderRowToFolder(row: FolderRow): Folder {
   return {
-    id: row.id.toString(),
+    id: String(row.id),
     name: row.name,
-    parentId: row.parent_id?.toString(),
+    parentId: row.parent_id ? String(row.parent_id) : undefined,
     createdAt: row.created_at,
   };
 }
@@ -41,25 +43,37 @@ export async function getAllTasks(): Promise<TaskInstance[]> {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT t.*, n.title as note_title 
+      SELECT 
+        t.*,
+        n.title as note_title
       FROM tasks t
       LEFT JOIN notes n ON t.source_note_id = n.id
       ORDER BY t.completed ASC, t.due_date ASC NULLS LAST, t.created_at DESC
+      LIMIT 1000
     `;
     const result = await client.query(query);
     
+    if (result.rows.length === 0) {
+      return [];
+    }
+    
     return result.rows.map((row): TaskInstance => ({
-      id: row.id.toString(),
+      id: String(row.id),
       content: row.content,
       dueDate: row.due_date,
       completed: row.completed,
       completedAt: row.completed_at || undefined,
       sourceNote: row.source_note_id ? {
-        id: row.source_note_id.toString(),
+        id: String(row.source_note_id),
         title: row.note_title || 'Untitled Note'
       } : undefined,
-      recurrenceRule: row.recurrence_rule || undefined,
+      recurrenceRule: row.recurrence_rule ? (row.recurrence_rule as any) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
+  } catch (error) {
+    console.error('Error in getAllTasks:', error);
+    return [];
   } finally {
     client.release();
   }
@@ -70,41 +84,41 @@ export async function getTasksByIds(taskIds: string[]): Promise<TaskInstance[]> 
     return [];
   }
   
-  // Filter and validate task IDs
+  // Filter and validate task IDs - must be numeric for DB
   const validTaskIds = taskIds.filter(id => {
-    const parsed = parseInt(id);
-    return !isNaN(parsed) && parsed > 0 && id.trim() !== '' && id !== 'NaN' && id !== 'null' && id !== 'undefined';
+    return id && !isNaN(Number(id));
   });
   
   if (validTaskIds.length === 0) {
-    console.warn('[API] No valid task IDs provided:', taskIds);
     return [];
   }
-  
-  console.log('[API] Fetching tasks with IDs:', validTaskIds);
   
   const client = await pool.connect();
   try {
     const placeholders = validTaskIds.map((_, index) => `$${index + 1}`).join(',');
     const query = `
-      SELECT t.*, n.title as note_title 
+      SELECT 
+        t.*,
+        n.title as note_title
       FROM tasks t
       LEFT JOIN notes n ON t.source_note_id = n.id
       WHERE t.id IN (${placeholders})
     `;
-    const result = await client.query(query, validTaskIds.map(id => parseInt(id)));
+    const result = await client.query(query, validTaskIds);
     
     return result.rows.map((row): TaskInstance => ({
-      id: row.id.toString(),
+      id: String(row.id),
       content: row.content,
       dueDate: row.due_date,
       completed: row.completed,
       completedAt: row.completed_at || undefined,
       sourceNote: row.source_note_id ? {
-        id: row.source_note_id.toString(),
+        id: String(row.source_note_id),
         title: row.note_title || 'Untitled Note'
       } : undefined,
-      recurrenceRule: row.recurrence_rule || undefined,
+      recurrenceRule: row.recurrence_rule ? (row.recurrence_rule as any) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   } finally {
     client.release();
@@ -115,7 +129,9 @@ export async function getTasksForDateRange(startDate: Date, endDate: Date): Prom
   const client = await pool.connect();
   try {
     const query = `
-      SELECT t.*, n.title as note_title 
+      SELECT 
+        t.*,
+        n.title as note_title
       FROM tasks t
       LEFT JOIN notes n ON t.source_note_id = n.id
       WHERE t.due_date >= $1 AND t.due_date <= $2
@@ -124,31 +140,36 @@ export async function getTasksForDateRange(startDate: Date, endDate: Date): Prom
     const result = await client.query(query, [startDate, endDate]);
     
     return result.rows.map((row): TaskInstance => ({
-      id: row.id.toString(),
+      id: String(row.id),
       content: row.content,
       dueDate: row.due_date,
       completed: row.completed,
       completedAt: row.completed_at || undefined,
       sourceNote: row.source_note_id ? {
-        id: row.source_note_id.toString(),
+        id: String(row.source_note_id),
         title: row.note_title || 'Untitled Note'
       } : undefined,
-      recurrenceRule: row.recurrence_rule || undefined,
+      recurrenceRule: row.recurrence_rule ? (row.recurrence_rule as any) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   } finally {
     client.release();
   }
 }
 
-export async function markTaskCompleted(taskId: string, instanceDate?: Date): Promise<void> {
+export async function markTaskCompleted(taskId: string): Promise<void> {
+  // Validate ID
+  if (!taskId || isNaN(Number(taskId))) return;
+
   const client = await pool.connect();
   try {
     const query = `
       UPDATE tasks 
-      SET completed = true, completed_at = NOW(), updated_at = NOW()
+      SET completed = true, updated_at = NOW()
       WHERE id = $1
     `;
-    await client.query(query, [parseInt(taskId)]);
+    await client.query(query, [taskId]);
   } finally {
     client.release();
   }
@@ -157,12 +178,14 @@ export async function markTaskCompleted(taskId: string, instanceDate?: Date): Pr
 export async function createTaskFromNote(noteId: string, content: string, dueDate?: Date): Promise<Task> {
   const client = await pool.connect();
   try {
+    // Rely on SERIAL id
     const query = `
-      INSERT INTO tasks (content, due_date, source_note_id, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
+      INSERT INTO tasks (content, due_date, source_note_id, updated_at)
+      VALUES ($1, $2, $3, NOW())
       RETURNING *
     `;
-    const result = await client.query(query, [content, dueDate, parseInt(noteId)]);
+    const result = await client.query(query, [content, dueDate, noteId]);
+    
     return taskRowToTask(result.rows[0]);
   } finally {
     client.release();
@@ -174,8 +197,8 @@ export async function createTask(content: string, dueDate?: Date): Promise<Task>
   const client = await pool.connect();
   try {
     const query = `
-      INSERT INTO tasks (content, due_date, created_at, updated_at)
-      VALUES ($1, $2, NOW(), NOW())
+      INSERT INTO tasks (content, due_date, updated_at)
+      VALUES ($1, $2, NOW())
       RETURNING *
     `;
     const result = await client.query(query, [content, dueDate]);
@@ -197,27 +220,28 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'co
       values.push(updates.content);
     }
     if (updates.dueDate !== undefined) {
-      setClauses.push(`due_date = $${paramCount++}`);
+      setClauses.push(`due_date = $${paramCount++}`); // snake_case
       values.push(updates.dueDate);
     }
     if (updates.completed !== undefined) {
-      setClauses.push(`completed = $${paramCount++}::boolean`);
+      setClauses.push(`completed = $${paramCount++}::boolean`); // snake_case
       values.push(updates.completed);
-      if (updates.completed) {
-        setClauses.push(`completed_at = NOW()`);
-      } else {
-        setClauses.push(`completed_at = NULL`);
-      }
     }
 
     if (setClauses.length === 0) {
       // No updates to perform, just fetch the current task
-      const result = await client.query('SELECT * FROM tasks WHERE id = $1', [parseInt(taskId)]);
+      // Fetch source_note_id from tasks table directly
+      const query = `
+        SELECT t.*
+        FROM tasks t
+        WHERE t.id = $1
+      `;
+      const result = await client.query(query, [taskId]);
       return result.rows[0] ? taskRowToTask(result.rows[0]) : null;
     }
 
     setClauses.push(`updated_at = NOW()`);
-    values.push(parseInt(taskId));
+    values.push(taskId);
 
     const query = `
       UPDATE tasks 
@@ -241,22 +265,33 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'co
 export async function deleteTask(taskId: string): Promise<void> {
   const client = await pool.connect();
   try {
-    await client.query('DELETE FROM tasks WHERE id = $1', [parseInt(taskId)]);
+    // Delete task (note_tasks will be deleted automatically due to CASCADE)
+    await client.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteCompletedTasks(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('DELETE FROM tasks WHERE completed = true');
   } finally {
     client.release();
   }
 }
 
 // Note CRUD operations
-export async function createNote(title: string, content: string, folderId: string): Promise<Note> {
+export async function createNote(title: string, content: string, folderId?: string): Promise<Note> {
   const client = await pool.connect();
   try {
+    const targetFolderId = (folderId && folderId !== 'home_folder' && !isNaN(Number(folderId))) ? folderId : null;
     const query = `
-      INSERT INTO notes (title, content, folder_id, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
+      INSERT INTO notes (title, content, folder_id, updated_at)
+      VALUES ($1, $2, $3, NOW())
       RETURNING *
     `;
-    const result = await client.query(query, [title, content, parseInt(folderId)]);
+    const result = await client.query(query, [title, content, targetFolderId]);
     return noteRowToNote(result.rows[0]);
   } finally {
     client.release();
@@ -264,6 +299,8 @@ export async function createNote(title: string, content: string, folderId: strin
 }
 
 export async function updateNote(noteId: string, updates: Partial<Pick<Note, 'title' | 'content'>>): Promise<Note> {
+  if (!noteId || isNaN(Number(noteId))) throw new Error('Invalid Note ID');
+  
   const client = await pool.connect();
   try {
     const setClauses = [];
@@ -280,7 +317,7 @@ export async function updateNote(noteId: string, updates: Partial<Pick<Note, 'ti
     }
 
     setClauses.push(`updated_at = NOW()`);
-    values.push(parseInt(noteId));
+    values.push(noteId);
 
     const query = `
       UPDATE notes 
@@ -299,8 +336,19 @@ export async function updateNote(noteId: string, updates: Partial<Pick<Note, 'ti
 export async function getNotesByFolder(folderId: string): Promise<Note[]> {
   const client = await pool.connect();
   try {
-    const query = 'SELECT * FROM notes WHERE folder_id = $1 ORDER BY updated_at DESC';
-    const result = await client.query(query, [parseInt(folderId)]);
+    let query: string;
+    let params: any[];
+
+    if (!folderId || folderId === 'home_folder' || isNaN(Number(folderId))) {
+      // Fetch root notes (folder_id is NULL)
+      query = 'SELECT * FROM notes WHERE folder_id IS NULL ORDER BY updated_at DESC';
+      params = [];
+    } else {
+      query = 'SELECT * FROM notes WHERE folder_id = $1 ORDER BY updated_at DESC';
+      params = [folderId];
+    }
+
+    const result = await client.query(query, params);
     return result.rows.map(noteRowToNote);
   } finally {
     client.release();
@@ -310,7 +358,7 @@ export async function getNotesByFolder(folderId: string): Promise<Note[]> {
 export async function getAllNotes(): Promise<Note[]> {
   const client = await pool.connect();
   try {
-    const query = 'SELECT * FROM notes ORDER BY updated_at DESC';
+    const query = 'SELECT * FROM notes ORDER BY updated_at DESC LIMIT 1000';
     const result = await client.query(query);
     return result.rows.map(noteRowToNote);
   } finally {
@@ -319,10 +367,12 @@ export async function getAllNotes(): Promise<Note[]> {
 }
 
 export async function getNote(noteId: string): Promise<Note | null> {
+  if (!noteId || isNaN(Number(noteId))) return null;
+
   const client = await pool.connect();
   try {
     const query = 'SELECT * FROM notes WHERE id = $1';
-    const result = await client.query(query, [parseInt(noteId)]);
+    const result = await client.query(query, [noteId]);
     return result.rows[0] ? noteRowToNote(result.rows[0]) : null;
   } finally {
     client.release();
@@ -330,9 +380,19 @@ export async function getNote(noteId: string): Promise<Note | null> {
 }
 
 export async function deleteNote(noteId: string): Promise<void> {
+  if (!noteId || isNaN(Number(noteId))) return;
+
   const client = await pool.connect();
   try {
-    await client.query('DELETE FROM notes WHERE id = $1', [parseInt(noteId)]);
+    await client.query('BEGIN');
+    // Cascade delete: Delete tasks associated with the note
+    await client.query('DELETE FROM tasks WHERE source_note_id = $1', [noteId]);
+    // Delete the note
+    await client.query('DELETE FROM notes WHERE id = $1', [noteId]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }
@@ -342,12 +402,13 @@ export async function deleteNote(noteId: string): Promise<void> {
 export async function createFolder(name: string, parentId?: string): Promise<Folder> {
   const client = await pool.connect();
   try {
+    const targetParentId = (parentId && !isNaN(Number(parentId))) ? parentId : null;
     const query = `
-      INSERT INTO folders (name, parent_id, created_at)
-      VALUES ($1, $2, NOW())
+      INSERT INTO folders (name, parent_id)
+      VALUES ($1, $2)
       RETURNING *
     `;
-    const result = await client.query(query, [name, parentId ? parseInt(parentId) : null]);
+    const result = await client.query(query, [name, targetParentId]);
     return folderRowToFolder(result.rows[0]);
   } finally {
     client.release();
@@ -366,6 +427,8 @@ export async function getFolders(): Promise<Folder[]> {
 }
 
 export async function updateFolder(folderId: string, name: string): Promise<Folder> {
+  if (!folderId || isNaN(Number(folderId))) throw new Error('Invalid Folder ID');
+
   const client = await pool.connect();
   try {
     const query = `
@@ -374,7 +437,7 @@ export async function updateFolder(folderId: string, name: string): Promise<Fold
       WHERE id = $2
       RETURNING *
     `;
-    const result = await client.query(query, [name, parseInt(folderId)]);
+    const result = await client.query(query, [name, folderId]);
     return folderRowToFolder(result.rows[0]);
   } finally {
     client.release();
@@ -382,9 +445,11 @@ export async function updateFolder(folderId: string, name: string): Promise<Fold
 }
 
 export async function deleteFolder(folderId: string): Promise<void> {
+  if (!folderId || isNaN(Number(folderId))) return;
+
   const client = await pool.connect();
   try {
-    await client.query('DELETE FROM folders WHERE id = $1', [parseInt(folderId)]);
+    await client.query('DELETE FROM folders WHERE id = $1', [folderId]);
   } finally {
     client.release();
   }

@@ -42,32 +42,107 @@ export function formatTaskDateForDisplay(date: Date): string {
 
 export function parseTaskDate(dateString: string): Date | null {
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset time to start of day
+  today.setHours(12, 0, 0, 0); // Reset time to Noon to avoid timezone shifts
   
-  switch (dateString.toLowerCase()) {
-    case 'today':
-      return today;
-    case 'tomorrow':
-      return addDays(today, 1);
-    case 'yesterday':
-      return addDays(today, -1);
-    default:
-      // Try to parse as YYYY-MM-DD
-      const dateMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (dateMatch) {
-        const [, year, month, day] = dateMatch;
-        const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        return isValid(parsedDate) ? parsedDate : null;
-      }
-      
-      // Try other common formats
-      try {
-        const parsedDate = parse(dateString, 'yyyy-MM-dd', new Date());
-        return isValid(parsedDate) ? parsedDate : null;
-      } catch {
-        return null;
-      }
+  const lowerDate = dateString.toLowerCase().trim();
+
+  // Basic relative dates
+  if (lowerDate === 'today' || lowerDate === 'tod') return today;
+  if (lowerDate === 'tomorrow' || lowerDate === 'tom') return addDays(today, 1);
+  if (lowerDate === 'yesterday') return addDays(today, -1);
+
+  // "In X days" format
+  const inDaysMatch = lowerDate.match(/^in\s+(\d+)\s+days?$/);
+  if (inDaysMatch) {
+    const days = parseInt(inDaysMatch[1]);
+    return addDays(today, days);
   }
+
+  // Day names (monday, mon, next friday, etc.)
+  const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const shortDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  
+  // Check for "next [day]" or just "[day]"
+  const nextMatch = lowerDate.match(/^(?:next\s+)?([a-z]+)$/);
+  if (nextMatch) {
+    const dayName = nextMatch[1];
+    let dayIndex = daysOfWeek.indexOf(dayName);
+    if (dayIndex === -1) dayIndex = shortDays.indexOf(dayName);
+    
+    if (dayIndex !== -1) {
+      let resultDate = new Date(today);
+      resultDate.setDate(today.getDate() + (dayIndex + 7 - today.getDay()) % 7);
+      
+      // If today is the day, assume next week unless specified? 
+      // Convention: "Friday" on Friday usually means next week's Friday or today? 
+      // Let's assume if it's today, we mean today. 
+      // If "next Friday" and today is Friday, it's 7 days away.
+      
+      if (lowerDate.startsWith('next ')) {
+         if (resultDate.getTime() === today.getTime()) {
+            resultDate = addDays(resultDate, 7);
+         } else if (resultDate < today) {
+            // Should not happen with the mod math above but safety check
+            resultDate = addDays(resultDate, 7);
+         } else {
+           // If "next friday" and today is Tuesday, do we mean this coming friday or the one after?
+           // English is ambiguous. Usually "next Friday" means the one in the next week.
+           // "Friday" means this coming Friday.
+           // Let's shift by 7 days if "next" is present and the day is within this week.
+           if (resultDate.getTime() - today.getTime() < 7 * 24 * 60 * 60 * 1000) {
+              resultDate = addDays(resultDate, 7);
+           }
+         }
+      } else {
+        // Just "[day]" e.g. "Friday"
+        // If today is Friday, and we type "Friday", assumes today. 
+        // If today is Saturday, "Friday" is next week (6 days away).
+        if (resultDate < today) {
+           resultDate = addDays(resultDate, 7);
+        }
+      }
+      return resultDate;
+    }
+  }
+
+  // Try to parse as YYYY-MM-DD
+  const dateMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    const [, year, month, day] = dateMatch;
+    const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return isValid(parsedDate) ? parsedDate : null;
+  }
+  
+  // Try other common formats
+  try {
+    const parsedDate = parse(dateString, 'yyyy-MM-dd', new Date());
+    return isValid(parsedDate) ? parsedDate : null;
+  } catch {
+    return null;
+  }
+}
+
+// Extract date/content from a single line
+export function extractDateFromContent(cleanLineContent: string): { content: string, date: Date | null, dateString: string | null } {
+  // Regex to capture multi-word dates like @next friday
+  const dateRegex = /(\s+@(?:(\d{4}-\d{2}-\d{2})|(in\s+\d+\s+days?)|(next\s+[a-zA-Z]+)|([a-zA-Z]+)))(?=\s|$)/i;
+  const dateMatch = cleanLineContent.match(dateRegex);
+    
+  let content = cleanLineContent;
+  let dateString = null;
+
+  if (dateMatch) {
+    // If date is found, content is everything before it
+    content = cleanLineContent.slice(0, dateMatch.index).trim();
+    // Group 1 is the full @string
+    dateString = dateMatch[0].trim().substring(1); 
+  } else {
+    content = cleanLineContent.trim();
+  }
+  
+  const date = dateString ? parseTaskDate(dateString) : null;
+  
+  return { content, date, dateString };
 }
 
 // Extract tasks from note content
@@ -89,25 +164,14 @@ export function parseTasksFromContent(content: string): TaskParsingResult {
     // Remove any existing task ID comments from the line content before parsing
     const cleanLineContent = lineContent.replace(/\s*<!-- task-id:[^>]+ -->/g, '').trim();
     
-    const dateRegex = /(\s+@(\w+|\d{4}-\d{2}-\d{2}))(?=\s|$)/;
-    const dateMatch = cleanLineContent.match(dateRegex);
-    
-    let taskContent;
-    let dateString = null;
-
-    if (dateMatch) {
-      // If date is found, content is everything before it
-      taskContent = cleanLineContent.slice(0, dateMatch.index).trim();
-      dateString = dateMatch[2] || null;
-    } else {
-      // Otherwise, the whole line is content
-      taskContent = cleanLineContent.trim();
-    }
-
-    if (!taskContent) continue; // Skip empty tasks
-
-    const parsedDate = dateString ? parseTaskDate(dateString) : null;
+    // Parse date using shared helper
+    const extraction = extractDateFromContent(cleanLineContent);
+    const taskContent = extraction.content;
+    const dateString = extraction.dateString;
+    const parsedDate = extraction.date;
     const displayDateString = parsedDate ? formatTaskDateForDisplay(parsedDate) : dateString;
+    
+    if (!taskContent) continue; // Skip empty tasks
     
     const task: ParsedTask = {
       id: generateOrExtractTaskId(fullMatch),
@@ -206,7 +270,7 @@ export function formatTaskDate(date: Date | null): string {
 }
 
 // Check if a task is overdue
-export function isTaskOverdue(task: ParsedTask): boolean {
+export function isTaskOverdue(task: { dueDate: Date | null, completed: boolean }): boolean {
   if (!task.dueDate || task.completed) return false;
   
   const today = new Date();

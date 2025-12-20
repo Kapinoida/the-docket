@@ -23,7 +23,13 @@ export async function POST(request: NextRequest) {
     
     for (const task of tasks as ParsedTask[]) {
       try {
-        const existingDbTaskId = existingTaskMap[task.id];
+        let existingDbTaskId = existingTaskMap[task.id];
+        
+        // If no mapping found, but task.id looks like a DB ID (numeric), try to use it directly
+        // This handles cases where the note content has already been updated with DB IDs
+        if (!existingDbTaskId && /^\d+$/.test(task.id)) {
+          existingDbTaskId = task.id;
+        }
         
         if (existingDbTaskId) {
           // Update existing task
@@ -31,7 +37,7 @@ export async function POST(request: NextRequest) {
           
           const updatedTask = await updateTask(existingDbTaskId, {
             content: task.content,
-            dueDate: task.dueDate || undefined,
+            dueDate: task.dueDate,
             completed: task.completed
           });
           
@@ -104,7 +110,10 @@ export async function POST(request: NextRequest) {
     const currentInlineTaskIds = new Set(tasks.map(t => t.id));
     const orphanedDbTaskIds = [];
     
-    for (const [inlineId, dbTaskId] of Object.entries(existingTaskMap)) {
+    // Cast to Record<string, string> safely
+    const existingTaskMapRecord = existingTaskMap as Record<string, string>;
+    
+    for (const [inlineId, dbTaskId] of Object.entries(existingTaskMapRecord)) {
       if (!currentInlineTaskIds.has(inlineId)) {
         console.log(`[API] Found orphaned task ${dbTaskId} (inline ID: ${inlineId})`);
         orphanedDbTaskIds.push(dbTaskId);

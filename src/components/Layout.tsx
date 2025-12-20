@@ -120,31 +120,46 @@ export default function Layout({ children }: LayoutProps) {
     // Trigger refresh of sidebar notes when notes are modified
     setSidebarRefreshTrigger(prev => prev + 1);
     
-    // Update any note tabs that might have changed by fetching fresh data
-    const updatedTabs = await Promise.all(
-      tabs.map(async (tab) => {
-        if (tab.type === 'note' && tab.content.noteId) {
-          try {
-            console.log(`[Layout] Refreshing note data for tab ${tab.id}, noteId: ${tab.content.noteId}`);
-            const response = await fetch(`/api/notes/${tab.content.noteId}`);
-            if (response.ok) {
-              const updatedNote = await response.json();
-              console.log(`[Layout] Updated note data:`, { id: updatedNote.id, title: updatedNote.title, contentLength: updatedNote.content?.length });
-              return { 
-                ...tab, 
-                title: updatedNote.title,
-                content: { ...tab.content, note: updatedNote }
+    // Only update note tabs if there are any open note tabs
+    const noteTabsToUpdate = tabs.filter(tab => tab.type === 'note' && tab.content.noteId);
+    
+    if (noteTabsToUpdate.length === 0) {
+      return; // No note tabs to update
+    }
+    
+    // Batch fetch all note updates in parallel
+    try {
+      const noteUpdates = await Promise.all(
+        noteTabsToUpdate.map(async (tab) => {
+          const response = await fetch(`/api/notes/${tab.content.noteId}`);
+          if (response.ok) {
+            const updatedNote = await response.json();
+            return { tabId: tab.id, updatedNote };
+          }
+          return null;
+        })
+      );
+      
+      // Only update tabs if we have successful updates
+      const validUpdates = noteUpdates.filter((u): u is NonNullable<typeof u> => u !== null);
+      if (validUpdates.length > 0) {
+        setTabs(prevTabs => 
+          prevTabs.map(tab => {
+            const update = validUpdates.find(u => u.tabId === tab.id);
+            if (update) {
+              return {
+                ...tab,
+                title: update.updatedNote.title,
+                content: { ...tab.content, note: update.updatedNote }
               };
             }
-          } catch (error) {
-            console.error(`[Layout] Error fetching updated note ${tab.content.noteId}:`, error);
-          }
-        }
-        return tab;
-      })
-    );
-    
-    setTabs(updatedTabs);
+            return tab;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('[Layout] Error batch updating note tabs:', error);
+    }
   }, [tabs]);
 
   const handleCreateNote = useCallback(async (folderId: string) => {
@@ -172,18 +187,62 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [handleNoteSelect, handleNotesChange]);
 
-  const handleTaskSelect = useCallback((task: TaskInstance) => {
-    // Check if task is already open in a tab
-    const existingTab = tabs.find(tab => tab.content.task?.id === task.id);
-    if (existingTab) {
-      setActiveTabId(existingTab.id);
-      return;
-    }
+  const handleTaskSelect = useCallback(async (task: TaskInstance) => {
+    // Check if task belongs to a note
+    if (task.sourceNote) {
+      const noteId = task.sourceNote.id;
+      
+      // Check if note is already open in a tab
+      const existingTab = tabs.find(tab => tab.content.noteId === noteId);
+      if (existingTab) {
+        setActiveTabId(existingTab.id);
+        // Update tab to scroll to task
+        setTabs(prev => prev.map(t => 
+          t.id === existingTab.id 
+            ? { ...t, content: { ...t.content, scrollToTaskId: task.id } }
+            : t
+        ));
+        return;
+      }
 
-    // Create new tab for the task
-    const newTab = createTab('task', `Task: ${task.content.slice(0, 30)}${task.content.length > 30 ? '...' : ''}`, { task });
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
+      // Fetch note content
+      try {
+        const response = await fetch(`/api/notes/${noteId}`);
+        if (response.ok) {
+          const note = await response.json();
+          const newTab = createTab('note', note.title, { 
+            noteId: note.id, 
+            note, 
+            scrollToTaskId: task.id 
+          });
+          setTabs(prev => [...prev, newTab]);
+          setActiveTabId(newTab.id);
+        } else {
+            console.error('Failed to fetch source note');
+        }
+      } catch (error) {
+        console.error('Error fetching source note:', error);
+      }
+    } else {
+      // Standalone task logic
+      const existingTab = tabs.find(tab => tab.content.task?.id === task.id);
+      if (existingTab) {
+        setActiveTabId(existingTab.id);
+        return;
+      }
+
+      // Create new tab for the task
+      // Cast TaskInstance to Task by adding missing fields (visual purposes only for tab title)
+      const taskForTab = { 
+        ...task, 
+        createdAt: new Date(), 
+        updatedAt: new Date() 
+      } as unknown as import('@/types').Task;
+      
+      const newTab = createTab('task', `Task: ${task.content.slice(0, 30)}${task.content.length > 30 ? '...' : ''}`, { task: taskForTab });
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+    }
   }, [tabs, createTab]);
 
   const handleTasksViewClick = useCallback(() => {

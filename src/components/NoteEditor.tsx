@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Note } from "@/types";
-import MarkdownTaskEditor from "./MarkdownTaskEditor";
-import StyledMarkdownEditor from "./StyledMarkdownEditor";
+import RichTextEditor from "./RichTextEditor";
 import { ParsedTask } from "@/lib/taskParser";
-import { Lock, Unlock, Type, Code } from "lucide-react";
+import { Lock, Unlock } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface NoteEditorProps {
   note: Note;
   onSave: (note: Note) => void;
   onClose: () => void;
   isInTab?: boolean;
+  scrollToTaskId?: string;
 }
 
 export default function NoteEditor({
@@ -19,6 +20,7 @@ export default function NoteEditor({
   onSave,
   onClose,
   isInTab = false,
+  scrollToTaskId,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -26,66 +28,38 @@ export default function NoteEditor({
   const [hasChanges, setHasChanges] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const [editorMode, setEditorMode] = useState<'markdown' | 'styled'>('markdown');
   const [parsedTasks, setParsedTasks] = useState<ParsedTask[]>([]);
   const [taskMap, setTaskMap] = useState<Record<string, string>>({});
-  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
+  
+  // Debounce content changes to reduce processing overhead
+  const debouncedContent = useDebounce(content, 500);
+
+  // Track previous note ID to detect switching
+  const prevNoteIdRef = useRef(note.id);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    console.log('[NoteEditor] Note prop changed, updating editor state:', {
-      noteId: note.id,
-      title: note.title,
-      contentLength: note.content?.length || 0,
-      updatedAt: note.updatedAt
-    });
-    
-    setTitle(note.title);
-    setContent(note.content);
-    setHasChanges(false);
+    // Only reset editor state if we switched to a DIFFERENT note
+    if (note.id !== prevNoteIdRef.current) {
+      // console.log('[NoteEditor] Note ID changed, resetting editor:', note.id);
+      setTitle(note.title);
+      setContent(note.content);
+      setHasChanges(false);
+      prevNoteIdRef.current = note.id;
+      
+      // Load read-only state
+      const storedReadOnlyState = localStorage.getItem(`noteReadOnly-${note.id}`);
+      setIsReadOnly(storedReadOnlyState ? JSON.parse(storedReadOnlyState) : false);
 
-    // Load read-only state from localStorage
-    const storedReadOnlyState = localStorage.getItem(`noteReadOnly-${note.id}`);
-    if (storedReadOnlyState) {
-      setIsReadOnly(JSON.parse(storedReadOnlyState));
-    } else {
-      setIsReadOnly(false);
+      // Load task map
+      const storedTaskMap = localStorage.getItem(`taskMap-${note.id}`);
+      setTaskMap(storedTaskMap ? JSON.parse(storedTaskMap) : {});
     }
-
-    // Load editor mode from localStorage
-    const storedEditorMode = localStorage.getItem(`noteEditorMode-${note.id}`);
-    if (storedEditorMode && (storedEditorMode === 'markdown' || storedEditorMode === 'styled')) {
-      setEditorMode(storedEditorMode as 'markdown' | 'styled');
-    } else {
-      setEditorMode('markdown');
-    }
-
-    // Load existing task mappings from localStorage (legacy support)
-    // TODO: Migrate to database-backed mapping system
-    const storedTaskMap = localStorage.getItem(`taskMap-${note.id}`);
-    if (storedTaskMap) {
-      try {
-        setTaskMap(JSON.parse(storedTaskMap));
-        console.log(
-          "[NoteEditor] Loaded task map for note:",
-          JSON.parse(storedTaskMap)
-        );
-      } catch (error) {
-        console.error("[NoteEditor] Error parsing stored task map:", error);
-        setTaskMap({});
-      }
-    } else {
-      setTaskMap({});
-    }
-
-    // Trigger task status refresh when note content changes (likely due to external task updates)
-    setTaskRefreshTrigger(prev => prev + 1);
-    console.log("[NoteEditor] Triggering task status refresh due to note update:", { noteId: note.id, updatedAt: note.updatedAt });
-  }, [note.id, note.title, note.content, note.updatedAt]);
+  }, [note.id, note.title, note.content]); // Keep dependencies but guard logic
 
   useEffect(() => {
     setHasChanges(title !== note.title || content !== note.content);
@@ -98,6 +72,27 @@ export default function NoteEditor({
     }
   }, []);
 
+  // Handle scrolling to task if requested
+  useEffect(() => {
+    if (scrollToTaskId && mounted) {
+      console.log(`[NoteEditor] Requested scroll to task: ${scrollToTaskId}`);
+      // Simple text search and scroll for now
+      // This is a basic implementation - fully reliable scrolling would require
+      // integration with the specific editor instance (TipTap or textarea)
+      setTimeout(() => {
+        // Try to find element with task-id attribute (for styled editor)
+        const element = document.querySelector(`[data-task-id="${scrollToTaskId}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('bg-yellow-100', 'dark:bg-yellow-900/30', 'transition-colors', 'duration-1000');
+          setTimeout(() => {
+             element.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/30');
+          }, 2000);
+        }
+      }, 500);
+    }
+  }, [scrollToTaskId, mounted]);
+
   // Simplified - content is always plain text/markdown now
   const getTextContent = () => content;
 
@@ -107,11 +102,8 @@ export default function NoteEditor({
     localStorage.setItem(`noteReadOnly-${note.id}`, JSON.stringify(newReadOnlyState));
   };
 
-  const toggleEditorMode = () => {
-    const newMode = editorMode === 'markdown' ? 'styled' : 'markdown';
-    setEditorMode(newMode);
-    localStorage.setItem(`noteEditorMode-${note.id}`, newMode);
-  };
+  // Force styled editor mode
+  const editorMode = 'styled';
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -121,16 +113,19 @@ export default function NoteEditor({
 
     setIsSaving(true);
     try {
-      // Use the current content as-is - task IDs should already be embedded
-      // from the MarkdownTaskEditor when tasks were created
-      console.log("[NoteEditor] Saving note with current content...");
+      console.log("[NoteEditor] Saving note...");
+      
+      // Since we are using Tiptap exclusively, content is already managed by it.
+      // However, we still might want to ensure any legacy markdown in the content 
+      // is processed if it hasn't been already (though RichTextEditor handles this on mount).
+      // For saving, we just save the current Tiptap HTML content.
       
       const response = await fetch(`/api/notes/${note.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          content: content.trim(),
+          content: content.trim(), 
         }),
       });
 
@@ -169,104 +164,36 @@ export default function NoteEditor({
     onClose();
   };
 
-  const handleTasksFound = async (tasks: ParsedTask[]) => {
-    console.log(
-      "[NoteEditor] Processing",
-      tasks.length,
-      "new tasks with UUIDs..."
-    );
-    setParsedTasks(tasks);
-
-    // Send new tasks to API for database creation
-    try {
-      const response = await fetch("/api/tasks/from-note", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tasks,
-          noteId: note.id,
-          existingTaskMap: taskMap,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`[NoteEditor] ✅ Tasks processed:`, {
-          created: result.tasksCreated,
-          updated: result.tasksUpdated,
-          deleted: result.tasksDeleted,
-        });
-
-        // Update and persist the task map (legacy support for now)
-        if (result.taskMap) {
-          setTaskMap(result.taskMap);
-          localStorage.setItem(
-            `taskMap-${note.id}`,
-            JSON.stringify(result.taskMap)
-          );
-        }
-      } else {
-        console.error(
-          "[NoteEditor] API response not ok:",
-          response.status,
-          await response.text()
-        );
-      }
-    } catch (error) {
-      console.error("[NoteEditor] Error processing tasks from note:", error);
-    }
+  // Deprecated but kept for compatibility with RichTextEditor props interface if needed, 
+  // though RichTextEditor handles tasks mostly internally via extensions now.
+  const handleTasksFound = async (tasks: ParsedTask[], contentToUpdate?: string): Promise<string> => {
+    // This logic is largely handled by the Tiptap extensions now, 
+    // but we keep it if RichTextEditor calls it for any reason.
+    return contentToUpdate || content;
   };
 
-  const handleManualTaskProcessing = async () => {
-    console.log("[NoteEditor] Manual task processing triggered");
-    const { parseTasksFromContent } = await import("@/lib/taskParser");
-    const textContent = getTextContent();
-    const { tasks } = parseTasksFromContent(textContent);
-    await handleTasksFound(tasks);
-  };
+  const handleManualTaskProcessing = useCallback(async () => {
+    // No-op or trigger Tiptap command if available. 
+    // Since we removed Markdown mode, manual parsing is less relevant as Tiptap does it live.
+    console.log("[NoteEditor] Manual task processing is deprecated in Rich Text mode");
+  }, []);
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
     try {
-      let dbTaskId: string;
-      
-      // Check if taskId is already a database task ID (from StyledMarkdownEditor)
-      // or if it's an inline UUID that needs mapping (from MarkdownTaskEditor)
-      if (taskMap[taskId]) {
-        // This is an inline UUID, use mapping
-        dbTaskId = taskMap[taskId];
-        console.log("[NoteEditor] Using mapped task ID:", { inlineId: taskId, dbTaskId });
-      } else {
-        // Assume this is already a database task ID (from StyledMarkdownEditor HTML comments)
-        dbTaskId = taskId;
-        console.log("[NoteEditor] Using direct task ID:", { dbTaskId });
-      }
-
       const response = await fetch("/api/tasks/from-note", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          taskId: dbTaskId, // Use database task ID
+          taskId,
           completed,
           noteId: note.id,
         }),
       });
 
       if (response.ok) {
-        console.log(
-          `[NoteEditor] Task ${dbTaskId} (inline: ${taskId}) marked as ${
-            completed ? "completed" : "incomplete"
-          }`
-        );
-        
-        // Trigger task status refresh for styled editor
-        setTaskRefreshTrigger(prev => prev + 1);
+        console.log(`[NoteEditor] Task ${taskId} toggled: ${completed}`);
       } else {
-        console.error(
-          "[NoteEditor] Failed to toggle task:",
-          response.status,
-          await response.text()
-        );
-        alert("Failed to update task. Please try again.");
+        console.error("Failed to toggle task");
       }
     } catch (error) {
       console.error("[NoteEditor] Error updating task:", error);
@@ -281,9 +208,6 @@ export default function NoteEditor({
       } else if (e.key === "w") {
         e.preventDefault();
         handleClose();
-      } else if (e.key === "t") {
-        e.preventDefault();
-        handleManualTaskProcessing();
       }
     }
   };
@@ -325,14 +249,6 @@ export default function NoteEditor({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={toggleEditorMode}
-              className="px-2 py-1 text-sm rounded transition-colors flex items-center gap-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-700"
-              title={editorMode === 'styled' ? 'Switch to markdown editor' : 'Switch to styled editor'}
-            >
-              {editorMode === 'styled' ? <Code className="w-3 h-3" /> : <Type className="w-3 h-3" />}
-              {editorMode === 'styled' ? 'Styled' : 'Markdown'}
-            </button>
-            <button
               onClick={toggleReadOnly}
               className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${
                 isReadOnly 
@@ -364,71 +280,16 @@ export default function NoteEditor({
 
         {/* Content Editor */}
         <div className="flex-1 p-4 overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className={`text-xs px-2 py-1 rounded ${
-                editorMode === 'styled' 
-                  ? 'bg-purple-100 dark:bg-purple-700 text-purple-600 dark:text-purple-300'
-                  : 'bg-green-100 dark:bg-green-700 text-green-600 dark:text-green-300'
-              }`}>
-                {editorMode === 'styled' ? 'Styled Editor' : 'Markdown Editor'}
-              </div>
-
-              {parsedTasks.length > 0 && (
-                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                  <svg
-                    className="w-3 h-3"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {parsedTasks.length} task{parsedTasks.length !== 1 ? "s" : ""}{" "}
-                  found
-                </div>
-              )}
-
-              {!isReadOnly && (
-                <button
-                  onClick={handleManualTaskProcessing}
-                  className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-700 text-blue-600 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-600"
-                  title="Process tasks manually"
-                >
-                  Process Tasks
-                </button>
-              )}
-            </div>
-          </div>
-
-          {editorMode === 'styled' ? (
-            <StyledMarkdownEditor
-              content={content}
-              onChange={setContent}
-              placeholder="Start writing your note... Use - [ ] for tasks"
-              className="h-full border border-gray-200 dark:border-gray-700 rounded-lg"
-              noteId={note.id}
-              onTasksFound={handleTasksFound}
-              onTaskToggle={handleTaskToggle}
-              readOnly={isReadOnly}
-              refreshTrigger={taskRefreshTrigger}
-              taskMap={taskMap}
-            />
-          ) : (
-            <MarkdownTaskEditor
-              content={content}
-              onChange={setContent}
-              placeholder="Start writing your note... Use - [ ] for tasks"
-              className="h-full border border-gray-200 dark:border-gray-700 rounded-lg"
-              noteId={note.id}
-              onTasksFound={handleTasksFound}
-              onTaskToggle={handleTaskToggle}
-              readOnly={isReadOnly}
-            />
-          )}
+          <RichTextEditor
+            content={content}
+            onChange={setContent}
+            placeholder="Start writing your note... Use - [ ] for tasks"
+            className="h-full"
+            noteId={note.id}
+            onTasksFound={handleTasksFound}
+            onTaskToggle={handleTaskToggle}
+            readOnly={isReadOnly}
+          />
         </div>
 
         {/* Footer */}

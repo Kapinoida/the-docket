@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Tab, Note, Folder, TaskInstance } from '@/types';
 import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
@@ -27,34 +27,27 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
     overdueTasks: 0, 
     dueTodayTasks: 0 
   });
+  const [statsLoading, setStatsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskInstance | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && tab.type === 'home') {
-      // Delay stats fetching to prevent any potential SSR issues
-      setTimeout(fetchStats, 100);
-    }
-  }, [mounted, tab.type]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
     try {
-      // Fetch all notes to count them
-      const notesResponse = await fetch('/api/notes');
+      // Fetch both notes and tasks in parallel for better performance
+      const [notesResponse, tasksResponse] = await Promise.all([
+        fetch('/api/notes'),
+        fetch('/api/tasks')
+      ]);
+      
       if (notesResponse.ok) {
         const notes = await notesResponse.json();
         setStats(prev => ({ ...prev, notes: notes.length }));
       }
       
-      // Fetch all tasks to count them and categorize by due date
-      const tasksResponse = await fetch('/api/tasks');
       if (tasksResponse.ok) {
-        const tasks = await tasksResponse.json();
+        const tasks: TaskInstance[] = await tasksResponse.json();
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
@@ -77,8 +70,22 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    } finally {
+      setStatsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && tab.type === 'home') {
+      // Delay stats fetching to prevent any potential SSR issues
+      const timeoutId = setTimeout(fetchStats, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [mounted, tab.type, fetchStats]);
 
   const handleTaskEdit = (task: TaskInstance) => {
     setEditingTask(task);
@@ -118,19 +125,43 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
         {/* Quick Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.notes}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {statsLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 h-8 w-8 rounded"></div>
+              ) : (
+                stats.notes
+              )}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Notes</div>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.tasks}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {statsLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 h-8 w-8 rounded"></div>
+              ) : (
+                stats.tasks
+              )}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Tasks</div>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.overdueTasks}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              {statsLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 h-8 w-8 rounded"></div>
+              ) : (
+                stats.overdueTasks
+              )}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Overdue</div>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.dueTodayTasks}</div>
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              {statsLoading ? (
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 h-8 w-8 rounded"></div>
+              ) : (
+                stats.dueTodayTasks
+              )}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Due Today</div>
           </div>
         </div>
@@ -205,6 +236,7 @@ export default function TabContent({ tab, onNotesChange, onNoteSelect, onTaskSel
             // Tab-based editor doesn't close on its own, parent handles tab management
           }}
           isInTab={true}
+          scrollToTaskId={tab.content.scrollToTaskId}
         />
       </div>
     );

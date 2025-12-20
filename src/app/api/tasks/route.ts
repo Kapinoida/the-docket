@@ -28,9 +28,17 @@ export async function POST(request: NextRequest) {
     
     // Check if this is a request to fetch tasks by IDs
     if (body.taskIds && Array.isArray(body.taskIds)) {
+      // Filter out null/undefined task IDs
+      const validTaskIds = body.taskIds.filter(id => id != null && id !== '');
+      
+      if (validTaskIds.length === 0) {
+        console.log('[API] No valid task IDs provided:', body.taskIds);
+        return NextResponse.json([]);
+      }
+      
       // Fetch tasks by IDs
       const { getTasksByIds } = await import('@/lib/api');
-      const tasks = await getTasksByIds(body.taskIds);
+      const tasks = await getTasksByIds(validTaskIds);
       return NextResponse.json(tasks);
     }
     
@@ -42,9 +50,28 @@ export async function POST(request: NextRequest) {
     }
     
     const task = await createTask(content, dueDate ? new Date(dueDate) : undefined);
+// ... POST handler ...
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error('Error handling task request:', error);
     return NextResponse.json({ error: 'Failed to process task request' }, { status: 500 });
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+
+  if (status === 'completed') {
+     try {
+       const { deleteCompletedTasks } = await import('@/lib/api');
+       await deleteCompletedTasks();
+       return NextResponse.json({ success: true });
+     } catch (error) {
+        console.error('Error deleting completed tasks:', error);
+        return NextResponse.json({ error: 'Failed to delete tasks' }, { status: 500 });
+     }
+  }
+
+  return NextResponse.json({ error: 'Invalid operation' }, { status: 400 });
 }

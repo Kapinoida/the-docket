@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
   try {
     const { title, content, folderId } = await request.json();
     
-    if (!title || !folderId) {
-      return NextResponse.json({ error: 'Title and folderId are required' }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
     
     const note = await createNote(title, content || '', folderId);

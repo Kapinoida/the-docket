@@ -14,38 +14,42 @@ Building a personal, self-hosted productivity application that seamlessly integr
 - **Database:** PostgreSQL
 - **Priority:** Web application first, mobile later
 
-## Database Schema (Phase 1)
+## Database Schema (Current)
 
 ```sql
--- Core folder structure with nesting support
-folders (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  parent_id INTEGER REFERENCES folders(id),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Notes with rich text content
-notes (
-  id SERIAL PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  content TEXT,  -- Will store rich text/markdown
-  folder_id INTEGER REFERENCES folders(id),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tasks with future-proof structure
-tasks (
-  id SERIAL PRIMARY KEY,
+-- Notes with rich text content and tagging support
+CREATE TABLE notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
   content TEXT NOT NULL,
-  due_date TIMESTAMP,
-  recurrence_rule JSONB,  -- Future: {type: 'weekly', interval: 2, day: 'monday'}
-  source_note_id INTEGER REFERENCES notes(id),  -- nullable, provides context
-  completed BOOLEAN DEFAULT FALSE,  -- Phase 1: simple boolean, Phase 2: move to instances
-  completed_at TIMESTAMP,  -- Phase 1: timestamp, Phase 2: move to instances
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  tags TEXT[],
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL
+);
+
+-- Tasks with future-proof structure for recurrence
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  "dueDate" TIMESTAMP(3),
+  "isCompleted" BOOLEAN NOT NULL DEFAULT FALSE,
+  "recurrenceRule" TEXT,  -- JSON string for recurrence patterns
+  tags TEXT[],
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL
+);
+
+-- Many-to-many relationship between notes and tasks
+-- ORIGIN: task was created from this note
+-- REFERENCE: task is referenced/linked in this note
+CREATE TYPE "NoteTaskType" AS ENUM ('ORIGIN', 'REFERENCE');
+
+CREATE TABLE note_tasks (
+  id TEXT PRIMARY KEY,
+  "noteId" TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  "taskId" TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  type "NoteTaskType" NOT NULL DEFAULT 'REFERENCE',
+  UNIQUE ("noteId", "taskId")
 );
 ```
 
@@ -69,93 +73,123 @@ interface Note {
   id: string;
   title: string;
   content: string;
-  folderId: string;
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-interface Folder {
+interface Task {
   id: string;
-  name: string;
-  parentId?: string;
+  content: string;
+  dueDate: Date | null;
+  completed: boolean;
+  completedAt?: Date;
+  recurrenceRule?: RecurrenceRule;
+  tags?: string[];
   createdAt: Date;
+  updatedAt: Date;
 }
 
-// Key API methods to implement
+// Key API methods implemented
 getTasksForDateRange(startDate: Date, endDate: Date): TaskInstance[]
-markTaskCompleted(taskId: string, instanceDate?: Date): void
+markTaskCompleted(taskId: string): void
 createTaskFromNote(noteId: string, content: string, dueDate?: Date): Task
+getAllTasks(): TaskInstance[]
+updateTask(taskId: string, updates: Partial<Task>): Task
+deleteTask(taskId: string): void
 ```
 
-## Phase 1 MVP Features
+## Phase 1 Status: ✅ COMPLETE (Legacy System)
 
-### Core Functionality
+### Core Functionality Delivered
 
-1.  **Folder Management**
+1.  **Note Management** ✅ COMPLETE
+    - Create/edit notes with rich text editor
+    - Folder-based organization with nested structure
+    - Tab-based interface for multiple notes
+    - Auto-save functionality
 
-    - Create/rename folders
-    - Nested folder structure (unlimited depth)
-    - Simple sidebar navigation with collapsible folders
-    - Default to "Home" view on app open
-
-2.  **Note Management**
-
-    - WYSIWYG rich text editor (basic markdown tools)
+2.  **Rich Text Editing** ✅ COMPLETE  
+    - TipTap-based WYSIWYG editor with markdown support
     - Read-only toggle for notes
-    - Basic formatting: bold, italic, headers, lists
-    - No images in MVP
+    - Full formatting: bold, italic, headers, lists, colors
+    - Task parsing from markdown checkboxes
 
-3.  **Inline Task Creation**
-
+3.  **Legacy Inline Task System** ✅ IMPLEMENTED (Being Replaced)
     - Syntax: `- [ ] Task content @today/@tomorrow/@YYYY-MM-DD`
-    - Date part stays visible in note after parsing
-    - Checkbox in note linked to task completion status
-    - Click task text to open editing modal
+    - Smart date parsing with conversion to formatted dates
+    - Basic checkbox sync with task completion status
+    - UUID-based task tracking with HTML comments
+    
+    **⚠️ LIMITATIONS IDENTIFIED:**
+    - No live bidirectional sync between inline and external task edits
+    - Static date text doesn't update when task due date changes elsewhere  
+    - No interactive elements (hover, edit buttons) in markdown
+    - Complex UUID/comment system clutters content
 
-4.  **Task Management**
+4.  **Task Management** ✅ COMPLETE
+    - Full CRUD operations with PostgreSQL backend
+    - Task-note relationship tracking (ORIGIN/REFERENCE types)
+    - Due date handling and completion tracking
+    - Calendar views with drag-and-drop scheduling
 
-    - Standalone task creation (not from notes)
-    - Task editing modal (content, due date)
-    - Task context display (shows source note name when applicable)
-    - Simple completion tracking
+## Phase 2: Live-Synced Task System 🚧 IN PROGRESS
 
-5.  **Agenda View**
+### Vision: Interactive Task Widgets
+**Goal**: Replace static markdown tasks with live, interactive task widgets that sync in real-time across all views.
 
-    - Weekly view showing tasks
-    - Overdue tasks prominently displayed
-    - Basic date-based organization
+### User Experience Goals
+1. **Clean Inline Display**: `☐ test task [Today] [Edit]` (no visible IDs)
+2. **Live Bidirectional Sync**: Changes anywhere reflect everywhere instantly
+3. **Interactive Elements**: Hover states, edit buttons, due date badges
+4. **Markdown Shortcuts**: Keep `- [ ] task @today` input convenience
+5. **Rich Context**: Tasks as first-class interactive objects, not text
 
-### Interface Design (Obsidian-Style)
+### Current Interface (Phase 1)
 
-**Main Window:**
+**✅ Implemented:**
 - Tabbed interface for open content (notes, tasks, agenda views)
-- Each tab can display different content types
-- Support for multiple notes/views open simultaneously
-- Tab management (close, reorder, pin important tabs)
+- Folder-based left sidebar with nested organization
+- Calendar views with drag-and-drop task scheduling  
+- Task management across multiple views
 
-**Left Sidebar:**
-- Folder tree navigation with expand/collapse
-- Create new note/task buttons contextual to selected folder
-- Quick actions for folder management (create, rename, delete)
-- Recent notes/tasks list at bottom
-
-**Home Dashboard (Default Tab):**
-- Today's tasks overview
-- This week's agenda preview
-- Recent notes quick access
-- Activity summary
+**🚧 Phase 2 Interface Enhancements:**
+- Interactive task widgets embedded in rich text
+- Real-time sync indicators and badges
+- Contextual task editing (inline modals, hover actions)
+- Live task status updates across all open tabs
 
 ## Implementation Strategy
 
-### Phase 1 Development Order
+### Phase 1 Status: ✅ COMPLETE (Legacy Foundation)
 
-1.  **Database setup** - PostgreSQL with schema above
-2.  **Basic folder CRUD** - Create, read, update folder structure
-3.  **Note CRUD** - Basic note management with simple text editor
-4.  **Task CRUD** - Standalone task creation and management
-5.  **Inline task parsing** - Parse and create tasks from note content
-6.  **Agenda view** - Basic date-based task display
-7.  **Rich text editor** - Upgrade from plain text to WYSIWYG
+1.  **Database Architecture** ✅ - PostgreSQL with task/note/folder schema
+2.  **Rich Text Foundation** ✅ - TipTap editor with markdown support
+3.  **Task CRUD System** ✅ - Complete backend task management
+4.  **Basic Inline Tasks** ✅ - Static markdown-based task parsing
+5.  **Folder Organization** ✅ - Nested folder structure with note organization
+6.  **Calendar Integration** ✅ - Drag-and-drop task scheduling
+7.  **Multi-tab Interface** ✅ - Workspace with tab management
+
+### Phase 2 Development Plan: Live Task System
+
+**🎯 Phase 2A: Foundation (Current)**
+- Design interactive task widget architecture
+- Create TipTap custom node extensions for tasks
+- Build task position mapping system
+- Implement real-time sync infrastructure
+
+**🎯 Phase 2B: Core Widgets** 
+- Replace markdown tasks with interactive widgets
+- Add hover states and inline editing
+- Implement live due date badges
+- Build bidirectional sync system
+
+**🎯 Phase 2C: Advanced Features**
+- Real-time multi-user collaboration prep
+- Advanced task widgets (progress, priority)
+- Context-aware task suggestions
+- Performance optimization for large documents
 
 ### Key Technical Decisions
 
@@ -192,14 +226,130 @@ Migration strategy:
 - Traditional API sync for notes/folders
 - Self-hosted Docker container for multi-device sync
 
+## Phase 2 Implementation Plan: Live Task System
+
+### Phased Transition Strategy
+
+**Why Phased?** Ensure we don't break existing functionality while building the new system.
+
+#### **Phase 2A: Foundation & Architecture** 📋 CURRENT PHASE
+
+**Deliverables:**
+1. **Task Widget Architecture Design**
+   - Custom TipTap node extension for interactive tasks
+   - Task position mapping system (note position ↔ task ID)
+   - Real-time sync event system design
+
+2. **Hybrid System Setup**
+   - Keep existing markdown parsing as fallback
+   - Add widget rendering alongside current system
+   - Create migration utilities for existing tasks
+
+3. **Core Widget Components**
+   ```tsx
+   <TaskWidget 
+     taskId="abc123"
+     content="test task" 
+     dueDate={date}
+     completed={false}
+     onToggle={handleToggle}
+     onEdit={handleEdit}
+     onHover={showEditButton}
+   />
+   ```
+
+**Success Criteria:** ✅ Can create and render basic task widgets alongside existing markdown tasks
+
+#### **Phase 2B: Interactive Widgets** 🎯 NEXT PHASE
+
+**Deliverables:**
+1. **Live Sync Implementation**
+   - Real-time task updates across all open notes
+   - Optimistic UI updates with server sync
+   - WebSocket or polling-based sync system
+
+2. **Enhanced Interactions**
+   - Hover states with edit/delete buttons
+   - Inline due date editing with calendar picker
+   - Visual due date badges (Today, Tomorrow, Overdue)
+   - Drag-and-drop for task reordering within notes
+
+3. **Markdown Shortcut Preservation**
+   - `- [ ] task @today` still works but creates widgets
+   - Automatic conversion from markdown to widget on save
+   - Option to export back to markdown
+
+**Success Criteria:** ✅ Tasks are fully interactive, live-synced, and indistinguishable from native rich text elements
+
+#### **Phase 2C: Migration & Polish** 🚀 FINAL PHASE
+
+**Deliverables:**
+1. **Legacy System Migration**
+   - Migrate all existing markdown tasks to widget system
+   - Remove old HTML comment and UUID system
+   - Clean up deprecated parsing code
+
+2. **Performance Optimization**
+   - Efficient rendering for notes with many tasks
+   - Virtual scrolling for large documents
+   - Debounced sync to prevent excessive API calls
+
+3. **Advanced Features**
+   - Task templates and quick actions
+   - Bulk task operations (complete all, reschedule)
+   - Task dependencies visualization
+
+**Success Criteria:** ✅ Complete transition to widget-based system with no functionality regression
+
+### Technical Architecture
+
+#### **TipTap Task Node Extension**
+```typescript
+const TaskNode = Node.create({
+  name: 'taskWidget',
+  group: 'block',
+  content: 'inline*',
+  
+  addAttributes() {
+    return {
+      taskId: { default: null },
+      completed: { default: false },
+      dueDate: { default: null },
+    }
+  },
+  
+  renderReact() {
+    return TaskWidget
+  }
+})
+```
+
+#### **Real-time Sync System**
+```typescript
+// Task update events
+interface TaskUpdateEvent {
+  taskId: string
+  updates: Partial<Task>
+  source: 'inline' | 'modal' | 'calendar' | 'external'
+}
+
+// Sync across all components
+const useTaskSync = () => {
+  // WebSocket/polling implementation
+  // Optimistic updates with rollback
+  // Conflict resolution
+}
+```
+
 ## Development Guidelines
 
 ### Code Organization
 
-- `/pages/api/` - All backend logic
-- `/components/` - Reusable UI components
-- `/lib/` - Database utilities, API helpers
-- `/types/` - TypeScript interfaces and types
+- `/src/app/api/` - Backend API routes
+- `/src/components/` - UI components and task widgets
+- `/src/lib/` - Database utilities, sync system
+- `/src/types/` - TypeScript interfaces
+- `/src/extensions/` - TipTap custom extensions
 
 ### Database Interactions
 
@@ -218,24 +368,38 @@ Migration strategy:
 
 ## Success Criteria
 
-**Phase 1 Complete When:**
+**Phase 1: ✅ COMPLETE (Legacy System Functional)**
 
-- Can create nested folders and navigate them
-- Can write notes with basic rich text formatting
-- Can create tasks inline with `- [ ]` syntax and basic date parsing
-- Can manage standalone tasks
-- Can view tasks in weekly agenda format
-- Task context properly shows source note
-- All data persists reliably in PostgreSQL
+- ✅ Rich text notes with TipTap editor
+- ✅ Folder-based organization with full CRUD
+- ✅ Legacy inline task system (markdown-based)
+- ✅ Complete task management backend
+- ✅ Calendar views with drag-and-drop scheduling
+- ✅ Tab-based interface with multi-document support
+- ✅ PostgreSQL persistence with proper schema
 
-**Technical Debt to Address Later:**
+**Phase 2: 🚧 IN PROGRESS (Live Task System)**
 
-- Rich text editor upgrade
-- Real-time sync implementation
+- 🚧 Interactive task widget architecture design
+- ⏳ TipTap custom node extensions for tasks
+- ⏳ Real-time bidirectional sync system
+- ⏳ Live due date badges and hover interactions
+- ⏳ Migration path from legacy markdown tasks
+
+**Phase 2 Technical Priorities:**
+
+- **Interactive Task Widgets**: Replace static markdown with live components
+- **Real-time Sync**: Bidirectional task updates across all views
+- **Performance**: Optimize for documents with many embedded tasks
+- **User Experience**: Seamless transition from markdown shortcuts to widgets
+
+**Future Phases (Phase 3+):**
+
+- Advanced recurrence system with task instances
+- Multi-user real-time collaboration
 - Mobile app development
-- Advanced recurrence patterns
-- Calendar integration
-- Time blocking features
+- Advanced calendar integration
+- AI-powered task suggestions
 
 ## Development Notes
 
