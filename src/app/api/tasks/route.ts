@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTask, getTasksForDateRange, getAllTasks } from '@/lib/api';
+import { createTask, getTasksForDateRange, getAllTasks, getTasksByFolder } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
+  const folderId = searchParams.get('folderId');
 
   try {
     if (startDate && endDate) {
       // Get tasks for date range
       const tasks = await getTasksForDateRange(new Date(startDate), new Date(endDate));
       return NextResponse.json(tasks);
+    } else if (folderId !== null) {
+      // Get tasks by folder (support 'folderId=' or 'folderId=123')
+      const tasks = await getTasksByFolder(folderId);
+      return NextResponse.json(tasks); 
     } else {
       // Get all tasks
       const tasks = await getAllTasks();

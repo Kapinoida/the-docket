@@ -41,8 +41,8 @@ export default function TaskList({
     setLoading(true);
     setError(null);
     try {
-      // For now, get all tasks. Later we can filter by folder when we have that relationship
-      const response = await fetch('/api/tasks');
+      const url = folderId ? `/api/tasks?folderId=${folderId}` : '/api/tasks';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setTasks(data);

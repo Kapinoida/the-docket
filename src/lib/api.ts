@@ -125,6 +125,7 @@ export async function getTasksByIds(taskIds: string[]): Promise<TaskInstance[]> 
   }
 }
 
+
 export async function getTasksForDateRange(startDate: Date, endDate: Date): Promise<TaskInstance[]> {
   const client = await pool.connect();
   try {
@@ -157,6 +158,62 @@ export async function getTasksForDateRange(startDate: Date, endDate: Date): Prom
     client.release();
   }
 }
+
+export async function getTasksByFolder(folderId: string): Promise<TaskInstance[]> {
+  const client = await pool.connect();
+  try {
+    let query: string;
+    let params: any[];
+
+    // "Tasks that are tied to a note in that folder"
+    // We use INNER JOIN to ensure we only get tasks linked to notes in this folder.
+    
+    if (!folderId || folderId === 'home_folder' || isNaN(Number(folderId))) {
+      // Root folder (notes with folder_id IS NULL)
+      query = `
+        SELECT 
+          t.*,
+          n.title as note_title
+        FROM tasks t
+        JOIN notes n ON t.source_note_id = n.id
+        WHERE n.folder_id IS NULL
+        ORDER BY t.completed ASC, t.due_date ASC NULLS LAST, t.created_at DESC
+      `;
+      params = [];
+    } else {
+      query = `
+        SELECT 
+          t.*,
+          n.title as note_title
+        FROM tasks t
+        JOIN notes n ON t.source_note_id = n.id
+        WHERE n.folder_id = $1
+        ORDER BY t.completed ASC, t.due_date ASC NULLS LAST, t.created_at DESC
+      `;
+      params = [folderId];
+    }
+
+    const result = await client.query(query, params);
+    
+    return result.rows.map((row): TaskInstance => ({
+      id: String(row.id),
+      content: row.content,
+      dueDate: row.due_date,
+      completed: row.completed,
+      completedAt: row.completed_at || undefined,
+      sourceNote: row.source_note_id ? {
+        id: String(row.source_note_id),
+        title: row.note_title || 'Untitled Note'
+      } : undefined,
+      recurrenceRule: row.recurrence_rule ? (row.recurrence_rule as any) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  } finally {
+    client.release();
+  }
+}
+
 
 export async function markTaskCompleted(taskId: string): Promise<void> {
   // Validate ID

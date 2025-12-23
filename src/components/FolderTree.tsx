@@ -201,6 +201,7 @@ const FolderNode = memo(function FolderNode({
           refreshTrigger={refreshTrigger}
           onCreateNote={onCreateNote}
           onDeleteNote={onDeleteNote}
+          notes={notes}
         />
       )}
     </div>
@@ -238,37 +239,12 @@ const FolderContents = memo(function FolderContents({
   selectedNoteId,
   refreshTrigger,
   onCreateNote,
-  onDeleteNote
-}: FolderContentsProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
+  onDeleteNote,
+  notes
+}: FolderContentsProps & { notes: Note[] }) {
   const [deletingNote, setDeletingNote] = useState<Note | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
-  useEffect(() => {
-    if (mounted && folder.id) {
-      fetchNotes();
-    }
-  }, [mounted, folder.id, refreshTrigger]);
-
-  const fetchNotes = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/notes?folderId=${folder.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNotes(data);
-      }
-    } catch (error) {
-      console.error('Error fetching notes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const truncateTitle = (title: string, maxLength = 25) => {
     if (title.length <= maxLength) return title;
@@ -337,15 +313,7 @@ const FolderContents = memo(function FolderContents({
         </div>
       )}
 
-      {/* Show loading state for notes */}
-      {loading && (
-        <div 
-          className="text-xs text-gray-400 px-1.5 py-0.5"
-          style={{ paddingLeft: `${(level + 1) * 10 + 16}px` }}
-        >
-          Loading notes...
-        </div>
-      )}
+
 
       {/* Then show child folders */}
       {children.length > 0 && (

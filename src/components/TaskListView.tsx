@@ -484,12 +484,33 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
   if (loading) {
     return (
       <div className="flex-1 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-          <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          ))}
+        <div className="max-w-6xl mx-auto animate-pulse">
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2"></div>
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-64"></div>
+          </div>
+
+          {/* Search and Filters Skeleton */}
+          <div className="mb-6 space-y-4">
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-full"></div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-9 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center h-9">
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+            </div>
+          </div>
+
+          {/* Task List Skeleton */}
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-800"></div>
+            ))}
+          </div>
         </div>
       </div>
     );
