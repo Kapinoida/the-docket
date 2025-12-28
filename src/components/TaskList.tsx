@@ -91,6 +91,8 @@ export default function TaskList({
 
       if (response.ok) {
         setTasks(prev => prev.filter(task => task.id !== taskId));
+        // Dispatch taskDeleted event for sync
+        window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId } }));
       } else {
         throw new Error('Failed to delete task');
       }

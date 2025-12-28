@@ -1,4 +1,4 @@
-import { format, addDays, parse, isValid } from 'date-fns';
+import { format, addDays, parse, isValid, endOfWeek, endOfMonth } from 'date-fns';
 
 export interface ParsedTask {
   id: string; // Unique identifier for the task in the note
@@ -44,15 +44,20 @@ export function parseTaskDate(dateString: string): Date | null {
   const today = new Date();
   today.setHours(12, 0, 0, 0); // Reset time to Noon to avoid timezone shifts
   
-  const lowerDate = dateString.toLowerCase().trim();
+  // Remove "due" or "@" prefix if present
+  const cleanDateStr = dateString.replace(/^(?:@|due\s+)/i, '').toLowerCase().trim();
 
   // Basic relative dates
-  if (lowerDate === 'today' || lowerDate === 'tod') return today;
-  if (lowerDate === 'tomorrow' || lowerDate === 'tom') return addDays(today, 1);
-  if (lowerDate === 'yesterday') return addDays(today, -1);
+  if (cleanDateStr === 'today' || cleanDateStr === 'tod') return today;
+  if (cleanDateStr === 'tomorrow' || cleanDateStr === 'tom') return addDays(today, 1);
+  if (cleanDateStr === 'yesterday') return addDays(today, -1);
+  
+  // End of...
+  if (cleanDateStr === 'end of week') return endOfWeek(today, { weekStartsOn: 1 }); // Monday start
+  if (cleanDateStr === 'end of month') return endOfMonth(today);
 
   // "In X days" format
-  const inDaysMatch = lowerDate.match(/^in\s+(\d+)\s+days?$/);
+  const inDaysMatch = cleanDateStr.match(/^in\s+(\d+)\s+days?$/);
   if (inDaysMatch) {
     const days = parseInt(inDaysMatch[1]);
     return addDays(today, days);
@@ -63,7 +68,7 @@ export function parseTaskDate(dateString: string): Date | null {
   const shortDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
   
   // Check for "next [day]" or just "[day]"
-  const nextMatch = lowerDate.match(/^(?:next\s+)?([a-z]+)$/);
+  const nextMatch = cleanDateStr.match(/^(?:next\s+)?([a-z]+)$/);
   if (nextMatch) {
     const dayName = nextMatch[1];
     let dayIndex = daysOfWeek.indexOf(dayName);
@@ -73,30 +78,17 @@ export function parseTaskDate(dateString: string): Date | null {
       let resultDate = new Date(today);
       resultDate.setDate(today.getDate() + (dayIndex + 7 - today.getDay()) % 7);
       
-      // If today is the day, assume next week unless specified? 
-      // Convention: "Friday" on Friday usually means next week's Friday or today? 
-      // Let's assume if it's today, we mean today. 
-      // If "next Friday" and today is Friday, it's 7 days away.
-      
-      if (lowerDate.startsWith('next ')) {
+      if (cleanDateStr.startsWith('next ')) {
          if (resultDate.getTime() === today.getTime()) {
             resultDate = addDays(resultDate, 7);
          } else if (resultDate < today) {
-            // Should not happen with the mod math above but safety check
             resultDate = addDays(resultDate, 7);
          } else {
-           // If "next friday" and today is Tuesday, do we mean this coming friday or the one after?
-           // English is ambiguous. Usually "next Friday" means the one in the next week.
-           // "Friday" means this coming Friday.
-           // Let's shift by 7 days if "next" is present and the day is within this week.
            if (resultDate.getTime() - today.getTime() < 7 * 24 * 60 * 60 * 1000) {
               resultDate = addDays(resultDate, 7);
            }
          }
       } else {
-        // Just "[day]" e.g. "Friday"
-        // If today is Friday, and we type "Friday", assumes today. 
-        // If today is Saturday, "Friday" is next week (6 days away).
         if (resultDate < today) {
            resultDate = addDays(resultDate, 7);
         }
@@ -106,7 +98,7 @@ export function parseTaskDate(dateString: string): Date | null {
   }
 
   // Try to parse as YYYY-MM-DD
-  const dateMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dateMatch = cleanDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateMatch) {
     const [, year, month, day] = dateMatch;
     const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -115,7 +107,7 @@ export function parseTaskDate(dateString: string): Date | null {
   
   // Try other common formats
   try {
-    const parsedDate = parse(dateString, 'yyyy-MM-dd', new Date());
+    const parsedDate = parse(cleanDateStr, 'yyyy-MM-dd', new Date());
     return isValid(parsedDate) ? parsedDate : null;
   } catch {
     return null;
@@ -124,8 +116,11 @@ export function parseTaskDate(dateString: string): Date | null {
 
 // Extract date/content from a single line
 export function extractDateFromContent(cleanLineContent: string): { content: string, date: Date | null, dateString: string | null } {
-  // Regex to capture multi-word dates like @next friday
-  const dateRegex = /(\s+@(?:(\d{4}-\d{2}-\d{2})|(in\s+\d+\s+days?)|(next\s+[a-zA-Z]+)|([a-zA-Z]+)))(?=\s|$)/i;
+  // Regex to capture multi-word dates like @next friday, due next friday, end of week
+  // Capture groups:
+  // 1. "@" + date
+  // 2. "due " + date
+  const dateRegex = /(\s+(?:@|due\s+)(?:(\d{4}-\d{2}-\d{2})|(in\s+\d+\s+days?)|(end\s+of\s+(?:week|month))|(next\s+[a-zA-Z]+)|([a-zA-Z]+)))(?=\s|$)/i;
   const dateMatch = cleanLineContent.match(dateRegex);
     
   let content = cleanLineContent;
@@ -134,8 +129,8 @@ export function extractDateFromContent(cleanLineContent: string): { content: str
   if (dateMatch) {
     // If date is found, content is everything before it
     content = cleanLineContent.slice(0, dateMatch.index).trim();
-    // Group 1 is the full @string
-    dateString = dateMatch[0].trim().substring(1); 
+    // Group 1 is the full string including space, so trim it
+    dateString = dateMatch[0].trim(); 
   } else {
     content = cleanLineContent.trim();
   }

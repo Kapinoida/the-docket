@@ -33,7 +33,8 @@ export default function NoteEditor({
   const titleRef = useRef<HTMLInputElement>(null);
   
   // Debounce content changes to reduce processing overhead
-  const debouncedContent = useDebounce(content, 500);
+  const debouncedContent = useDebounce(content, 1000);
+  const debouncedTitle = useDebounce(title, 1000);
 
   // Track previous note ID to detect switching
   const prevNoteIdRef = useRef(note.id);
@@ -64,6 +65,13 @@ export default function NoteEditor({
   useEffect(() => {
     setHasChanges(title !== note.title || content !== note.content);
   }, [title, content, note]);
+
+  // Autosave effect
+  useEffect(() => {
+    if (mounted && hasChanges && !isSaving && !isReadOnly) {
+       handleSave({ silent: true });
+    }
+  }, [debouncedContent, debouncedTitle]); // dependencies (debounced values) trigger the save logic
 
   useEffect(() => {
     // Focus title input when editor opens
@@ -105,15 +113,15 @@ export default function NoteEditor({
   // Force styled editor mode
   const editorMode = 'styled';
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!title.trim()) {
-      alert("Please enter a title for the note");
+      if (!options.silent) alert("Please enter a title for the note");
       return;
     }
 
     setIsSaving(true);
     try {
-      console.log("[NoteEditor] Saving note...");
+      console.log(`[NoteEditor] Saving note... ${options.silent ? '(Autosave)' : ''}`);
       
       // Since we are using Tiptap exclusively, content is already managed by it.
       // However, we still might want to ensure any legacy markdown in the content 
@@ -131,18 +139,21 @@ export default function NoteEditor({
 
       if (response.ok) {
         const updatedNote = await response.json();
-        onSave(updatedNote);
+        onSave(updatedNote); // This updates the parent list, but we don't necessarily need to reset local state if autosaving?
+        // Actually onSave usually updates the main app state.
+        
+        // Only reset hasChanges if we truly saved everything
         setHasChanges(false);
       } else {
-        alert("Failed to save note");
+        if (!options.silent) alert("Failed to save note");
       }
     } catch (error) {
       console.error("Error saving note:", error);
-      alert("Error saving note");
+      if (!options.silent) alert("Error saving note");
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [title, content, note.id, onSave]);
 
   const handleClose = () => {
     if (isInTab) {
@@ -261,7 +272,7 @@ export default function NoteEditor({
               {isReadOnly ? 'Read-only' : 'Editing'}
             </button>
             <button
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={isSaving || !hasChanges || isReadOnly}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >

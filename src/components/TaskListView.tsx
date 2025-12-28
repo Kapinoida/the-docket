@@ -229,8 +229,13 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
     
     try {
       await Promise.all(promises);
-      // Update local state
       setTasks(prev => prev.filter(task => !selectedTasks.has(task.id)));
+      
+      // Dispatch taskDeleted events for sync
+      selectedTasks.forEach(taskId => {
+        window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId } }));
+      });
+      
       setSelectedTasks(new Set());
       setIsSelectionMode(false);
     } catch (error) {
@@ -650,7 +655,7 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
         </div>
 
         {/* Bulk Action Toolbar */}
-        {isSelectionMode && selectedTasks.size > 0 && (
+        {isSelectionMode && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
@@ -676,26 +681,46 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
                 
                 <button
                   onClick={() => handleBulkComplete(true)}
-                  className="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
+                  disabled={selectedTasks.size === 0}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    selectedTasks.size === 0 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                      : 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-700'
+                  }`}
                 >
                   Mark Complete
                 </button>
                 <button
                   onClick={() => handleBulkComplete(false)}
-                  className="px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded hover:bg-orange-200 dark:hover:bg-orange-700 transition-colors"
+                  disabled={selectedTasks.size === 0}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    selectedTasks.size === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                      : 'bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-700'
+                  }`}
                 >
                   Mark Incomplete
                 </button>
                 
                 <button
                   onClick={() => handleBulkDateChange(new Date())}
-                  className="px-3 py-1.5 text-sm bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors"
+                  disabled={selectedTasks.size === 0}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    selectedTasks.size === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                      : 'bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700'
+                  }`}
                 >
                   Due Today
                 </button>
                 <button
                   onClick={() => handleBulkDateChange(null)}
-                  className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  disabled={selectedTasks.size === 0}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    selectedTasks.size === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
                 >
                   Clear Due Date
                 </button>
@@ -704,7 +729,12 @@ export default function TaskListView({ onTaskSelect, onTaskComplete }: TaskListV
                 
                 <button
                   onClick={handleBulkDelete}
-                  className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+                  disabled={selectedTasks.size === 0}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    selectedTasks.size === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                      : 'bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
+                  }`}
                 >
                   Delete Selected
                 </button>

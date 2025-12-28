@@ -1,30 +1,79 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, InputRule } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import { Node as ProseMirrorNode } from '@tiptap/pm/model';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ConnectedTaskWidget from '@/components/ConnectedTaskWidget';
 
 // Task Widget Node View Component
 const TaskWidgetNodeView = ({ 
   node, 
   updateAttributes, 
-  editor 
+  editor,
+  getPos
 }: { 
   node: ProseMirrorNode;
   updateAttributes: (attributes: any) => void;
   editor: any;
+  getPos: () => number | boolean | undefined;
 }) => {
   const [isMounted, setIsMounted] = useState(false);
-  const { taskId } = node.attrs;
+  // Extract attributes including the new autoFocus
+  const { taskId, initialContent, initialCompleted, autoFocus } = node.attrs;
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-
   const handleEdit = (taskId: string) => {
-    // Emit custom event for parent components to handle
     editor.emit('taskEdit', { taskId });
+  };
+
+  const handleEnter = () => {
+    // Calculate position after this node
+    const pos = getPos();
+    if (typeof pos === 'number') {
+        const insertionPos = pos + node.nodeSize;
+        editor.emit('createNewTask', { insertionPos });
+    } else {
+        // Fallback if we can't get pos
+        editor.emit('createNewTask');
+    }
+  };
+
+  const handleDelete = () => {
+    // If backspace pressed on empty task, replace it with a paragraph
+    // AND delete it from the database (Ghost Task fix)
+    if (taskId) {
+        editor.emit('deleteTask', { taskId });
+    }
+
+    const pos = getPos();
+    if (typeof pos === 'number') {
+        const tr = editor.state.tr;
+        const range = { from: pos, to: pos + node.nodeSize };
+        
+        // We chain commands: delete the widget, then insert a paragraph
+        editor.chain()
+          .deleteRange(range)
+          .insertContentAt(pos, { type: 'paragraph', content: [] })
+          .focus(pos)
+          .run();
+    }
+  };
+
+  const handleRemove = () => {
+    // Just remove the node from the document (used for ghost cleanup)
+    const pos = getPos();
+    console.log(`[TaskWidgetExtension] Removing ghost task widget ${taskId} at pos:`, pos);
+    
+    if (typeof pos === 'number') {
+        const range = { from: pos, to: pos + node.nodeSize };
+        editor.chain()
+          .deleteRange(range)
+          .run(); // No focus change or paragraph insertion needed for auto-cleanup
+    } else {
+        console.warn(`[TaskWidgetExtension] Could not remove widget ${taskId}: Invalid pos`, pos);
+    }
   };
 
   if (!isMounted) {
@@ -42,7 +91,13 @@ const TaskWidgetNodeView = ({
     <NodeViewWrapper className="task-widget-wrapper">
       <ConnectedTaskWidget
         taskId={taskId || ''}
+        initialContent={initialContent}
+        initialCompleted={initialCompleted}
+        autoFocus={autoFocus} // Pass autoFocus prop
         onEdit={handleEdit}
+        onEnter={handleEnter}
+        onDelete={handleDelete}
+        onNotFound={handleRemove}
         className="my-1"
       />
     </NodeViewWrapper>
@@ -71,6 +126,22 @@ export const TaskWidgetExtension = Node.create({
           };
         },
       },
+      initialContent: {
+        default: null,
+        renderHTML: () => ({}),
+        keepOnSplit: false,
+      },
+      initialCompleted: {
+        default: false,
+        renderHTML: () => ({}),
+        keepOnSplit: false,
+      },
+      // New attribute for focus management
+      autoFocus: {
+        default: false,
+        renderHTML: () => ({}), // Don't persist to HTML
+        keepOnSplit: false,
+      }
     };
   },
 
@@ -101,11 +172,15 @@ export const TaskWidgetExtension = Node.create({
 
   addCommands() {
     return {
-      insertTaskWidget: (taskId: string) => ({ commands }) => {
+      // Update signature to accept autoFocus
+      insertTaskWidget: (taskId: string, initialContent?: string, initialCompleted?: boolean, autoFocus?: boolean) => ({ commands }) => {
         return commands.insertContent({
           type: this.name,
           attrs: {
             taskId,
+            initialContent,
+            initialCompleted,
+            autoFocus
           },
         });
       },
@@ -118,15 +193,50 @@ export const TaskWidgetExtension = Node.create({
     };
   },
 
-  // Add keyboard shortcuts for task operations
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\[ \]\s$/,
+        handler: ({ range }) => {
+          this.editor.commands.deleteRange(range);
+          this.editor.emit('createNewTask', undefined);
+        },
+      }),
+    ];
+  },
+
   addKeyboardShortcuts() {
     return {
-      // Ctrl/Cmd + Shift + T to insert a new task widget
       'Mod-Shift-t': () => {
-        // This will need to create a new task first, then insert widget
-        this.editor.emit('createNewTask');
+        this.editor.emit('createNewTask', undefined);
         return true;
       },
+      
+      'Mod-Enter': () => {
+        const { $from } = this.editor.state.selection;
+        const node = $from.parent;
+        
+        if (node.type.name === 'paragraph') {
+          const text = node.textContent;
+          if (!text.trim()) {
+            this.editor.emit('createNewTask', undefined);
+          } else {
+             this.editor.emit('convertLineToTask', { content: text });
+          }
+          return true;
+        }
+        return false;
+      },
+
+      'Mod-d': () => {
+         const { selection } = this.editor.state;
+         if ('node' in selection && (selection as any).node.type.name === this.name) {
+             const taskId = (selection as any).node.attrs.taskId;
+             this.editor.emit('taskEdit', { taskId });
+             return true;
+         }
+         return false;
+      }
     };
   },
 });
@@ -134,7 +244,7 @@ export const TaskWidgetExtension = Node.create({
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     taskWidget: {
-      insertTaskWidget: (taskId: string) => ReturnType;
+      insertTaskWidget: (taskId: string, initialContent?: string, initialCompleted?: boolean, autoFocus?: boolean) => ReturnType;
       updateTaskWidget: (taskId: string, newTaskId?: string) => ReturnType;
     };
   }

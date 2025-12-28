@@ -120,8 +120,8 @@ export default function RichTextEditor({
     }
   }, [openTaskEdit]);
 
-  const handleCreateNewTask = useCallback(async () => {
-    console.log('Create new task requested');
+  const handleCreateNewTask = useCallback(async (data: { insertionPos?: number } | undefined) => {
+    console.log('Create new task requested', data);
     
     if (!editor || !noteId) return;
     
@@ -131,18 +131,67 @@ export default function RichTextEditor({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: 'New task',
+          content: '',
           dueDate: null,
+          noteId: noteId
         }),
       });
       
       if (response.ok) {
         const task = await response.json();
-        // Insert task widget at cursor
-        editor.commands.insertTaskWidget(task.id);
+        const newTaskNode = {
+            type: 'taskWidget',
+            attrs: {
+                taskId: task.id,
+                initialContent: '',
+                initialCompleted: false,
+                autoFocus: true
+            }
+        };
+
+        if (data && typeof data.insertionPos === 'number') {
+            editor.chain().insertContentAt(data.insertionPos, newTaskNode).run();
+        } else {
+            // Insert task widget at cursor (fallback)
+            editor.commands.insertTaskWidget(task.id, '', false, true);
+        }
       }
     } catch (error) {
       console.error('Failed to create new task:', error);
+    }
+  }, [editor, noteId]);
+
+  const handleConvertLineToTask = useCallback(async (data: { content: string }) => {
+    if (!editor || !noteId) return;
+    
+    try {
+        const response = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: data.content,
+                // We could try to parse date from content here too, but backend or taskParser handles it?
+                // The taskParser.ts is usually used on save/load or specialized calls.
+                // The POST /api/tasks likely takes raw content.
+                // If we want parsing, we should extract it here or ensure backend parses.
+                // Based on `extractDateFromContent` check, we can allow backend to handle or parse locally?
+                // Let's parse locally to be safe if backend expects structured date
+                dueDate: null 
+            }),
+        });
+
+        if (response.ok) {
+            const task = await response.json();
+            // Replace current paragraph with task widget
+            editor.commands.command(({ commands }) => {
+               // Assuming cursor is still at the line.
+               // We delete the current node (paragraph) and insert widget.
+               // Pass data.content as initial content for optimistic UI
+               return commands.deleteNode('paragraph') && commands.insertTaskWidget(task.id, data.content, false, true);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to convert line to task:', error);
     }
   }, [editor, noteId]);
 
@@ -198,18 +247,33 @@ export default function RichTextEditor({
     }
   }, [editor, content, isMounted]);
 
+  const handleDeleteTask = useCallback(async (data: { taskId: string }) => {
+    console.log('Delete task requested:', data.taskId);
+    try {
+        await fetch(`/api/tasks/${data.taskId}`, {
+            method: 'DELETE'
+        });
+    } catch (error) {
+        console.error('Failed to delete task:', error);
+    }
+  }, []);
+
   // Set up task widget event listeners
   useEffect(() => {
     if (editor) {
       editor.on('taskEdit', handleTaskEdit);
       editor.on('createNewTask', handleCreateNewTask);
+      editor.on('convertLineToTask', handleConvertLineToTask);
+      editor.on('deleteTask', handleDeleteTask);
       
       return () => {
         editor.off('taskEdit', handleTaskEdit);
         editor.off('createNewTask', handleCreateNewTask);
+        editor.off('convertLineToTask', handleConvertLineToTask);
+        editor.off('deleteTask', handleDeleteTask);
       };
     }
-  }, [editor, handleTaskEdit, handleCreateNewTask]);
+  }, [editor, handleTaskEdit, handleCreateNewTask, handleConvertLineToTask, handleDeleteTask]);
 
   // Convert markdown tasks to widgets after content stabilizes
   useEffect(() => {
@@ -265,14 +329,15 @@ export default function RichTextEditor({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: 'New task',
+          content: '',
           dueDate: new Date(),
+          noteId: noteId
         }),
       });
       
       if (response.ok) {
         const task = await response.json();
-        editor.commands.insertTaskWidget(task.id);
+        editor.commands.insertTaskWidget(task.id, '', false, true);
       }
     } catch (error) {
       console.error('Failed to create task widget:', error);

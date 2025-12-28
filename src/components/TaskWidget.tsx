@@ -10,8 +10,12 @@ interface TaskWidgetProps {
   completed: boolean;
   dueDate?: Date | null;
   onToggle?: (completed: boolean) => void;
-  onEdit?: () => void;
+  onEdit?: (newContent?: string) => void;
+  onOpenModal?: () => void;
+  onEnter?: () => void;
+  onDelete?: () => void;
   onDateChange?: (date: Date | null) => void;
+  autoFocus?: boolean;
   className?: string;
 }
 
@@ -22,18 +26,29 @@ export default function TaskWidget({
   dueDate,
   onToggle,
   onEdit,
+  onOpenModal,
+  onEnter,
+  onDelete,
   onDateChange,
+  autoFocus,
   className = '',
 }: TaskWidgetProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   /* Local state for immediate UI feedback (optimistic) */
   const [localCompleted, setLocalCompleted] = useState(completed);
+  const [localContent, setLocalContent] = useState(content);
 
-  /* Sync local state with prop */
+  /* Sync local state with props */
   if (completed !== localCompleted) {
     setLocalCompleted(completed);
   }
+  // Only sync content if it's significantly different to avoid cursor jumping?
+  // Actually with controlled input + local state, we only sync if prompt changes from outside.
+  // But strictly, if we use local state, we should update it if prop changes.
+  useEffect(() => {
+    setLocalContent(content);
+  }, [content]);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -42,10 +57,15 @@ export default function TaskWidget({
     onToggle?.(newStatus);
   }, [localCompleted, onToggle]);
 
-  const handleEdit = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onEdit?.();
+  const handleContentChange = useCallback((newContent: string) => {
+    setLocalContent(newContent);
+    onEdit?.(newContent);
   }, [onEdit]);
+
+  const handleOpenModal = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenModal?.();
+  }, [onOpenModal]);
 
   // Format due date for display
   const formatDueDate = useCallback((date: Date) => {
@@ -115,19 +135,41 @@ export default function TaskWidget({
         )}
       </button>
 
-      {/* Task Content */}
-      <span
+      {/* Task Content - Editable */}
+      <input
+        type="text"
+        value={localContent}
+        autoFocus={autoFocus}
+        onChange={(e) => handleContentChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.stopPropagation();
+            e.preventDefault(); // Prevent any default browser behavior
+            
+            // If empty, maybe remove task? For now just create new.
+            onEnter?.();
+          } else if (e.key === 'Backspace' && localContent === '') {
+             // Handle backspace on empty task
+             // We prevent default to avoid browser back navigation or weird behavior
+             // But actually, for input, backspace on empty usually does nothing unless handled.
+             // If we want to delete the task, we need to stop propagation and trigger delete.
+             // Wait, if it's not empty, we want normal behavior.
+             e.stopPropagation();
+             e.preventDefault();
+             onDelete?.();
+          }
+        }}
         className={`
-          text-sm select-none cursor-pointer
+          flex-1 bg-transparent border-none outline-none text-sm px-0 py-0
           ${localCompleted 
             ? 'line-through text-gray-500 dark:text-gray-400' 
-            : 'text-gray-900 dark:text-gray-100'
+            : 'text-gray-900 dark:text-gray-100 placeholder-gray-400'
           }
+          focus:ring-0 focus:border-none min-w-[200px]
         `}
-        onClick={handleEdit}
-      >
-        {content}
-      </span>
+        placeholder="Type a task..."
+        onClick={(e) => e.stopPropagation()}
+      />
 
       {/* Due Date Badge */}
       {dueDate && (
@@ -145,7 +187,7 @@ export default function TaskWidget({
       {/* Edit Button (appears on hover) */}
       {isHovered && onEdit && (
         <button
-          onClick={handleEdit}
+          onClick={handleOpenModal}
           className="
             w-6 h-6 rounded hover:bg-gray-200 dark:hover:bg-gray-600 
             flex items-center justify-center text-gray-500 hover:text-gray-700

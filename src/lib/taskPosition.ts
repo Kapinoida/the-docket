@@ -202,6 +202,9 @@ export const convertMarkdownTasksToWidgets = async (
   });
   
   // Create tasks and perform replacements
+  // Sort replacements in reverse order (bottom to top) to prevent position shifts affecting subsequent operations
+  replacements.sort((a, b) => b.from - a.from);
+
   for (const replacement of replacements) {
     try {
       let taskId = replacement.taskId;
@@ -209,8 +212,6 @@ export const convertMarkdownTasksToWidgets = async (
       // If no existing ID, create a new task
       if (!taskId) {
          taskId = await onTaskCreate(replacement.content, replacement.dueDate);
-      } else {
-         console.log(`[TaskPosition] Preserving existing task ID: ${taskId}`);
       }
         
       // Replace with widget

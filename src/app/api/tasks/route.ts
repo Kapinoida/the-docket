@@ -47,14 +47,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(tasks);
     }
     
-    // Otherwise, handle task creation
-    const { content, dueDate } = body;
     
-    if (!content) {
+    // Otherwise, handle task creation
+    const { content, dueDate, noteId } = body;
+    
+    if (content === undefined || content === null) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
     
-    const task = await createTask(content, dueDate ? new Date(dueDate) : undefined);
+    let task;
+    if (noteId) {
+        // If noteId is provided, we use the specific function to link it
+        const { createTaskFromNote } = await import('@/lib/api');
+        task = await createTaskFromNote(noteId, content, dueDate ? new Date(dueDate) : undefined);
+    } else {
+        task = await createTask(content, dueDate ? new Date(dueDate) : undefined);
+    }
 // ... POST handler ...
     return NextResponse.json(task, { status: 201 });
   } catch (error) {

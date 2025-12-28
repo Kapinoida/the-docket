@@ -252,10 +252,10 @@ export const useTaskSync = ({
 
   // Initial fetch
   useEffect(() => {
-    if (!task && !isLoading) {
+    if (!task && !isLoading && !error) {
       fetchTask();
     }
-  }, [task, isLoading, fetchTask]);
+  }, [task, isLoading, error, fetchTask]);
 
   return {
     task,
