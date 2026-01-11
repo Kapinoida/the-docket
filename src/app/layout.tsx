@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -32,6 +33,13 @@ export const metadata: Metadata = {
   description: "Personal productivity application with seamless note-taking and task management",
 };
 
+import { ThemeProvider } from "../components/ThemeProvider";
+
+import { TaskEditProvider } from "../contexts/TaskEditContext";
+import { CommandPalette } from "../components/CommandPalette";
+
+import LayoutWrapper from "../components/v2/LayoutWrapper";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,9 +48,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${platypi.variable} ${nunito.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${platypi.variable} ${nunito.variable} ${jetbrainsMono.variable} antialiased flex h-screen overflow-hidden bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100`}
       >
-        {children}
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <TaskEditProvider>
+              <CommandPalette />
+              <LayoutWrapper>
+                  {children}
+              </LayoutWrapper>
+            </TaskEditProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

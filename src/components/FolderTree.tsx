@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
-import { Folder, Note } from '@/types';
+import { Folder } from '@/types';
+import { Page } from '@/types/v2';
 
 interface FolderTreeProps {
   onFolderSelect?: (folder: Folder) => void;
   selectedFolderId?: string;
-  onNoteSelect?: (note: Note) => void;
-  selectedNoteId?: string;
+  onPageSelect?: (page: Page) => void;
+  selectedPageId?: number;
   refreshTrigger?: number;
-  onCreateNote?: (folderId: string) => void;
+  onCreatePage?: (folderId: string, folderName?: string) => void;
   onCreateTask?: () => void;
-  onDeleteNote?: (noteId: string) => void;
+  onDeletePage?: (pageId: number) => void;
 }
 
 interface FolderNodeProps {
@@ -23,12 +24,14 @@ interface FolderNodeProps {
   onSelect: (folder: Folder) => void;
   onCreateSubfolder: (parentId: string) => void;
   onDeleteFolder: (folder: Folder) => void;
+  onRenameFolder: (folderId: string, newName: string) => Promise<void>;
+  onMoveFolder: (folderId: string, newParentId: string) => Promise<void>;
   selectedFolderId?: string;
-  onNoteSelect?: (note: Note) => void;
-  selectedNoteId?: string;
+  onPageSelect?: (page: Page) => void;
+  selectedPageId?: number;
   refreshTrigger?: number;
-  onCreateNote?: (folderId: string) => void;
-  onDeleteNote?: (noteId: string) => void;
+  onCreatePage?: (folderId: string, folderName?: string) => void;
+  onDeletePage?: (pageId: number) => void;
 }
 
 const FolderNode = memo(function FolderNode({ 
@@ -40,55 +43,106 @@ const FolderNode = memo(function FolderNode({
   onSelect, 
   onCreateSubfolder,
   onDeleteFolder,
+  onRenameFolder,
+  onMoveFolder,
   selectedFolderId,
-  onNoteSelect,
-  selectedNoteId,
+  onPageSelect,
+  selectedPageId,
   refreshTrigger,
-  onCreateNote,
-  onDeleteNote
+  onCreatePage,
+  onDeletePage
 }: FolderNodeProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [pagesLoaded, setPagesLoaded] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
+  const [isDragOver, setIsDragOver] = useState(false);
   
   const children = useMemo(() => 
     allFolders
-      .filter(f => f.parentId === folder.id)
+      .filter(f => String(f.parentId) === String(folder.id))
       .sort((a, b) => a.name.localeCompare(b.name)),
     [allFolders, folder.id]
   );
   
-  const hasChildren = children.length > 0 || notes.length > 0;
-  const isExpanded = expandedFolders.has(folder.id);
-  const isSelected = selectedFolderId === folder.id;
+  const hasChildren = children.length > 0 || pages.length > 0;
+  const isExpanded = expandedFolders.has(String(folder.id));
+  const isSelected = selectedFolderId === String(folder.id);
 
-  // Fetch notes for this folder to determine if it has content
+  // Fetch pages for this folder
   useEffect(() => {
-    const fetchNotes = async () => {
+    const fetchPages = async () => {
       try {
-        const response = await fetch(`/api/notes?folderId=${folder.id}`);
+        const response = await fetch(`/api/v2/pages?folderId=${folder.id}`);
         if (response.ok) {
           const data = await response.json();
-          setNotes(data);
+          setPages(data);
         }
       } catch (error) {
-        console.error('Error fetching notes for expand check:', error);
+        console.error('Error fetching pages for expand check:', error);
       } finally {
-        setNotesLoaded(true);
+        setPagesLoaded(true);
       }
     };
     
-    fetchNotes();
+    fetchPages();
   }, [folder.id, refreshTrigger]);
+
+  const handleRenameSubmit = async () => {
+    if (!renameValue.trim() || renameValue === folder.name) {
+      setIsRenaming(false);
+      return;
+    }
+    await onRenameFolder(folder.id, renameValue);
+    setIsRenaming(false);
+  };
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('folderId', folder.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const draggedFolderId = e.dataTransfer.getData('folderId');
+    if (!draggedFolderId || draggedFolderId === folder.id) return;
+
+    // Check circular dependencies (cannot drop parent into child)
+    if (folder.parentId === draggedFolderId) return; // Already parent
+
+    await onMoveFolder(draggedFolderId, folder.id);
+  };
 
   return (
     <div>
       <div 
-        className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 group ${
-          isSelected ? 'bg-blue-100 dark:bg-blue-900' : ''
-        }`}
+        draggable={folder.name !== 'Home'}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-bg-tertiary group transition-colors ${
+          isSelected ? 'bg-blue-100 dark:bg-blue-900/40' : ''
+        } ${isDragOver ? 'bg-blue-50 dark:bg-blue-800/40 ring-2 ring-blue-400 ring-inset' : ''}`}
         style={{ paddingLeft: `${level * 10 + 6}px` }}
       >
-        {notesLoaded && hasChildren ? (
+        {pagesLoaded && hasChildren ? (
           <button
             onClick={() => onToggle(folder.id)}
             className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex-shrink-0"
@@ -113,7 +167,7 @@ const FolderNode = memo(function FolderNode({
         
         <div 
           className="flex items-center flex-1 min-w-0"
-          onClick={() => onSelect(folder)}
+          onClick={() => !isRenaming && onSelect(folder)}
         >
           <svg
             className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-blue-500"
@@ -122,26 +176,63 @@ const FolderNode = memo(function FolderNode({
           >
             <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
           </svg>
-          <span className="text-sm text-gray-900 dark:text-white truncate">
-            {folder.name}
-          </span>
+          
+           {isRenaming ? (
+              <input
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={handleRenameSubmit}
+                  onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameSubmit();
+                      if (e.key === 'Escape') {
+                          setIsRenaming(false);
+                          setRenameValue(folder.name);
+                      }
+                  }}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-sm px-1 py-0.5 border rounded w-full min-w-[50px] outline-none focus:border-blue-500 text-gray-900 bg-white shadow-sm"
+              />
+          ) : (
+             <span className="text-sm text-text-primary truncate">
+                {folder.name}
+              </span>
+          )}
         </div>
         
         <div className="flex items-center gap-0.5">
-          {/* New Note button on hover */}
-          {onCreateNote && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCreateNote(folder.id);
-              }}
-              className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
-              title="New note in this folder"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
+          {!isRenaming && (
+            <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsRenaming(true);
+                  }}
+                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
+                  title="Rename"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+
+              {/* New Page button on hover */}
+              {onCreatePage && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreatePage(folder.id, folder.name);
+                  }}
+                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
+                  title="New page in this folder"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              )}
+            </>
           )}
           
           {/* Subfolder button */}
@@ -195,13 +286,15 @@ const FolderNode = memo(function FolderNode({
           onSelect={onSelect}
           onCreateSubfolder={onCreateSubfolder}
           onDeleteFolder={onDeleteFolder}
+          onRenameFolder={onRenameFolder}
+          onMoveFolder={onMoveFolder}
           selectedFolderId={selectedFolderId}
-          onNoteSelect={onNoteSelect}
-          selectedNoteId={selectedNoteId}
+          onPageSelect={onPageSelect}
+          selectedPageId={selectedPageId}
           refreshTrigger={refreshTrigger}
-          onCreateNote={onCreateNote}
-          onDeleteNote={onDeleteNote}
-          notes={notes}
+          onCreatePage={onCreatePage}
+          onDeletePage={onDeletePage}
+          pages={pages}
         />
       )}
     </div>
@@ -217,12 +310,14 @@ interface FolderContentsProps {
   onSelect: (folder: Folder) => void;
   onCreateSubfolder: (parentId: string) => void;
   onDeleteFolder: (folder: Folder) => void;
+  onRenameFolder: (folderId: string, newName: string) => Promise<void>;
+  onMoveFolder: (folderId: string, newParentId: string) => Promise<void>;
   selectedFolderId?: string;
-  onNoteSelect?: (note: Note) => void;
-  selectedNoteId?: string;
+  onPageSelect?: (page: Page) => void;
+  selectedPageId?: number;
   refreshTrigger?: number;
-  onCreateNote?: (folderId: string) => void;
-  onDeleteNote?: (noteId: string) => void;
+  onCreatePage?: (folderId: string, folderName?: string) => void;
+  onDeletePage?: (pageId: number) => void;
 }
 
 const FolderContents = memo(function FolderContents({
@@ -234,17 +329,17 @@ const FolderContents = memo(function FolderContents({
   onSelect,
   onCreateSubfolder,
   onDeleteFolder,
+  onRenameFolder,
+  onMoveFolder,
   selectedFolderId,
-  onNoteSelect,
-  selectedNoteId,
+  onPageSelect,
+  selectedPageId,
   refreshTrigger,
-  onCreateNote,
-  onDeleteNote,
-  notes
-}: FolderContentsProps & { notes: Note[] }) {
-  const [deletingNote, setDeletingNote] = useState<Note | null>(null);
-
-
+  onCreatePage,
+  onDeletePage,
+  pages
+}: FolderContentsProps & { pages: Page[] }) {
+  const [deletingPage, setDeletingPage] = useState<Page | null>(null);
 
   const truncateTitle = (title: string, maxLength = 25) => {
     if (title.length <= maxLength) return title;
@@ -260,14 +355,14 @@ const FolderContents = memo(function FolderContents({
 
   return (
     <div>
-      {/* Show notes first */}
-      {notes.length > 0 && (
+      {/* Show pages first */}
+      {pages.length > 0 && (
         <div className="space-y-1">
-          {notes.map((note) => (
+          {pages.map((page) => (
             <div
-              key={note.id}
-              className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 group ${
-                selectedNoteId === note.id ? 'bg-blue-100 dark:bg-blue-900' : ''
+              key={page.id}
+              className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-bg-tertiary group ${
+                selectedPageId === page.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''
               }`}
               style={{ paddingLeft: `${(level + 1) * 10 + 16}px` }}
             >
@@ -283,21 +378,21 @@ const FolderContents = memo(function FolderContents({
                 />
               </svg>
               <span 
-                className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1"
-                onClick={() => onNoteSelect?.(note)}
+                className="text-xs text-text-secondary truncate flex-1"
+                onClick={() => onPageSelect?.(page)}
               >
-                {truncateTitle(note.title)}
+                {truncateTitle(page.title)}
               </span>
               
-              {/* Delete note button */}
-              {onDeleteNote && (
+              {/* Delete page button */}
+              {onDeletePage && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDeletingNote(note);
+                    setDeletingPage(page);
                   }}
                   className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
-                  title="Delete note"
+                  title="Delete page"
                 >
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path
@@ -313,8 +408,6 @@ const FolderContents = memo(function FolderContents({
         </div>
       )}
 
-
-
       {/* Then show child folders */}
       {children.length > 0 && (
         <div className="mt-1">
@@ -329,18 +422,20 @@ const FolderContents = memo(function FolderContents({
               onSelect={onSelect}
               onCreateSubfolder={onCreateSubfolder}
               onDeleteFolder={onDeleteFolder}
+              onRenameFolder={onRenameFolder}
+              onMoveFolder={onMoveFolder}
               selectedFolderId={selectedFolderId}
-              onNoteSelect={onNoteSelect}
-              selectedNoteId={selectedNoteId}
+              onPageSelect={onPageSelect}
+              selectedPageId={selectedPageId}
               refreshTrigger={refreshTrigger}
-              onCreateNote={onCreateNote}
-              onDeleteNote={onDeleteNote}
+              onCreatePage={onCreatePage}
+              onDeletePage={onDeletePage}
             />
           ))}
         </div>
       )}
-          {/* Delete Note Modal */}
-      {deletingNote && onDeleteNote && (
+          {/* Delete Page Modal */}
+      {deletingPage && onDeletePage && (
         <div 
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             onClick={(e) => {
@@ -350,17 +445,17 @@ const FolderContents = memo(function FolderContents({
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Delete Note
+              Delete Page
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to delete "{deletingNote.title}"? This will also delete all tasks associated with this note.
+              Are you sure you want to delete "{deletingPage.title}"?
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setDeletingNote(null);
+                    setDeletingPage(null);
                 }}
                 className="px-4 py-2 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
               >
@@ -370,8 +465,8 @@ const FolderContents = memo(function FolderContents({
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onDeleteNote(deletingNote.id);
-                    setDeletingNote(null);
+                    onDeletePage(deletingPage.id);
+                    setDeletingPage(null);
                 }}
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
               >
@@ -385,7 +480,7 @@ const FolderContents = memo(function FolderContents({
   );
 });
 
-export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSelect, selectedNoteId, refreshTrigger, onCreateNote, onCreateTask, onDeleteNote }: FolderTreeProps) {
+export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSelect, selectedPageId, refreshTrigger, onCreatePage, onCreateTask, onDeletePage }: FolderTreeProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['1'])); // Expand Home by default
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -393,6 +488,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
   const [newFolderParentId, setNewFolderParentId] = useState<string | undefined>();
   const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -400,13 +496,30 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
 
   useEffect(() => {
     if (mounted) {
+      // Load expanded state
+      try {
+        const saved = localStorage.getItem('docket_expanded_folders');
+        if (saved) {
+            setExpandedFolders(new Set(JSON.parse(saved)));
+        }
+      } catch (e) {
+        console.error('Failed to load expanded folders', e);
+      }
+      setStorageLoaded(true);
       fetchFolders();
     }
   }, [mounted]);
 
+  // Persist expanded state
+  useEffect(() => {
+      if (storageLoaded) {
+          localStorage.setItem('docket_expanded_folders', JSON.stringify(Array.from(expandedFolders)));
+      }
+  }, [expandedFolders, storageLoaded]);
+
   const fetchFolders = async () => {
     try {
-      const response = await fetch('/api/folders');
+      const response = await fetch(`/api/v2/folders?t=${Date.now()}`); // Cache bust
       const data = await response.json();
       setFolders(data);
     } catch (error) {
@@ -416,17 +529,18 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
 
   const buildFolderTree = useCallback((parentId?: string): Folder[] => {
     return folders
-      .filter(f => (parentId === undefined ? !f.parentId : f.parentId === parentId))
+      .filter(f => (parentId === undefined ? !f.parentId : String(f.parentId) === parentId))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [folders]);
 
   const handleToggleExpand = useCallback((folderId: string) => {
+    const sId = String(folderId);
     setExpandedFolders(prev => {
       const newExpanded = new Set(prev);
-      if (prev.has(folderId)) {
-        newExpanded.delete(folderId);
+      if (prev.has(sId)) {
+        newExpanded.delete(sId);
       } else {
-        newExpanded.add(folderId);
+        newExpanded.add(sId);
       }
       return newExpanded;
     });
@@ -441,7 +555,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
     if (!newFolderName.trim()) return;
 
     try {
-      const response = await fetch('/api/folders', {
+      const response = await fetch('/api/v2/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -476,7 +590,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
     }
 
     try {
-      const response = await fetch(`/api/folders/${folder.id}`, {
+      const response = await fetch(`/api/v2/folders/${folder.id}`, {
         method: 'DELETE',
       });
 
@@ -497,16 +611,57 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
     }
   };
 
+  const handleRenameFolder = async (folderId: string, newName: string) => {
+      try {
+          const res = await fetch(`/api/v2/folders/${folderId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: newName })
+          });
+          if (res.ok) {
+              fetchFolders();
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleMoveFolder = async (folderId: string, newParentId: string) => {
+      try {
+          // If we are moving a folder to the "Root", checking if that's supported.
+          // Currently UI doesn't have a specific "Root" drop zone except maybe dragging to top.
+          // For now simplest is dragging one folder into another.
+          
+          const res = await fetch(`/api/v2/folders/${folderId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ parentId: newParentId })
+          });
+          
+          if (res.ok) {
+              fetchFolders();
+              // Expand the new parent so user sees the moved folder
+              setExpandedFolders(prev => new Set([...prev, newParentId]));
+          } else {
+              const data = await res.json();
+              alert(data.error || 'Failed to move folder');
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
   const rootFolders = useMemo(() => buildFolderTree(), [buildFolderTree]);
 
   const getHomeFolderId = useCallback(() => {
-    return folders.find(f => f.name === 'Home')?.id || '1';
+    const home = folders.find(f => f.name === 'Home');
+    return home ? String(home.id) : '1';
   }, [folders]);
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center justify-between mb-1.5 bg-gray-50 dark:bg-gray-700 rounded px-2 py-1">
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Folders</span>
+      <div className="flex items-center justify-between mb-1.5 bg-bg-secondary rounded px-2 py-1">
+        <span className="text-xs font-medium text-text-secondary">Folders</span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleCreateSubfolder(undefined)}
@@ -518,9 +673,9 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
             </svg>
           </button>
           <button
-            onClick={() => onCreateNote?.(getHomeFolderId())}
+            onClick={() => onCreatePage?.(getHomeFolderId())}
             className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-            title="New note (in Home)"
+            title="New page (in Home)"
           >
             <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -550,12 +705,14 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onNoteSel
             onSelect={(folder) => onFolderSelect?.(folder)}
             onCreateSubfolder={handleCreateSubfolder}
             onDeleteFolder={setDeletingFolder}
+            onRenameFolder={handleRenameFolder}
+            onMoveFolder={handleMoveFolder}
             selectedFolderId={selectedFolderId}
-            onNoteSelect={onNoteSelect}
-            selectedNoteId={selectedNoteId}
+            onPageSelect={onPageSelect}
+            selectedPageId={selectedPageId}
             refreshTrigger={refreshTrigger}
-            onCreateNote={onCreateNote}
-            onDeleteNote={onDeleteNote}
+            onCreatePage={onCreatePage}
+            onDeletePage={onDeletePage}
           />
         ))}
       </div>
