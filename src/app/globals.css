@@ -4,39 +4,63 @@
 @import "tailwindcss";
 
 :root {
-  /* Light theme (keep as fallback) */
-  --background: #ffffff;
-  --foreground: #171717;
-  
-  /* Font definitions */
+  /* Common Fonts */
   --font-platypi: 'Platypi', 'Times New Roman', serif;
   --font-nunito: 'Nunito', 'Helvetica Neue', 'Arial', sans-serif;
   --font-jetbrains: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* LIGHT Theme (Default) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;     /* Gray 50 */
+  --bg-tertiary: #f3f4f6;      /* Gray 100 */
+  --bg-accent: #e5e7eb;        /* Gray 200 */
+
+  --text-primary: #111827;     /* Gray 900 */
+  --text-secondary: #4b5563;   /* Gray 600 */
+  --text-muted: #9ca3af;       /* Gray 400 */
   
-  /* Sophisticated dark theme inspired by developer tools - Even Darker */
+  --border-subtle: #e5e7eb;
+  --border-default: #d1d5db;
+  --border-accent: #9ca3af;
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-green: #22c55e;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+}
+
+.dark {
+  /* DARK Theme */
   --bg-primary: #0d1117;           /* Ultra deep background */
   --bg-secondary: #161b22;         /* Panel backgrounds */
-  --bg-tertiary: #21262d;          /* Hover states, cards */
+  --bg-tertiary: #21262d;          /* Hover states */
   --bg-accent: #30363d;            /* Interactive elements */
   
-  --border-subtle: #404040;        /* Subtle borders */
-  --border-default: #4a4a4a;       /* Default borders */
-  --border-accent: #5a5a5a;        /* Highlighted borders */
+  --text-primary: #f0f0f0;
+  --text-secondary: #b8b8b8;
+  --text-muted: #888888;
   
-  --text-primary: #f0f0f0;         /* Primary text */
-  --text-secondary: #b8b8b8;       /* Secondary text */
-  --text-muted: #888888;           /* Muted text, placeholders */
+  --border-subtle: #30363d;
+  --border-default: #404040;
+  --border-accent: #5a5a5a;
   
-  --accent-blue: #4a9eff;          /* Primary blue */
-  --accent-blue-hover: #5badff;    /* Blue hover state */
-  --accent-green: #50d878;         /* Success green */
-  --accent-orange: #ff9f40;        /* Warning orange */
-  --accent-red: #ff6b6b;           /* Error red */
+  --accent-blue: #4a9eff;
+  --accent-blue-hover: #5badff;
 }
 
 @theme inline {
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
+  
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-default: var(--border-default);
+  
   --font-sans: var(--font-nunito);
   --font-mono: var(--font-jetbrains);
   --font-serif: var(--font-platypi);
@@ -93,10 +117,18 @@ html {
   font-size: 1.1em;
 }
 
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
 .ProseMirror ul,
 .ProseMirror ol {
   margin: 0.5em 0;
-  padding-left: 1.2em;
+  padding-left: 1.5em;
 }
 
 .ProseMirror li {
@@ -240,6 +272,59 @@ html {
   background: rgba(75, 85, 99, 0.7) !important;
 }
 
-.dark .styled-scrollbar::-webkit-scrollbar-thumb:active {
-  background: rgba(75, 85, 99, 0.9) !important;
+
+/* Tiptap Table Styles */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 2px solid #ced4da;
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 3px 5px;
+  position: relative;
+  vertical-align: top;
+}
+
+.ProseMirror table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  text-align: left;
+}
+
+.ProseMirror .selectedCell:after {
+  background: rgba(200, 200, 255, 0.4);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.ProseMirror .column-resize-handle {
+  background-color: #adf;
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  pointer-events: none;
+  top: 0;
+  width: 4px;
+}
+
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+    border-color: #4b5563; /* Gray 600 */
+}
+
+.dark .ProseMirror table th {
+    background-color: #374151; /* Gray 700 */
 }

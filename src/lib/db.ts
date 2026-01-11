@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { Page, Task, PageItem, PageItemType } from '../types/v2';
 
 // Database connection pool
 const pool = new Pool({
@@ -12,4 +13,183 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
+console.log('Database Pool Configured:', {
+  host: process.env.DB_HOST || 'localhost (default)',
+  port: process.env.DB_PORT || '5433 (default)',
+  database: process.env.DB_NAME || 'the_docket (default)',
+  user: process.env.DB_USER || 'postgres (default)'
+});
+
 export default pool;
+
+// V2 Data Access Functions
+
+export async function createPage(title: string, content: any = {}, folderId?: number): Promise<Page> {
+  const res = await pool.query(
+    'INSERT INTO pages (title, content, folder_id) VALUES ($1, $2, $3) RETURNING *',
+    [title, content, folderId || null]
+  );
+  return res.rows[0];
+}
+
+export async function getPage(id: number): Promise<Page | null> {
+  const query = `
+    SELECT p.*,
+           row_to_json(f.*) as folder_data,
+           (
+             SELECT row_to_json(parent.*)
+             FROM page_items pi
+             JOIN pages parent ON pi.page_id = parent.id
+             WHERE pi.child_page_id = p.id
+             LIMIT 1
+           ) as parent_page_data
+    FROM pages p
+    LEFT JOIN folders f ON p.folder_id = f.id
+    WHERE p.id = $1
+  `;
+  
+  const res = await pool.query(query, [id]);
+  const row = res.rows[0];
+  
+  if (!row) return null;
+  
+  return {
+      ...row,
+      folder: row.folder_data ? { id: row.folder_data.id, name: row.folder_data.name } : null,
+      parent_page: row.parent_page_data ? { id: row.parent_page_data.id, title: row.parent_page_data.title } : null
+  };
+}
+
+export async function getPages(options: { folderId?: number, view?: 'favorites' | 'recent' | 'all' } = {}): Promise<Page[]> {
+  let query = 'SELECT * FROM pages';
+  const params: any[] = [];
+  const startParam = 1;
+
+  if (options.folderId !== undefined) {
+    query += ` WHERE folder_id = $${startParam}`;
+    params.push(options.folderId);
+  } else if (options.view === 'favorites') {
+    query += ' WHERE is_favorite = true';
+  }
+
+  // Ordering
+  if (options.view === 'recent') {
+    query += ' ORDER BY updated_at DESC LIMIT 10';
+  } else {
+    query += ' ORDER BY title ASC';
+  }
+
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+export async function createTask(content: string, dueDate: Date | null = null, recurrenceRule: any = null): Promise<Task> {
+  const res = await pool.query(
+    'INSERT INTO tasks (content, due_date, recurrence_rule) VALUES ($1, $2, $3) RETURNING *',
+    [content, dueDate, recurrenceRule]
+  );
+  return res.rows[0];
+}
+
+export async function getTask(id: number): Promise<Task | null> {
+  const res = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+  return res.rows[0] || null;
+}
+
+export async function addItemToPage(
+  pageId: number,
+  itemId: number,
+  itemType: PageItemType,
+  position: number = 0
+): Promise<PageItem> {
+  const column = itemType === 'page' ? 'child_page_id' : 'child_task_id';
+  
+  const res = await pool.query(
+    `INSERT INTO page_items (page_id, ${column}, position) VALUES ($1, $2, $3) RETURNING *`,
+    [pageId, itemId, position]
+  );
+  
+  // map result to TS interface
+  return {
+    ...res.rows[0],
+    type: itemType
+  };
+}
+
+export async function getPageItems(pageId: number): Promise<PageItem[]> {
+  // polymorphic join to get the actual item content
+  // Note: This is a robust query to get everything on the page
+  const query = `
+    SELECT 
+      pi.*,
+      CASE 
+        WHEN pi.child_page_id IS NOT NULL THEN 'page'
+        WHEN pi.child_task_id IS NOT NULL THEN 'task'
+      END as type,
+      row_to_json(p.*) as page_data,
+      row_to_json(t.*) as task_data
+    FROM page_items pi
+    LEFT JOIN pages p ON pi.child_page_id = p.id
+    LEFT JOIN tasks t ON pi.child_task_id = t.id
+    WHERE pi.page_id = $1
+    AND (pi.child_page_id IS NOT NULL OR (t.content IS NOT NULL AND t.content != ''))
+    ORDER BY pi.position ASC
+  `;
+  
+  const res = await pool.query(query, [pageId]);
+  
+  return res.rows.map(row => {
+    const item = row.type === 'page' ? row.page_data : row.task_data;
+    return {
+      id: row.id,
+      page_id: row.page_id,
+      child_page_id: row.child_page_id,
+      child_task_id: row.child_task_id,
+      type: row.type as PageItemType,
+      position: row.position,
+      display_mode: row.display_mode,
+      created_at: row.created_at,
+      item: item
+    };
+  });
+} 
+
+// Get all pages where an item appears (Context)
+export async function getItemContext(itemId: number, itemType: PageItemType): Promise<Page[]> {
+  const column = itemType === 'page' ? 'child_page_id' : 'child_task_id';
+  
+  const query = `
+    SELECT p.* 
+    FROM pages p
+    JOIN page_items pi ON p.id = pi.page_id
+    WHERE pi.${column} = $1
+  `;
+  
+  const res = await pool.query(query, [itemId]);
+  return res.rows;
+}
+
+export async function searchContent(query: string) {
+  const searchTerm = `%${query}%`;
+  
+  const pagesPromise = pool.query(
+    'SELECT * FROM pages WHERE title ILIKE $1 OR content::text ILIKE $1 LIMIT 5',
+    [searchTerm]
+  );
+  
+  const tasksPromise = pool.query(
+    `SELECT t.*, p.id as page_id, p.title as page_title 
+     FROM tasks t
+     LEFT JOIN page_items pi ON t.id = pi.child_task_id
+     LEFT JOIN pages p ON pi.page_id = p.id
+     WHERE t.content ILIKE $1 LIMIT 5`,
+    [searchTerm]
+  );
+  
+  const [pagesRes, tasksRes] = await Promise.all([pagesPromise, tasksPromise]);
+  
+  return {
+    pages: pagesRes.rows,
+    tasks: tasksRes.rows
+  };
+}

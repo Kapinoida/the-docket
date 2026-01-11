@@ -3,6 +3,8 @@
 export interface RecurrenceRule {
   type: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number;
+  daysOfWeek?: number[]; // [0-6] Sunday=0
+  weekOfMonth?: number; // 1 (first), 2, 3, 4, -1 (last)
   day?: string; // For weekly: 'monday', 'tuesday', etc.
   date?: number; // For monthly: 1-31
   month?: number; // For yearly: 1-12
