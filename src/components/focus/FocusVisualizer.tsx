@@ -71,7 +71,7 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
         this.y = h; 
         this.angle = Math.PI + Math.random() * Math.PI; // Upward arc (PI to 2PI)
         this.length = Math.random() * (h * 0.8) + (h * 0.4); 
-        this.speed = Math.random() * 0.001 + 0.0005; 
+        this.speed = Math.random() * 0.0001 + 0.0005; 
         this.alpha = 0;
         this.maxAlpha = Math.random() * 0.3 + 0.1;
       }
@@ -618,8 +618,8 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
        const w = canvas.width;
        const h = canvas.height;
        
-       rays = Array.from({ length: 50 }, () => new Ray(w, h));
-       particles = Array.from({ length: 100 }, () => new Particle(w, h));
+       rays = Array.from({ length: 100 }, () => new Ray(w, h));
+       particles = Array.from({ length: 200 }, () => new Particle(w, h));
        waves = [];
        streams = Array.from({ length: 15 }, () => new Stream(w, h));
        embers = Array.from({ length: 50 }, () => new Ember(w, h));
@@ -708,7 +708,7 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       // --- Mode: RAYS ---
       if (currentMode === 'rays') {
          // Sun Glow
-         const sunRadius = 300;
+         const sunRadius = 250;
          const sunGlow = ctx.createRadialGradient(cx, cy, 150, cx, cy, sunRadius);
          sunGlow.addColorStop(0, `rgba(${r},${g},${b},${isDark ? 0.15 : 0.1})`); // More subtle (was 0.3)
          sunGlow.addColorStop(1, `rgba(${r},${g},${b},0)`);
