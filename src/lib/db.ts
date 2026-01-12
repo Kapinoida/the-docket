@@ -193,3 +193,67 @@ export async function searchContent(query: string) {
     tasks: tasksRes.rows
   };
 }
+
+export async function getFocusTasks() {
+  const now = new Date();
+  
+  // Overdue: due < today (start of day)
+  // Today: due >= start of today AND due <= end of today
+  // Week: due > end of today AND due <= end of week
+  
+  // Note: relying on Postgres DATE comparison or passing JS dates?
+  // Using SQL standard logic for simplicity and "Today" defined by server time (or we could pass timezone offset)
+  // modifying query to handle dates cleanly.
+  
+  // We'll simplify and fetch all active tasks with a due date, then group in code to allow flexible timezone filtering if needed,
+  // OR use specific SQL queries. 
+  // Let's use 3 specific queries for efficiency if list is huge, but fetching all "future/recent" might be okay.
+  // Given it's a personal app, fetching all incomplete tasks with due dates is fine (likely < 1000).
+  
+  const query = `
+    SELECT * FROM tasks 
+    WHERE status != 'done' 
+    AND due_date IS NOT NULL 
+    ORDER BY due_date ASC
+  `;
+  
+  const res = await pool.query(query);
+  const tasks = res.rows;
+  
+  // Grouping in JS (easier to handle "End of Week" logic with date-fns if imported, or native JS)
+  const todayStart = new Date(now.setHours(0,0,0,0));
+  const todayEnd = new Date(now.setHours(23,59,59,999));
+  
+  // Get end of week (Sunday or Monday? ISO says week starts Mon, US Sunday. Let's assume standard 'upcoming 7 days' or 'rest of calendar week')
+  // Let's do "Next 7 days" or "End of current week"?
+  // User said "due this week". Usually means "by Sunday".
+  const day = now.getDay(); // 0 is Sunday
+  const diff = 7 - day; // days to next Sunday (if today is Sunday 0, diff is 7? No, next Sunday)
+  // Let's just say "Next 7 days" is often more useful for Focus mode, but strict "This Week" implies calendar.
+  // I will define 'Week' as 'Next 7 days' for utility, or separate 'This Week'.
+  // Let's stick to "End of current week (Saturday/Sunday)".
+  const endOfWeek = new Date(now);
+  endOfWeek.setDate(now.getDate() + (6 - day + (day === 0 ? -6 : 1))); // Next Sunday? 
+  // Actually simpler:
+  const nextWeek = new Date(todayEnd);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  
+  const overdue: Task[] = [];
+  const today: Task[] = [];
+  const week: Task[] = [];
+  
+  tasks.forEach(task => {
+      if (!task.due_date) return;
+      const d = new Date(task.due_date);
+      
+      if (d < todayStart) {
+          overdue.push(task);
+      } else if (d >= todayStart && d <= todayEnd) {
+          today.push(task);
+      } else if (d > todayEnd && d <= nextWeek) { // Using "Next 7 Days" as generic "Week" bucket for now
+          week.push(task);
+      }
+  });
+  
+  return { overdue, today, week };
+}
