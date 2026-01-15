@@ -84,7 +84,7 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
         }));
       } else {
         // Update existing task
-        const response = await fetch(`/api/v2/tasks/${(editingTask as Task).id}`, {
+        const response = await fetch(`/api/v2/tasks?id=${(editingTask as Task).id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(v2Updates),
@@ -120,7 +120,7 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
     if (isCreating) return; // Cannot delete what doesn't exist yet
 
     try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
+      const response = await fetch(`/api/v2/tasks?id=${taskId}`, {
         method: 'DELETE',
       });
 

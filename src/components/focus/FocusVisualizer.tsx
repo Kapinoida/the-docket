@@ -94,10 +94,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       speedX: number;
       alpha: number;
       
-      constructor(w: number, h: number) {
+      constructor(w: number, h: number, initial: boolean = false) {
         // Start from center-ish (timer width approx 300px, so vary by +- 150px)
         this.x = (w / 2) + ((Math.random() - 0.5) * 300); 
-        this.y = h + Math.random() * 50; // Start just below screen
+        this.y = initial ? Math.random() * h : h + Math.random() * 50; // Distributed if initial
         this.size = Math.random() * 4 + 1;
         this.speedY = Math.random() * 1 + 0.5;
         this.speedX = (Math.random() - 0.5) * 1.5; // Slight horizontal drift
@@ -220,9 +220,9 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       maxLife: number;
       color: string;
       
-      constructor(w: number, h: number) {
+      constructor(w: number, h: number, initial: boolean = false) {
         this.x = (w / 2) + ((Math.random() - 0.5) * 150); 
-        this.y = h + Math.random() * 20;
+        this.y = initial ? Math.random() * h : h + Math.random() * 20;
         this.size = Math.random() * 20 + 10;
         this.speedY = Math.random() * 2 + 3; // Even Faster (3-5)
         this.speedX = (Math.random() - 0.5) * 1;
@@ -619,10 +619,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
        const h = canvas.height;
        
        rays = Array.from({ length: 100 }, () => new Ray(w, h));
-       particles = Array.from({ length: 200 }, () => new Particle(w, h));
+       particles = Array.from({ length: 200 }, () => new Particle(w, h, true));
        waves = [];
        streams = Array.from({ length: 15 }, () => new Stream(w, h));
-       embers = Array.from({ length: 50 }, () => new Ember(w, h));
+       embers = Array.from({ length: 50 }, () => new Ember(w, h, true));
        hexagons = [];
        
        // Generate Grid Spots
@@ -643,7 +643,57 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
                 gridSpots.push(new GridSpot(x, y));
            }
        }
-       walkers = [];
+        
+        // Init Hexagons (Pre-fill)
+        hexagons = [];
+        const cx = w / 2;
+        const cy = h;
+        const timerSafeRadiusSq = 250*250;
+        
+        // Identify valid spots (not occupied, outside timer area)
+        const validHexSpots = gridSpots.filter(s => {
+             const dx = s.x - cx; 
+             const dy = s.y - cy;
+             return dx*dx + dy*dy > timerSafeRadiusSq;
+        });
+
+        // Add initial hexagons
+        for(let i=0; i<30; i++) {
+             if (validHexSpots.length === 0) break;
+             const idx = Math.floor(Math.random() * validHexSpots.length);
+             const spot = validHexSpots[idx];
+             
+             if (!spot.occupied) {
+                  const hex = new Hexagon(w, h, spot);
+                  // Randomize state for "lived-in" feel
+                  const rand = Math.random();
+                  if (rand > 0.4) {
+                      hex.state = 'holding';
+                      hex.life = Math.random() * 600;
+                      hex.progress = 1;
+                      hex.x = spot.x;
+                      hex.y = spot.y;
+                  } else {
+                      hex.state = 'traveling';
+                      hex.progress = Math.random();
+                      // Update pos
+                      const t = 1 - Math.pow(1 - hex.progress, 2);
+                      hex.x = hex.startX + (hex.targetSpot.x - hex.startX) * t;
+                      hex.y = hex.startY + (hex.targetSpot.y - hex.startY) * t;
+                  }
+                  hexagons.push(hex);
+             }
+        }
+
+        // Init Walkers (Pre-fill)
+        walkers = [];
+        const walkerSpots = gridSpots.filter(s => s.y > h * 0.5); // Lower half
+        for(let i=0; i<3; i++) {
+            if (walkerSpots.length === 0) break;
+            const idx = Math.floor(Math.random() * walkerSpots.length);
+            walkers.push(new HexWalker(walkerSpots[idx]));
+        }
+
        orbiters = Array.from({ length: 150 }, () => new Orbiter(w, h));
        raindrops = Array.from({ length: 100 }, () => new RainDrop(w, h));
        snowflakes = Array.from({ length: 100 }, () => new SnowFlake(w, h));

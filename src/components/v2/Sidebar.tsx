@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, Sun, Moon, ListTodo, Timer } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, Sun, Moon, ListTodo, Timer, Settings } from 'lucide-react';
 import { Page } from '../../types/v2';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
 
 import CreatePageModal from './CreatePageModal';
+import { SettingsModal } from '../SettingsModal';
+import { SyncButton } from '../SyncButton';
 
 export default function Sidebar() {
   const { theme, setTheme } = useTheme();
@@ -23,6 +25,7 @@ export default function Sidebar() {
   
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [createTargetFolderId, setCreateTargetFolderId] = useState<string | undefined>(undefined);
   const [createTargetFolderName, setCreateTargetFolderName] = useState<string | undefined>(undefined);
   
@@ -33,6 +36,8 @@ export default function Sidebar() {
   const [isAllPagesOpen, setIsAllPagesOpen] = useState(false);
 
   const { createTask } = useTaskEdit();
+  
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchData = async () => {
     try {
@@ -62,9 +67,6 @@ export default function Sidebar() {
          if (res.ok) {
              fetchData();
              // Trigger folder tree refresh via key or context?
-             // Actually FolderTree has its own internal state, but it takes `refreshTrigger` prop?
-             // No, looking at my previous view of FolderTree, it has `refreshTrigger`.
-             // I need to increment a refresh trigger state passed to FolderTree.
              setRefreshTrigger(prev => prev + 1);
 
              if (pathname === `/page/${pageId}`) {
@@ -75,8 +77,6 @@ export default function Sidebar() {
          console.error('Delete failed', e);
      }
   };
-
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const openCreateModal = (folderId?: string, folderName?: string) => {
       setCreateTargetFolderId(folderId);
@@ -251,15 +251,27 @@ export default function Sidebar() {
 
       </div>
 
-      <div className="p-4 border-t border-border-subtle mt-auto bg-bg-secondary">
+      <div className="p-4 border-t border-border-subtle mt-auto bg-bg-secondary space-y-2">
           {mounted && (
-            <button
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="flex items-center gap-2 w-full p-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
-            >
-                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="flex-1 flex items-center gap-2 p-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                >
+                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                </button>
+                
+                <button 
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="p-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                  title="Settings"
+                >
+                  <Settings size={16} />
+                </button>
+                
+                <SyncButton />
+            </div>
           )}
       </div>
 
@@ -268,6 +280,11 @@ export default function Sidebar() {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreatePageSubmit}
         folderName={createTargetFolderName}
+      />
+      
+      <SettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

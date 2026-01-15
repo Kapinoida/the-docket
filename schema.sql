@@ -1,26 +1,35 @@
--- The Docket V2 Schema: Context-Based Architecture
--- Replaces rigid folder/note structure with a flexible graph of Pages and Items.
+-- The Docket V2 Schema: Context-Based Architecture (Hybrid Codebase Support)
+-- Restores 'folders' and 'folder_id' required by current implementation.
 
--- WARNING: This resets the schema for V2. Drops existing tables.
+DROP TABLE IF EXISTS task_sync_meta CASCADE;
+DROP TABLE IF EXISTS caldav_configs CASCADE;
 DROP TABLE IF EXISTS page_items CASCADE;
 DROP TABLE IF EXISTS pages CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS folders CASCADE;
 DROP TABLE IF EXISTS notes CASCADE;
 
+-- 0. Folders (Required by current FolderTree/DB access)
+CREATE TABLE folders (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  parent_id INTEGER REFERENCES folders(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- 1. Pages
--- Replaces 'notes' and 'folders'. usage: A page can be a "folder" just by having other pages on it.
+-- Replaces 'notes' and 'folders' concept but linked to legacy folders for now.
 CREATE TABLE pages (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   content JSONB, -- Rich text content (TipTap JSON)
   is_favorite BOOLEAN DEFAULT FALSE,
+  folder_id INTEGER REFERENCES folders(id), -- Required by current db.ts
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- 2. Tasks
--- Standalone items. Context is derived from where they are placed (PageItems).
 CREATE TABLE tasks (
   id SERIAL PRIMARY KEY,
   content TEXT NOT NULL,
@@ -32,19 +41,15 @@ CREATE TABLE tasks (
 );
 
 -- 3. PageItems (The Context Graph)
--- Defines the relationship "Item X appears on Page Y".
 CREATE TABLE page_items (
   id SERIAL PRIMARY KEY,
-  page_id INTEGER REFERENCES pages(id) ON DELETE CASCADE, -- The parent context
+  page_id INTEGER REFERENCES pages(id) ON DELETE CASCADE,
   
-  -- The item being placed (Polymorphic-ish relationship)
-  -- Only one of these should be set.
   child_page_id INTEGER REFERENCES pages(id) ON DELETE CASCADE,
   child_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   
-  -- Metadata for the placement
-  position INTEGER NOT NULL DEFAULT 0, -- Ordering within the page
-  display_mode VARCHAR(50) DEFAULT 'reference', -- 'reference' (link), 'embed' (transclusion)
+  position INTEGER NOT NULL DEFAULT 0,
+  display_mode VARCHAR(50) DEFAULT 'reference',
   
   created_at TIMESTAMP DEFAULT NOW(),
   
@@ -54,9 +59,30 @@ CREATE TABLE page_items (
   )
 );
 
--- Indexes for graph traversal performance
+-- Indexes
 CREATE INDEX idx_page_items_page_id ON page_items(page_id);
 CREATE INDEX idx_page_items_child_page_id ON page_items(child_page_id);
 CREATE INDEX idx_page_items_child_task_id ON page_items(child_task_id);
 CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_pages_updated_at ON pages(updated_at);
+
+-- 4. CalDAV Integration
+CREATE TABLE caldav_configs (
+  id SERIAL PRIMARY KEY,
+  server_url TEXT NOT NULL,
+  username TEXT NOT NULL,
+  password TEXT NOT NULL,
+  calendar_url TEXT, -- Full URL to the specific calendar
+  enabled BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE task_sync_meta (
+  task_id INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+  caldav_uid TEXT NOT NULL,
+  caldav_etag TEXT,
+  last_synced_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_task_sync_meta_caldav_uid ON task_sync_meta(caldav_uid);
