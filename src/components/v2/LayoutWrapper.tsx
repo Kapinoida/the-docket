@@ -5,9 +5,14 @@ import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import { Menu } from 'lucide-react';
 
+import { usePeriodicSync } from '@/hooks/usePeriodicSync';
+
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+
+  // Background Sync (Every 5 minutes)
+  usePeriodicSync(300000);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {

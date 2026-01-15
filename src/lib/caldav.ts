@@ -104,6 +104,7 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
   
   if (dueDate) {
     const time = ICAL.Time.fromJSDate(dueDate);
+    time.isDate = true; // Force DATE-only (All Day) to avoid timezone shifts
     vtodo.addPropertyWithValue('due', time);
   }
   

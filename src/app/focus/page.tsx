@@ -2,21 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
+import { usePomodoroSettings } from '@/hooks/usePomodoroSettings';
 import TimerControls from '@/components/focus/TimerControls';
 import FocusVisualizer, { VisualizationMode } from '@/components/focus/FocusVisualizer';
 import VisualizationDropdown from '@/components/focus/VisualizationDropdown';
+import FocusSettingsModal from '@/components/focus/FocusSettingsModal';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import useAmbience from '@/hooks/useAmbience';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
 import { Task } from '@/types/v2';
-import { Target, X, ListTodo } from 'lucide-react';
+import { Target, X, ListTodo, Settings, Zap, Brain } from 'lucide-react';
 
 export default function FocusPage() {
   const { playClick, playWorkComplete, playBreakComplete } = useSoundEffects();
-  const timer = usePomodoroTimer({}, {
+  const { settings, profiles, updateProfile, activeMode, setMode, isLoaded } = usePomodoroSettings();
+  
+  // Initialize timer with settings once loaded
+  const timer = usePomodoroTimer(isLoaded ? settings : {}, {
     onWorkComplete: playWorkComplete,
     onBreakComplete: playBreakComplete
   });
+
   const { start: startAmbience, stop: stopAmbience } = useAmbience();
   const [visualMode, setVisualMode] = useState<VisualizationMode>('rays');
   const [isAmbienceEnabled, setIsAmbienceEnabled] = useState(false);
@@ -24,6 +30,7 @@ export default function FocusPage() {
   // Task Integration
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Ambience Effect
   useEffect(() => {
@@ -41,6 +48,9 @@ export default function FocusPage() {
     setVisualMode(mode);
   };
 
+  // Prevent hydration mismatch or flash of default settings by not rendering critical parts until loaded
+  // or just accept smooth transition. Timer handles initial props gracefully.
+
   return (
     <div className="flex flex-col items-center justify-between min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
       <FocusVisualizer 
@@ -54,6 +64,42 @@ export default function FocusPage() {
         <h1 className="text-xl font-medium tracking-tight">Focus Mode</h1>
         
         <div className="flex items-center gap-4">
+            {/* Mode Toggle */}
+            <div className="flex bg-white/10 rounded-full p-1 border border-white/5">
+                <button
+                    onClick={() => {
+                        if (activeMode !== 'normal') {
+                            playClick();
+                            setMode('normal');
+                        }
+                    }}
+                    className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all ${
+                        activeMode === 'normal' 
+                            ? 'bg-accent-blue text-white shadow-sm' 
+                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <Zap size={14} />
+                    Normal
+                </button>
+                <button
+                    onClick={() => {
+                        if (activeMode !== 'deep') {
+                            playClick();
+                            setMode('deep');
+                        }
+                    }}
+                    className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all ${
+                        activeMode === 'deep' 
+                            ? 'bg-purple-500 text-white shadow-sm' 
+                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                    <Brain size={14} />
+                    Deep
+                </button>
+            </div>
+
             <VisualizationDropdown
               currentMode={visualMode}
               onModeChange={handleModeChange}
@@ -77,6 +123,15 @@ export default function FocusPage() {
                  )}
             </button>
             
+            {/* Settings Toggle */}
+            <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5"
+                title="Timer Settings"
+            >
+                <Settings size={20} />
+            </button>
+
             {/* Task List Toggle (Header Shortcut) */}
             <button 
                 onClick={() => setIsSidebarOpen(true)}
@@ -130,7 +185,9 @@ export default function FocusPage() {
            <h2 className="text-7xl font-light mb-4 font-mono tracking-tighter tabular-nums drop-shadow-2xl">
             {formatTime(timer.timeLeft)}
            </h2>
-           <p className="text-lg opacity-80 uppercase tracking-widest font-medium mb-8">{formatState(timer.state)}</p>
+           <p className="text-lg opacity-80 uppercase tracking-widest font-medium mb-8">
+            {timer.state === 'work' && activeMode === 'deep' ? 'Deep Work' : formatState(timer.state)}
+           </p>
         </div>
       </main>
 
@@ -144,6 +201,15 @@ export default function FocusPage() {
         onClose={() => setIsSidebarOpen(false)} 
         onSelectTask={setActiveTask}
         activeTaskId={activeTask?.id}
+      />
+
+      {/* Settings Modal */}
+      <FocusSettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        profiles={profiles}
+        activeMode={activeMode}
+        onSave={updateProfile}
       />
     </div>
   );
