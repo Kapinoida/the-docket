@@ -66,6 +66,7 @@ export default async function handler(
         }
 
       case 'POST':
+        // ... (existing POST logic) ...
         const { content, dueDate, pageId, recurrenceRule } = req.body;
         // Allow empty string for content (new task from editor widget)
         if (content === undefined || content === null) return res.status(400).json({ error: 'Content is required' });
@@ -79,8 +80,53 @@ export default async function handler(
 
         return res.status(201).json(newTask);
 
+      case 'PUT':
+        if (!id) return res.status(400).json({ error: 'Task ID is required for update' });
+        const { content: newContent, status, dueDate: newDueDate, recurrenceRule: newRecurrenceRule } = req.body;
+        
+        // Build dynamic update query
+        let updateFields = [];
+        let updateParams = [];
+        let pIdx = 1;
+
+        if (newContent !== undefined) {
+            updateFields.push(`content = $${pIdx++}`);
+            updateParams.push(newContent);
+        }
+        if (status !== undefined) {
+            updateFields.push(`status = $${pIdx++}`);
+            updateParams.push(status);
+        }
+        if (newDueDate !== undefined) {
+            updateFields.push(`due_date = $${pIdx++}`);
+            updateParams.push(newDueDate ? new Date(newDueDate) : null);
+        }
+        if (newRecurrenceRule !== undefined) {
+            updateFields.push(`recurrence_rule = $${pIdx++}`);
+            updateParams.push(newRecurrenceRule);
+        }
+        
+        if (updateFields.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+        // Always update updated_at
+        updateFields.push(`updated_at = NOW()`);
+
+        updateParams.push(Number(id));
+        const updateQuery = `UPDATE tasks SET ${updateFields.join(', ')} WHERE id = $${pIdx} RETURNING *`;
+        
+        const updateRes = await pool.query(updateQuery, updateParams);
+        if (updateRes.rowCount === 0) return res.status(404).json({ error: 'Task not found' });
+        
+        return res.status(200).json(updateRes.rows[0]);
+
+      case 'DELETE':
+        if (!id) return res.status(400).json({ error: 'Task ID is required for deletion' });
+        
+        await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+        return res.status(200).json({ success: true });
+
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
         return res.status(405).end(`Method ${method} Not Allowed`);
     }
   } catch (error) {

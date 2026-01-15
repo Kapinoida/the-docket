@@ -520,10 +520,18 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
   const fetchFolders = async () => {
     try {
       const response = await fetch(`/api/v2/folders?t=${Date.now()}`); // Cache bust
+      if (!response.ok) throw new Error('Failed to fetch folders');
+      
       const data = await response.json();
-      setFolders(data);
+      if (Array.isArray(data)) {
+        setFolders(data);
+      } else {
+        console.error('Folders data is not an array:', data);
+        setFolders([]);
+      }
     } catch (error) {
       console.error('Error fetching folders:', error);
+      setFolders([]);
     }
   };
 
