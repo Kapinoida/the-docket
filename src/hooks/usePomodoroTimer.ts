@@ -88,6 +88,13 @@ export function usePomodoroTimer(initialSettings: Partial<PomodoroSettings> = {}
     };
   }, [isActive, timeLeft, completeSession]);
 
+  // Update timeLeft if workDuration setting changes while in idle state
+  useEffect(() => {
+    if (state === 'idle') {
+      setTimeLeft(settings.workDuration);
+    }
+  }, [settings.workDuration, state]);
+
   const start = () => setIsActive(true);
   const pause = () => setIsActive(false);
   
