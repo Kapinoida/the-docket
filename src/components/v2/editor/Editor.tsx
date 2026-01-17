@@ -74,9 +74,10 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-lg max-w-none focus:outline-none min-h-[50vh] p-4 md:p-8',
+        class: 'prose prose-lg max-w-none focus:outline-none min-h-[50vh] p-4 md:p-8 pb-[80vh]',
       },
       handleDrop: (view, event, slice, moved) => {
+        // ... (existing drop handler) ...
         if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith('image/')) {
@@ -115,6 +116,24 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
     },
     onUpdate: ({ editor }) => {
       handleSave(editor.getJSON());
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { view } = editor;
+      if (editor.isFocused) {
+          const selection = view.state.selection;
+          const cursorPos = view.coordsAtPos(selection.from);
+          const centerViewport = window.innerHeight / 2;
+          
+          // Calculate distance from center
+          const distance = cursorPos.top - centerViewport;
+          
+          // If cursor is significantly away from center (e.g., > 50px)
+          if (Math.abs(distance) > 50) {
+             // Find scrolling container (main)
+             const scroller = view.dom.closest('main') || window;
+             scroller.scrollBy({ top: distance, behavior: 'smooth' });
+          }
+      }
     },
   });
 

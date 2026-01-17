@@ -257,3 +257,13 @@ export async function getFocusTasks() {
   
   return { overdue, today, week };
 }
+
+export async function createTombstone(taskId: number) {
+  // Check if task interacts with CalDAV
+  const res = await pool.query('SELECT caldav_uid FROM task_sync_meta WHERE task_id = $1', [taskId]);
+  if (res.rows.length > 0) {
+      const uid = res.rows[0].caldav_uid;
+      await pool.query('INSERT INTO deleted_task_sync_log (caldav_uid) VALUES ($1)', [uid]);
+      console.log(`[Sync] Created tombstone for task ${taskId} (UID: ${uid})`);
+  }
+}

@@ -1,6 +1,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createTask, getTask, addItemToPage } from '../../../lib/db';
+import { createTask, getTask, addItemToPage, createTombstone } from '../../../lib/db';
 import pool from '../../../lib/db';
 
 export default async function handler(
@@ -114,7 +114,11 @@ export default async function handler(
         updateParams.push(Number(id));
         const updateQuery = `UPDATE tasks SET ${updateFields.join(', ')} WHERE id = $${pIdx} RETURNING *`;
         
+        console.log('[API] PUT Request:', { id, body: req.body, query: updateQuery, params: updateParams });
+
         const updateRes = await pool.query(updateQuery, updateParams);
+        console.log('[API] PUT Result:', { rowCount: updateRes.rowCount, found: updateRes.rowCount > 0 });
+
         if (updateRes.rowCount === 0) return res.status(404).json({ error: 'Task not found' });
         
         return res.status(200).json(updateRes.rows[0]);
@@ -122,6 +126,7 @@ export default async function handler(
       case 'DELETE':
         if (!id) return res.status(400).json({ error: 'Task ID is required for deletion' });
         
+        await createTombstone(Number(id));
         await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
         return res.status(200).json({ success: true });
 

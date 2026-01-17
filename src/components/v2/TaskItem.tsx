@@ -1,86 +1,95 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, Circle, Calendar, Clock } from 'lucide-react';
 import { Task } from '../../types/v2';
 import { format } from 'date-fns';
-import { parseTaskDate } from '../../lib/taskParser';
 import { DatePickerPopover } from './DatePickerPopover';
 
 interface TaskItemProps {
   task: Task;
   onToggle: (id: number) => void;
   onUpdate?: (updates: Partial<Task>) => void;
-  onEnter?: (isEmpty: boolean) => void;
-  onBackspace?: () => void;
-  autoFocus?: boolean;
-  extraActions?: React.ReactNode;
+  isSelectionEnabled?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: number, selected: boolean) => void;
 }
 
-export const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onUpdate, onEnter, onBackspace, autoFocus, extraActions }) => {
-  const [content, setContent] = useState(task.content);
+export const TaskItem: React.FC<TaskItemProps> = ({ 
+    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect 
+}) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
-  // Keep local content in sync
-  useEffect(() => {
-    setContent(task.content);
-  }, [task.content]);
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (autoFocus && inputRef.current) {
-        setTimeout(() => inputRef.current?.focus(), 10);
-    }
-  }, [autoFocus]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
-    setContent(newVal);
-    onUpdate?.({ content: newVal });
-
-    // Natural Language Parsing
-    // Look for @pattern or ending with @pattern
-    const match = newVal.match(/@(.+)$/);
-    if (match) {
-        const potentialDate = match[1];
-        const parsedDate = parseTaskDate(potentialDate);
-        if (parsedDate) {
-            // Valid date found!
-            // Strip the @part from content
-            const cleanContent = newVal.substring(0, match.index).trim();
-            setContent(cleanContent);
-            
-            // Update task with new content AND new date
-            onUpdate?.({ 
-                content: cleanContent,
-                due_date: parsedDate 
-            });
-        }
-    }
-  };
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(task.content);
 
   const handleDateSelect = (date: Date | null, recurrence?: any) => {
       onUpdate?.({ 
           due_date: date,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
-      // Don't close immediately if we want to allow further edits, but for now simple close is fine
-      // DatePickerPopover handles its own internal close button, but we can close it here too
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        onEnter?.(content.trim().length === 0);
-    }
-    if (e.key === 'Backspace' && content.length === 0) {
-        onBackspace?.();
-    }
+  const handleBlur = () => {
+      setIsEditing(false);
+      if (editContent !== task.content) {
+          onUpdate?.({ content: editContent });
+      }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          (e.currentTarget as HTMLInputElement).blur();
+      }
   };
 
   return (
-    <div className="group flex items-center gap-2 py-1 transition-all duration-200 relative">
+    <div className={`group flex items-start gap-2 py-1 transition-all duration-200 relative ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}>
       
-      {/* Metadata / Date Badge (Far Left - Gutter) */}
-      <div className="flex-shrink-0 flex items-center justify-end" style={{ width: task.due_date ? 'auto' : '24px' }}>
+      {/* Selection Checkbox */}
+      {(onSelect || isSelectionEnabled) && (
+          <div className={`mt-1.5 flex-shrink-0 transition-opacity ${isSelected || isSelectionEnabled ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              <input 
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => onSelect?.(task.id, e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+              />
+          </div>
+      )}
+
+      {/* Completion Checkbox */}
+      <button
+        onClick={() => onToggle(task.id)}
+        className="mt-1 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none"
+      >
+        {task.status === 'done' ? (
+             <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />
+        ) : (
+             <Circle className="w-5 h-5" strokeWidth={2} />
+        )}
+      </button>
+
+      {/* Content Area (Simple Input/Div for Dashboard) */}
+      <div className="flex-1 min-w-0">
+          {onUpdate ? (
+              <input
+                  value={isEditing ? editContent : task.content}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={() => setIsEditing(true)}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className={`
+                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-1
+                      ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
+                  `}
+              />
+          ) : (
+              <div className={`text-sm leading-relaxed py-1 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
+                  {task.content}
+              </div>
+          )}
+      </div>
+
+      {/* Metadata / Date Badge */}
+      <div className="flex-shrink-0 flex items-center justify-end mt-1" style={{ width: task.due_date ? 'auto' : '24px' }}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
@@ -110,7 +119,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onUpdate, on
                     )}
                 </div>
              ) : (
-                 /* Implicit Add Button (Ghost Icon) */
+                 /* Implicit Add Button */
                  <button 
                     onClick={() => setShowDatePicker(true)}
                     className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
@@ -121,42 +130,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onUpdate, on
              )}
       </div>
 
-      {/* Checkbox */}
-      <button
-        onClick={() => onToggle(task.id)}
-        className="flex-shrink-0 transition-colors text-text-muted hover:text-accent-green"
-      >
-        {task.status === 'done' ? (
-             <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />
-        ) : (
-             <Circle className="w-5 h-5" strokeWidth={2} />
-        )}
-      </button>
-
-      {/* Text Input / Display */}
-      <div className="flex-1 min-w-0">
-            {onUpdate ? (
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={content}
-                    onChange={handleChange}
-                    onKeyDown={handleKeyDown}
-                    className={`
-                        w-full bg-transparent border-none outline-none text-sm leading-relaxed p-0
-                        ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
-                        placeholder:text-text-muted
-                    `}
-                    placeholder="Type a task... (@today)"
-                />
-            ) : (
-                <div className={`text-sm leading-relaxed text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
-                {task.content}
-                </div>
-            )}
-      </div>
-      
-      {extraActions}
     </div>
   );
 };

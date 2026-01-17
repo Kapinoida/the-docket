@@ -115,6 +115,42 @@ export default function AllTasksView() {
   };
 
 
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const isSelectionMode = selectedTaskIds.size > 0;
+
+  const handleSelect = (id: number, selected: boolean) => {
+      const newSet = new Set(selectedTaskIds);
+      if (selected) {
+          newSet.add(id);
+      } else {
+          newSet.delete(id);
+      }
+      setSelectedTaskIds(newSet);
+  };
+
+  const handleSelectAll = () => {
+      if (selectedTaskIds.size === tasks.length) {
+          setSelectedTaskIds(new Set());
+      } else {
+          setSelectedTaskIds(new Set(tasks.map(t => t.id)));
+      }
+  };
+
+  const handleBulkDelete = async () => {
+      if (!confirm(`Are you sure you want to delete ${selectedTaskIds.size} tasks?`)) return;
+
+      const idsToDelete = Array.from(selectedTaskIds);
+      
+      // Update UI first
+      setTasks(prev => prev.filter(t => !selectedTaskIds.has(t.id)));
+      setSelectedTaskIds(new Set());
+
+      // Perform deletions
+      await Promise.all(idsToDelete.map(id => 
+          fetch(`/api/v2/tasks?id=${id}`, { method: 'DELETE' })
+      ));
+  };  
+
   return (
     <div className="max-w-4xl mx-auto p-8 font-sans">
       
@@ -129,11 +165,34 @@ export default function AllTasksView() {
             </h1>
             <p className="text-text-secondary mt-2 ml-14">Manage everything in one place.</p>
         </div>
+        
+        {/* Bulk Actions */}
+        {isSelectionMode && (
+            <button 
+                onClick={handleBulkDelete}
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
+            >
+                Delete Selected ({selectedTaskIds.size})
+            </button>
+        )}
       </div>
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-bg-secondary rounded-xl border border-border-default">
           
+          {/* Select All Checkbox */}
+          <div className="flex items-center gap-2 mr-4">
+              <input 
+                  type="checkbox"
+                  checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
+                  onChange={handleSelectAll}
+                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-text-secondary">Select All</span>
+          </div>
+          
+          <div className="h-6 w-px bg-border-subtle mx-2" />
+
           {/* Status Filter */}
           <div className="flex items-center gap-1 bg-bg-primary rounded-lg p-1 border border-border-subtle">
               <button 
@@ -207,6 +266,8 @@ export default function AllTasksView() {
                 task={task} 
                 onToggle={handleToggle} 
                 onUpdate={(updates) => handleUpdate(task.id, updates)}
+                isSelected={selectedTaskIds.has(task.id)}
+                onSelect={handleSelect}
             />
           ))
         )}
