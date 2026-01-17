@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import pool, { createTask, addItemToPage } from '../../../../lib/db'; // Ensure createTask is exported
+import pool, { createTask, addItemToPage, createTombstone } from '../../../../lib/db'; // Ensure createTask is exported
 import { calculateNextDueDate } from '../../../../lib/recurrence';
 
 export default async function handler(
@@ -28,12 +28,8 @@ export default async function handler(
         let paramIndex = 1;
 
         if (content !== undefined) {
-             // Anti-Bloat: If content is cleared, delete the task
-             if (content.trim() === '') {
-                  await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
-                  await pool.query('DELETE FROM page_items WHERE child_task_id = $1', [taskId]);
-                  return res.status(200).json({ success: true, deleted: true });
-             }
+             // Anti-Bloat logic REMOVED: User may clear text and re-type.
+             // if (content.trim() === '') { ... }
              updates.push(`content = $${paramIndex++}`);
              values.push(content);
         }
@@ -116,6 +112,7 @@ export default async function handler(
         });
 
       case 'DELETE':
+        await createTombstone(taskId); // Log for Sync Deletion
         await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
         // Also clean up page_items? 
         // Use CASCADE in schema usually, but explicit:

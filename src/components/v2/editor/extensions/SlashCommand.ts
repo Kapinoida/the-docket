@@ -66,30 +66,7 @@ const CommandListItems = [
     title: 'Task List',
     icon: React.createElement(CheckSquare, { size: 18 }),
     command: ({ editor, range }: any) => {
-        // Using our V2 Task insertion logic, but we need to create a task first?
-        // Or just using standard task list if we want simple ones.
-        // For consistency with "The Docket", we should trigger the V2 Task creation flow.
-        // We can do this by just inserting a specialized task node or prompting.
-        // For now, let's insert a prompt to creating a task like the manual button did.
-        
-        // Actually, cleaner UX: Insert a prompt line or trigger the modal.
-        // Let's defer to the complex task logic:
-        const content = prompt("Task content?");
-        if (content) {
-            // This is async, so we can't reliably chain it inside the synchronous command easily without custom logic
-            // But we can fire-and-forget the fetch
-             fetch('/api/v2/tasks', { method: 'POST', body: JSON.stringify({ content })})
-                .then(r => r.json())
-                .then(task => {
-                     // We need to access the editor instance later.
-                     // Since deleteRange happens first, we are at the cursor.
-                     editor.chain().focus().insertV2Task(task.id).run();
-                });
-             editor.chain().focus().deleteRange(range).run();   
-        } else {
-             // If cancelled, just delete the slash command
-             editor.chain().focus().deleteRange(range).run();
-        }
+      editor.chain().focus().deleteRange(range).toggleNode('v2Task', 'paragraph').run();
     },
   },
   {

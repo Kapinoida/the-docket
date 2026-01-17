@@ -161,6 +161,14 @@ export async function syncTasks(): Promise<SyncResult> {
     
     console.log(`[Sync] Using Calendar: ${calendar.displayName} (${calendar.url})`);
 
+    // 1.5 Process Tombstones (Delete remote tasks that were deleted locally)
+    const tombstonesRes = await pool.query('SELECT caldav_uid FROM deleted_task_sync_log');
+    const tombstoneUids = new Set(tombstonesRes.rows.map(r => r.caldav_uid));
+    
+    if (tombstoneUids.size > 0) {
+        console.log(`[Sync] Found ${tombstoneUids.size} deletion tombstones. Processing...`);
+    }
+
     // 2. Fetch Remote Tasks
     let remoteObjects: DAVCalendarObject[] = [];
     
@@ -293,6 +301,33 @@ export async function syncTasks(): Promise<SyncResult> {
       if (!parsed || !parsed.uid) continue;
 
       remoteProcessedUids.add(parsed.uid);
+      
+      // Handle Tombstone
+      if (tombstoneUids.has(parsed.uid)) {
+          console.log(`[Sync] Remote task ${parsed.uid} matches local tombstone. DELETING from remote...`);
+          try {
+              const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
+              const delRes = await fetch(rObj.url, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': auth }
+              });
+              
+              if (delRes.ok) {
+                  console.log(`[Sync] Successfully deleted remote task ${parsed.uid}`);
+                  // Cleanup tombstone
+                  await pool.query('DELETE FROM deleted_task_sync_log WHERE caldav_uid = $1', [parsed.uid]);
+                  // Also cleanup sync meta if it lingered (should have been cascaded but just in case)
+                  // await pool.query('DELETE FROM task_sync_meta WHERE caldav_uid = $1', [parsed.uid]);
+              } else {
+                  console.error(`[Sync] Failed to delete remote task ${parsed.uid}: ${delRes.status}`);
+                  result.errors.push(`Failed to delete remote task ${parsed.uid}`);
+              }
+          } catch (delErr) {
+              console.error(`[Sync] Error deleting remote task ${parsed.uid}:`, delErr);
+          }
+          continue; // Don't process further
+      }
+      
       const local = localByUid.get(parsed.uid);
 
       if (local) {
