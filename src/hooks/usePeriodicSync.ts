@@ -11,6 +11,12 @@ export function usePeriodicSync(intervalMs: number = 300000) { // Default 5 minu
         return;
       }
 
+      // Check if sync is paused
+      const isPaused = localStorage.getItem('docket_sync_paused') === 'true';
+      if (isPaused) {
+        return;
+      }
+
       try {
         isSyncingRef.current = true;
         console.log('[AutoSync] Starting periodic sync...');
