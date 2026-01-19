@@ -9,6 +9,7 @@ import VisualizationDropdown from '@/components/focus/VisualizationDropdown';
 import FocusSettingsModal from '@/components/focus/FocusSettingsModal';
 import useSoundEffects from '@/hooks/useSoundEffects';
 import useAmbience from '@/hooks/useAmbience';
+import { useFocusPreferences } from '@/hooks/useFocusPreferences';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
 import { Task } from '@/types/v2';
 import { Target, X, ListTodo, Settings, Zap, Brain } from 'lucide-react';
@@ -24,8 +25,7 @@ export default function FocusPage() {
   });
 
   const { start: startAmbience, stop: stopAmbience } = useAmbience();
-  const [visualMode, setVisualMode] = useState<VisualizationMode>('rays');
-  const [isAmbienceEnabled, setIsAmbienceEnabled] = useState(false);
+  const { visualMode, isAmbienceEnabled, setVisualMode, setIsAmbienceEnabled } = useFocusPreferences();
   
   // Task Integration
   const [activeTask, setActiveTask] = useState<Task | null>(null);
