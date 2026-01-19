@@ -158,13 +158,15 @@ export default function DashboardView() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Weekly Agenda */}
+        {/* Main Content Area */}
+        <div className="grid grid-cols-1 gap-8">
+          
+          {/* Weekly Calendar - Full Width */}
           <div className="bg-bg-secondary rounded-2xl border border-border-subtle shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
+             <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
                     <Calendar className="text-purple-500" size={20} />
-                    This Week's Tasks
+                    Weekly Schedule
                 </h3>
             </div>
             <WeeklyAgenda 
