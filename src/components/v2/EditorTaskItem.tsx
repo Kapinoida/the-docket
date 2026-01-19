@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, Editor } from '@tiptap/react';
-import { CheckCircle2, Circle, Calendar, Clock, GripVertical } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, Clock, GripVertical, MoreHorizontal } from 'lucide-react';
 import { Task } from '../../types/v2';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
@@ -52,16 +52,6 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
   return (
     <NodeViewWrapper className={`group flex items-start gap-2 py-1 transition-all duration-200 relative ${selected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}>
       
-      {/* Drag Handle - Native Tiptap Dragging */}
-      <div 
-        className="mt-1.5 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-        contentEditable={false} 
-        draggable="true" 
-        data-drag-handle
-      >
-        <GripVertical size={14} />
-      </div>
-
       {/* Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
