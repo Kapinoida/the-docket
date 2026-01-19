@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { Page } from '../../../types/v2';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
+import { GlobalDragHandle } from './GlobalDragHandle';
 
 const lowlight = createLowlight(common);
 
@@ -77,7 +78,7 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
         class: 'prose prose-lg max-w-none focus:outline-none min-h-[50vh] p-4 md:p-8 pb-[80vh]',
       },
       handleDrop: (view, event, slice, moved) => {
-        // ... (existing drop handler) ...
+        // 1. Handle File Uploads (Images)
         if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith('image/')) {
@@ -94,6 +95,68 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
             });
             return true; // handled
           }
+        }
+        
+        // 2. Handle Content Drops (Block Reordering)
+        const isInternalDrag = event.dataTransfer?.types.includes('application/x-docket-drag');
+        
+        if (moved || isInternalDrag || (slice && slice.content.size > 0)) {
+            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (!coordinates) return false;
+            
+            const $pos = view.state.doc.resolve(coordinates.pos);
+            
+            // Find the visual block node we are hovering over
+            let depth = $pos.depth;
+            let node = $pos.node(depth);
+            while (depth > 0 && node && !node.isBlock) {
+                depth--;
+                node = $pos.node(depth);
+            }
+            
+            // Ensure we are operating on a block
+            if (depth > 0 && node && node.isBlock) {
+                 // Logic to calculate drop position
+                 const beforePos = $pos.before(depth);
+                 
+                 let dom = view.nodeDOM(beforePos) as HTMLElement;
+                 if (!dom) {
+                      const target = document.elementFromPoint(event.clientX, event.clientY);
+                      dom = target?.closest('[data-node-view-wrapper], .ProseMirror-widget, p, h1, h2, h3, li') as HTMLElement;
+                 }
+
+                 if (dom) {
+                     const rect = dom.getBoundingClientRect();
+                     const midY = rect.top + rect.height / 2;
+                     const isTopHalf = event.clientY < midY;
+                     const finalPos = isTopHalf ? beforePos : $pos.after(depth);
+                     
+                     // Perform the move
+                     let tr = view.state.tr;
+                     
+                     // If it's a move (internal), delete the original selection first
+                     if (moved || isInternalDrag) {
+                         const { from, to } = view.state.selection;
+                         
+                         // Dropping on self?
+                         if (finalPos >= from && finalPos <= to) return true;
+                         
+                         tr.deleteSelection();
+                         
+                         // Map the insertion position because deletion shifted indices
+                         const mappedPos = tr.mapping.map(finalPos);
+                         
+                         // Insert the content
+                         tr.insert(mappedPos, slice.content);
+                     } else {
+                         // External copy
+                         tr.insert(finalPos, slice.content);
+                     }
+                     
+                     view.dispatch(tr);
+                     return true;
+                 }
+            }
         }
         return false;
       },
@@ -208,6 +271,9 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
         </div>
 
       <EditorContent editor={editor} />
+      
+      {/* Global Handle Overlay */}
+      <GlobalDragHandle editor={editor} pageId={pageId} />
       
       <div className="mt-8 pt-8 border-t text-xs text-gray-400 opacity-50 hover:opacity-100 transition-opacity">
           Type <code>/</code> for commands, <code>[ ]</code> for checks, or select text to format.
