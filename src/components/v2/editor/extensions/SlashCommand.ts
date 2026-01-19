@@ -15,7 +15,8 @@ import {
     Text,
     Code,
     Quote as WrapText,
-    Table as TableIcon
+    Table as TableIcon,
+    FileText // Import for Subpage
   } from 'lucide-react';
 import React from 'react';
 
@@ -66,7 +67,16 @@ const CommandListItems = [
     title: 'Task List',
     icon: React.createElement(CheckSquare, { size: 18 }),
     command: ({ editor, range }: any) => {
-      editor.chain().focus().deleteRange(range).toggleNode('v2Task', 'paragraph').run();
+      // Use proper custom task node conversion
+      const pageId = editor.storage.v2PageLink?.currentPageId;
+      editor.chain().focus().deleteRange(range).setNode('v2Task', { pageId }).run();
+    },
+  },
+  {
+    title: 'Subpage',
+    icon: React.createElement(FileText, { size: 18 }),
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).insertPageLink({ tempTitle: 'Untitled Page' }).run();
     },
   },
   {
@@ -78,7 +88,7 @@ const CommandListItems = [
   },
   {
     title: 'Blockquote',
-    icon: React.createElement(WrapText, { size: 18 }), // Changed from Quote because Quote might not be exported or aliased? Let's use Quote if defined or import it.
+    icon: React.createElement(WrapText, { size: 18 }),
     command: ({ editor, range }: any) => {
       editor.chain().focus().deleteRange(range).toggleBlockquote().run();
     },
