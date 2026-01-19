@@ -41,6 +41,33 @@ export default function PageView() {
       }
   };
 
+  const handleTitleBlur = async (e: React.FocusEvent<HTMLHeadingElement>) => {
+      const newTitle = e.currentTarget.textContent;
+      if (!page || !newTitle || newTitle === page.title) return;
+
+      try {
+        const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle })
+        });
+
+        if (res.ok) {
+          const updatedPage = await res.json();
+          setPage({ ...page, title: updatedPage.title });
+        }
+      } catch (err) {
+        console.error("Failed to update page title", err);
+      }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLHeadingElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.blur();
+    }
+  };
+
   const handleTaskToggle = async (taskId: number) => {
     if (!page || !page.items) return;
 
@@ -119,7 +146,13 @@ export default function PageView() {
             </button>
         </div>
 
-        <h1 className="text-4xl font-bold mb-4 outline-none placeholder:text-text-muted text-text-primary" contentEditable suppressContentEditableWarning>
+        <h1 
+            className="text-4xl font-bold mb-4 outline-none placeholder:text-text-muted text-text-primary" 
+            contentEditable 
+            suppressContentEditableWarning
+            onBlur={handleTitleBlur}
+            onKeyDown={handleTitleKeyDown}
+        >
             {page.title}
         </h1>
       </div>
