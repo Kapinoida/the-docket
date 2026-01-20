@@ -1,20 +1,33 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Folder, FileText, Trash2 } from 'lucide-react';
+import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, PageItem, Task } from '../../../types/v2';
 import { TaskItem } from '../../../components/v2/TaskItem';
+
+interface Tag {
+    id: number;
+    name: string;
+    color: string;
+}
+
+interface PageWithTags extends Page {
+    tags?: Tag[];
+}
 
 export default function PageView() {
   const params = useParams();
   const id = params?.id;
   
-  const [page, setPage] = useState<Page | null>(null);
+  const [page, setPage] = useState<PageWithTags | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Tag state
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -55,6 +68,8 @@ export default function PageView() {
         if (res.ok) {
           const updatedPage = await res.json();
           setPage({ ...page, title: updatedPage.title });
+          // Notify sidebar/others
+          window.dispatchEvent(new Event('pageUpdated'));
         }
       } catch (err) {
         console.error("Failed to update page title", err);
@@ -97,6 +112,75 @@ export default function PageView() {
             body: JSON.stringify({ status: newStatus })
         });
     }
+  };
+
+  const handleAddTag = async () => {
+      if (!page || !tagInput.trim()) return;
+      const tagName = tagInput.trim();
+      
+      try {
+          // 1. Create or Get Tag
+          const tagRes = await fetch('/api/v2/tags', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: tagName })
+          });
+          
+          if (tagRes.ok) {
+              const tag = await tagRes.json();
+              
+              // 2. Assign Tag
+              await fetch('/api/v2/tags/assign', {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({
+                      action: 'assign',
+                      tagId: tag.id,
+                      itemId: page.id,
+                      itemType: 'page'
+                  })
+              });
+              
+              // 3. Update State
+              const newTags = [...(page.tags || [])];
+              if (!newTags.find(t => t.id === tag.id)) {
+                  newTags.push(tag);
+              }
+              setPage({ ...page, tags: newTags });
+              setTagInput('');
+              setIsAddingTag(false);
+              
+              // Refresh Sidebar
+              window.dispatchEvent(new Event('pageUpdated'));
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleRemoveTag = async (tagId: number) => {
+      if (!page) return;
+      try {
+          await fetch('/api/v2/tags/assign', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                  action: 'remove',
+                  tagId,
+                  itemId: page.id,
+                  itemType: 'page'
+              })
+          });
+          
+          setPage({
+              ...page,
+              tags: page.tags?.filter(t => t.id !== tagId)
+          });
+          
+          window.dispatchEvent(new Event('pageUpdated'));
+      } catch (e) {
+          console.error(e);
+      }
   };
 
   if (loading) return <div className="p-8">Loading Page...</div>;
@@ -155,6 +239,50 @@ export default function PageView() {
         >
             {page.title}
         </h1>
+
+        {/* Tags */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+            {page.tags?.map(tag => (
+                <div key={tag.id} className="flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 rounded-full text-sm">
+                    <Hash size={12} />
+                    <span>{tag.name}</span>
+                    <button 
+                        onClick={() => handleRemoveTag(tag.id)}
+                        className="hover:text-blue-900 dark:hover:text-white p-0.5 rounded-full"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            ))}
+            
+            {isAddingTag ? (
+                <div className="flex items-center gap-1">
+                    <input 
+                        className="px-2 py-1 text-sm border rounded outline-none focus:border-blue-500 bg-transparent text-text-primary w-32"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        placeholder="Tag name..."
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleAddTag();
+                            if (e.key === 'Escape') setIsAddingTag(false);
+                        }}
+                        onBlur={() => {
+                            if (tagInput.trim()) handleAddTag();
+                            else setIsAddingTag(false);
+                        }}
+                    />
+                </div>
+            ) : (
+                <button 
+                    onClick={() => setIsAddingTag(true)}
+                    className="flex items-center gap-1 px-2 py-1 text-sm text-text-secondary hover:bg-bg-tertiary rounded-full hover:text-text-primary transition-colors"
+                >
+                    <Plus size={14} />
+                    <span>Add Tag</span>
+                </button>
+            )}
+        </div>
       </div>
       
       <V2Editor pageId={page.id} initialContent={page.content} />

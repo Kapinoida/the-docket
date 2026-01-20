@@ -40,6 +40,8 @@ import { CommandPalette } from "../components/CommandPalette";
 
 import LayoutWrapper from "../components/v2/LayoutWrapper";
 
+import { SearchDialog } from '@/components/v2/SearchDialog';
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -258,6 +258,7 @@ export async function getFocusTasks() {
   return { overdue, today, week };
 }
 
+// ... (existing code) ...
 export async function createTombstone(taskId: number) {
   // Check if task interacts with CalDAV
   const res = await pool.query('SELECT caldav_uid FROM task_sync_meta WHERE task_id = $1', [taskId]);
@@ -266,4 +267,73 @@ export async function createTombstone(taskId: number) {
       await pool.query('INSERT INTO deleted_task_sync_log (caldav_uid) VALUES ($1)', [uid]);
       console.log(`[Sync] Created tombstone for task ${taskId} (UID: ${uid})`);
   }
+}
+
+// --- Tagging System ---
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+}
+
+export async function createTag(name: string, color: string = 'blue'): Promise<Tag> {
+  const res = await pool.query(
+    'INSERT INTO tags (name, color) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET color = $2 RETURNING *',
+    [name, color]
+  );
+  return res.rows[0];
+}
+
+export async function getTags(): Promise<Tag[]> {
+  const res = await pool.query('SELECT * FROM tags ORDER BY name ASC');
+  return res.rows;
+}
+
+export async function assignTag(tagId: number, itemId: number, itemType: 'page' | 'task') {
+  await pool.query(
+    'INSERT INTO tag_assignments (tag_id, item_id, item_type) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+    [tagId, itemId, itemType]
+  );
+}
+
+export async function removeTag(tagId: number, itemId: number, itemType: 'page' | 'task') {
+  await pool.query(
+    'DELETE FROM tag_assignments WHERE tag_id = $1 AND item_id = $2 AND item_type = $3',
+    [tagId, itemId, itemType]
+  );
+}
+
+export async function getTagsForItem(itemId: number, itemType: 'page' | 'task'): Promise<Tag[]> {
+  const res = await pool.query(`
+    SELECT t.* 
+    FROM tags t
+    JOIN tag_assignments ta ON t.id = ta.tag_id
+    WHERE ta.item_id = $1 AND ta.item_type = $2
+    ORDER BY t.name ASC
+  `, [itemId, itemType]);
+  return res.rows;
+}
+
+export async function getItemsByTag(tagId: number) {
+    const pagesRes = await pool.query(`
+        SELECT p.* 
+        FROM pages p
+        JOIN tag_assignments ta ON p.id = ta.item_id
+        WHERE ta.tag_id = $1 AND ta.item_type = 'page'
+        ORDER BY p.title ASC
+    `, [tagId]);
+
+    const tasksRes = await pool.query(`
+        SELECT t.* 
+        FROM tasks t
+        JOIN tag_assignments ta ON t.id = ta.item_id
+        WHERE ta.tag_id = $1 AND ta.item_type = 'task'
+        ORDER BY t.created_at DESC
+    `, [tagId]);
+
+    return {
+        pages: pagesRes.rows,
+        tasks: tasksRes.rows
+    };
 }
