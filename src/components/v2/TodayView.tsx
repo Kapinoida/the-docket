@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Task } from '../../types/v2';
 import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
+import DailyJournalEditor from './DailyJournalEditor';
 
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -171,7 +172,7 @@ export default function TodayView() {
                   )}
                   
                   {todayTasks.length === 0 && overdueTasks.length === 0 ? (
-                       <div className="text-center py-16">
+                       <div className="text-center py-8">
                            <div className="inline-block p-4 rounded-full bg-green-50 dark:bg-green-900/20 text-green-500 mb-3">
                                <InboxIcon size={32} />
                            </div>
@@ -190,7 +191,13 @@ export default function TodayView() {
                   )}
               </div>
           </div>
+
       )}
+
+      {/* Daily Journal Section */}
+      <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
+        <DailyJournalEditor />
+      </div>
     </div>
   );
 }
