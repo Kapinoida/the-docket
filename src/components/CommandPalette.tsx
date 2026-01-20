@@ -4,15 +4,27 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
-import { Search, FileText, CheckCircle, Home, Calendar } from 'lucide-react';
+import { Search, FileText, CheckCircle, Home, Calendar, Hash } from 'lucide-react';
 import { Page, Task } from '@/types/v2';
+
+// Helper interface for the flat API response
+interface SearchResultItem {
+  id: number;
+  title: string; // or content for tasks
+  type: 'page' | 'task' | 'tag';
+  content?: string; // for tasks
+  page_id?: number;
+  page_title?: string;
+  name?: string; // for tags
+}
 
 export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
-  const [pages, setPages] = React.useState<Page[]>([]);
-  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [pages, setPages] = React.useState<SearchResultItem[]>([]);
+  const [tasks, setTasks] = React.useState<SearchResultItem[]>([]);
+  const [tags, setTags] = React.useState<SearchResultItem[]>([]);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -34,6 +46,7 @@ export function CommandPalette() {
         if (!search) {
             setPages([]);
             setTasks([]);
+            setTags([]);
             return;
         }
 
@@ -41,9 +54,12 @@ export function CommandPalette() {
         try {
             const res = await fetch(`/api/v2/search?q=${encodeURIComponent(search)}`);
             if (res.ok) {
-                const data = await res.json();
-                setPages(data.pages);
-                setTasks(data.tasks);
+                const data: SearchResultItem[] = await res.json();
+                // The API returns a flat array. Filter by type.
+                // Note: The API tries to normalize title/content into 'title', but let's be safe.
+                setPages(data.filter(item => item.type === 'page'));
+                setTasks(data.filter(item => item.type === 'task'));
+                setTags(data.filter(item => item.type === 'tag'));
             }
         } catch (e) {
             console.error(e);
@@ -71,6 +87,12 @@ export function CommandPalette() {
       }
   };
 
+    const handleSelectTag = (tag: SearchResultItem) => {
+        setOpen(false);
+        // Navigate to search/filter page
+        router.push(`/?tag=${tag.id}`);
+    };
+
   if (!open) return null;
 
   return (
@@ -81,7 +103,7 @@ export function CommandPalette() {
             <Search className="w-5 h-5 text-text-muted mr-2" />
             <Command.Input 
                 autoFocus
-                placeholder="Search pages and tasks..."
+                placeholder="Search pages, tasks, and tags..."
                 value={search}
                 onValueChange={setSearch}
                 className="w-full py-4 text-base bg-transparent border-none outline-none placeholder:text-text-muted text-text-primary"
@@ -91,7 +113,7 @@ export function CommandPalette() {
           <Command.List className="max-h-[60vh] overflow-y-auto p-2 scroll-py-2">
             {loading && <div className="p-4 text-sm text-gray-500 text-center">Searching...</div>}
             
-            {!loading && pages.length === 0 && tasks.length === 0 && search && (
+            {!loading && pages.length === 0 && tasks.length === 0 && tags.length === 0 && search && (
                 <div className="p-4 text-sm text-gray-500 text-center">No results found.</div>
             )}
 
@@ -119,6 +141,21 @@ export function CommandPalette() {
                 </Command.Item>
             </Command.Group>
 
+            {tags.length > 0 && (
+                <Command.Group heading="Tags" className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase mt-2">
+                    {tags.map((tag) => (
+                        <Command.Item
+                            key={tag.id}
+                            onSelect={() => handleSelectTag(tag)}
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-gray-700 dark:text-gray-200 cursor-pointer aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30 aria-selected:text-blue-700 dark:aria-selected:text-blue-300 transition-colors"
+                        >
+                            <Hash className="w-4 h-4 text-blue-500" />
+                            <span className="font-medium text-blue-600 dark:text-blue-400">{tag.title || tag.name}</span>
+                        </Command.Item>
+                    ))}
+                </Command.Group>
+            )}
+
             {pages.length > 0 && (
                 <Command.Group heading="Pages" className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase mt-2">
                     {pages.map((page) => (
@@ -144,7 +181,7 @@ export function CommandPalette() {
                         >
                             <CheckCircle className="w-4 h-4 text-text-muted" />
                             <div className="flex flex-col min-w-0">
-                                <span className="truncate">{task.content}</span>
+                                <span className="truncate">{task.title || task.content}</span>
                                 {task.page_title && (
                                     <span className="text-[10px] text-gray-400 truncate">in {task.page_title}</span>
                                 )}

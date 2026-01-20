@@ -86,3 +86,23 @@ CREATE TABLE task_sync_meta (
 );
 
 CREATE INDEX idx_task_sync_meta_caldav_uid ON task_sync_meta(caldav_uid);
+
+-- 5. Tags (Added 2026-01-20)
+CREATE TABLE tags (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  color VARCHAR(20) DEFAULT 'blue',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tag_assignments (
+  id SERIAL PRIMARY KEY,
+  tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+  item_id INTEGER NOT NULL,
+  item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('page', 'task')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(tag_id, item_id, item_type)
+);
+
+CREATE INDEX idx_tag_assignments_item ON tag_assignments(item_id, item_type);
+CREATE INDEX idx_tag_assignments_tag ON tag_assignments(tag_id);
