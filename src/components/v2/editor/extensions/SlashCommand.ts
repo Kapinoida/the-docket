@@ -4,6 +4,7 @@ import { ReactRenderer } from '@tiptap/react';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css'; // Ensure tooltip styles are loaded
 import { SlashCommandList } from '../SlashCommandList';
+import { PluginKey } from '@tiptap/pm/state';
 import { 
     Heading1, 
     Heading2, 
@@ -131,6 +132,7 @@ export const SlashCommand = Extension.create({
   addProseMirrorPlugins() {
     return [
       Suggestion({
+        pluginKey: new PluginKey('slashCommandSuggestion'),
         editor: this.editor,
         ...this.options.suggestion,
       }),

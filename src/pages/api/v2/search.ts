@@ -33,11 +33,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [query]
     );
 
-    const [pagesResult, tasksResult] = await Promise.all([pagesPromise, tasksPromise]);
+    const tagsPromise = pool.query(
+      `SELECT id, name, 'tag' as type
+       FROM tags
+       WHERE name ILIKE $1
+       LIMIT 5`,
+      [query]
+    );
+
+    const [pagesResult, tasksResult, tagsResult] = await Promise.all([pagesPromise, tasksPromise, tagsPromise]);
 
     const results = [
+      ...tagsResult.rows.map(r => ({ ...r, title: r.name })), // Tags first
       ...pagesResult.rows.map(r => ({ ...r, title: r.title || 'Untitled Page' })),
-      ...tasksResult.rows.map(r => ({ ...r, title: r.content })) // Map content to title for uniform display
+      ...tasksResult.rows.map(r => ({ ...r, title: r.content }))
     ];
 
     return res.status(200).json(results);

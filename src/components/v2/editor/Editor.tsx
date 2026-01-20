@@ -16,6 +16,7 @@ import { Extension } from '@tiptap/core';
 import { TaskExtension } from './extensions/TaskExtension';
 import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
+import { TagExtension } from './extensions/TagExtension';
 import { useEffect, useState } from 'react';
 import { Page } from '../../../types/v2';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal } from 'lucide-react';
@@ -70,6 +71,7 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
           types: ['heading', 'paragraph'],
       }),
       SlashCommand,
+      TagExtension,
     ],
     content: initialContent || { type: 'doc', content: [] },
     immediatelyRender: false,
