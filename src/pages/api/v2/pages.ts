@@ -1,6 +1,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPage, getPage, getPageItems } from '../../../lib/db';
+import { createPage, getPage, getPageItems, getTagsForItem } from '../../../lib/db';
 import pool from '../../../lib/db';
 
 export default async function handler(
@@ -22,8 +22,11 @@ export default async function handler(
           
           // Get page context items
           const items = await getPageItems(Number(id));
+
+          // Get tags
+          const tags = await getTagsForItem(Number(id), 'page');
           
-          return res.status(200).json({ ...page, items });
+          return res.status(200).json({ ...page, items, tags });
         } else {
           // List pages with filters
           let query = 'SELECT * FROM pages';

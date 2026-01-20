@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, Sun, Moon, ListTodo, Timer, Settings } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, Sun, Moon, ListTodo, Timer, Settings, Hash } from 'lucide-react';
 import { Page } from '../../types/v2';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -12,6 +12,12 @@ import { useTaskEdit } from '../../contexts/TaskEditContext';
 import CreatePageModal from './CreatePageModal';
 import { SettingsModal } from '../SettingsModal';
 import { SyncButton } from '../SyncButton';
+
+interface Tag {
+    id: number;
+    name: string;
+    color: string;
+}
 
 export default function Sidebar() {
   const { theme, setTheme } = useTheme();
@@ -22,6 +28,7 @@ export default function Sidebar() {
   const [favorites, setFavorites] = useState<Page[]>([]);
   const [recent, setRecent] = useState<Page[]>([]);
   const [allPages, setAllPages] = useState<Page[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -34,22 +41,35 @@ export default function Sidebar() {
   const [isRecentOpen, setIsRecentOpen] = useState(true);
   const [isFoldersOpen, setIsFoldersOpen] = useState(true);
   const [isAllPagesOpen, setIsAllPagesOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(true);
 
   const { createTask } = useTaskEdit();
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+        setRefreshTrigger(prev => prev + 1);
+        fetchData(); // Also refresh sidebar lists (Favorites/Recent/All)
+    };
+
+    window.addEventListener('pageUpdated', handleUpdate);
+    return () => window.removeEventListener('pageUpdated', handleUpdate);
+  }, []);
+
   const fetchData = async () => {
     try {
-        const [favRes, recentRes, allRes] = await Promise.all([
+        const [favRes, recentRes, allRes, tagsRes] = await Promise.all([
             fetch('/api/v2/pages?view=favorites'),
             fetch('/api/v2/pages?view=recent'),
-            fetch('/api/v2/pages?view=all')
+            fetch('/api/v2/pages?view=all'),
+            fetch('/api/v2/tags')
         ]);
         
         if (favRes.ok) setFavorites(await favRes.json());
         if (recentRes.ok) setRecent(await recentRes.json());
         if (allRes.ok) setAllPages(await allRes.json());
+        if (tagsRes.ok) setTags(await tagsRes.json());
     } catch (e) {
         console.error('Failed to load sidebar data', e);
     }
@@ -207,6 +227,25 @@ export default function Sidebar() {
                             label={page.title} 
                             active={pathname === `/page/${page.id}`}
                             onDelete={() => handleDeletePage(page.id)}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {/* Tags */}
+        <div className="mt-2">
+            <SectionHeader label="Tags" isOpen={isTagsOpen} onToggle={() => setIsTagsOpen(!isTagsOpen)} />
+            {isTagsOpen && (
+                <div className="px-2 space-y-0.5">
+                    {tags.length === 0 && <div className="px-3 py-1 text-xs text-gray-400 italic">No tags</div>}
+                    {tags.map(tag => (
+                        <NavItem 
+                            key={tag.id} 
+                            href={`/tag/${tag.id}`} 
+                            icon={Hash} 
+                            label={tag.name} 
+                            active={pathname === `/tag/${tag.id}`}
                         />
                     ))}
                 </div>

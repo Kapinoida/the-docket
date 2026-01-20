@@ -1,6 +1,5 @@
-
 import { NextApiRequest, NextApiResponse } from 'next';
-import { searchContent } from '@/lib/db';
+import pool from '@/lib/db';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -9,12 +8,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { q } = req.query;
 
-  if (!q || typeof q !== 'string') {
-    return res.status(400).json({ error: 'Query parameter required' });
+  if (!q || typeof q !== 'string' || q.trim().length === 0) {
+    return res.status(200).json([]);
   }
 
+  const query = `%${q.trim()}%`;
+
   try {
-    const results = await searchContent(q);
+    // Parallel queries for responsiveness
+    // Limit to top 5 of each for now to keep UI clean
+    const pagesPromise = pool.query(
+      `SELECT id, title, 'page' as type 
+       FROM pages 
+       WHERE title ILIKE $1 
+       LIMIT 5`,
+      [query]
+    );
+
+    const tasksPromise = pool.query(
+      `SELECT id, content, 'task' as type 
+       FROM tasks 
+       WHERE content ILIKE $1 
+       LIMIT 5`,
+      [query]
+    );
+
+    const [pagesResult, tasksResult] = await Promise.all([pagesPromise, tasksPromise]);
+
+    const results = [
+      ...pagesResult.rows.map(r => ({ ...r, title: r.title || 'Untitled Page' })),
+      ...tasksResult.rows.map(r => ({ ...r, title: r.content })) // Map content to title for uniform display
+    ];
+
     return res.status(200).json(results);
   } catch (error) {
     console.error('Search error:', error);
