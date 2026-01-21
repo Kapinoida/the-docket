@@ -86,67 +86,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // 2. Reconstruct Content
       const newNodes: any[] = [];
-      let insertedToday = false;
-      let skippedOldToday = false;
+      const hasContent = content.content.some((n: any) => 
+        (n.content && n.content.length > 0) || (n.type === 'image') || (n.type === 'taskItem')
+      );
 
-      // Iterate through existing nodes to rebuild the document
-      for (let i = 0; i < existingNodes.length; i++) {
-        const node = existingNodes[i];
-        
-        // Detect Header
-        if (node.type === 'heading' && node.attrs?.level === 2) {
-            const headerText = node.content?.[0]?.text;
+      // Check if today's entry already exists to decide between UPDATE (in-place) or INSERT (prepend)
+      const todayIndex = existingNodes.findIndex((n: any) => 
+        n.type === 'heading' && 
+        n.attrs?.level === 2 && 
+        n.content?.[0]?.text === todayDate
+      );
 
-            if (headerText === todayDate) {
-                // Found existing Today section -> START SKIPPING
-                skippedOldToday = true;
-                
-                // If we haven't inserted the new content yet, do it now
-                if (!insertedToday) {
-                    // Only insert if valid content exists (not just empty paragraph)
-                    const hasContent = content.content.some((n: any) => 
-                        (n.content && n.content.length > 0) || (n.type === 'image') || (n.type === 'taskItem')
-                    );
-
-                    if (hasContent) {
-                         newNodes.push({
-                            type: 'heading',
-                            attrs: { level: 2 },
-                            content: [{ type: 'text', text: todayDate }]
-                        });
-                        newNodes.push(...content.content);
-                    }
-                    insertedToday = true;
-                }
-                continue; // Skip the old header
-            } 
-            
-            if (skippedOldToday) {
-                // We hit the NEXT header after skipping today's section
-                // Stop skipping, append this header and continue normal copying
-                skippedOldToday = false;
-            }
-        }
-
-        if (!skippedOldToday) {
-            newNodes.push(node);
-        }
-      }
-
-      // If we never found today's section to replace, AND we haven't inserted it yet
-      // Append it to the end
-      if (!insertedToday) {
-         const hasContent = content.content.some((n: any) => 
-            (n.content && n.content.length > 0) || (n.type === 'image') || (n.type === 'taskItem')
-        );
-
+      if (todayIndex === -1) {
+        // CASE 1: New Day -> Insert at TOP (Prepend)
         if (hasContent) {
-            newNodes.push({
-                type: 'heading',
-                attrs: { level: 2 },
-                content: [{ type: 'text', text: todayDate }]
-            });
-            newNodes.push(...content.content);
+           newNodes.push({
+               type: 'heading',
+               attrs: { level: 2 },
+               content: [{ type: 'text', text: todayDate }]
+           });
+           newNodes.push(...content.content);
+        }
+        // Append all existing historical entries logic
+        newNodes.push(...existingNodes);
+      } else {
+        // CASE 2: Existing Day -> Update in Place
+        let insertedToday = false;
+        let skippedOldToday = false;
+
+        for (let i = 0; i < existingNodes.length; i++) {
+          const node = existingNodes[i];
+          
+          if (node.type === 'heading' && node.attrs?.level === 2) {
+              const headerText = node.content?.[0]?.text;
+
+              if (headerText === todayDate) {
+                  // Found existing Today section -> START SKIPPING
+                  skippedOldToday = true;
+                  
+                  // If we haven't inserted the new content yet, do it now
+                  if (!insertedToday) {
+                      if (hasContent) {
+                           newNodes.push({
+                              type: 'heading',
+                              attrs: { level: 2 },
+                              content: [{ type: 'text', text: todayDate }]
+                          });
+                          newNodes.push(...content.content);
+                      }
+                      insertedToday = true;
+                  }
+                  continue; // Skip the old header
+              } 
+              
+              if (skippedOldToday) {
+                  // We hit the NEXT header after skipping today's section
+                  // Stop skipping, append this header and continue normal copying
+                  skippedOldToday = false;
+              }
+          }
+
+          if (!skippedOldToday) {
+              newNodes.push(node);
+          }
         }
       }
 
