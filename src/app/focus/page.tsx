@@ -12,7 +12,7 @@ import useAmbience from '@/hooks/useAmbience';
 import { useFocusPreferences } from '@/hooks/useFocusPreferences';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
 import { Task } from '@/types/v2';
-import { Target, X, ListTodo, Settings, Zap, Brain } from 'lucide-react';
+import { Target, X, ListTodo, Settings, Zap, Brain, Music } from 'lucide-react';
 
 export default function FocusPage() {
   const { playClick, playWorkComplete, playBreakComplete } = useSoundEffects();
@@ -24,8 +24,15 @@ export default function FocusPage() {
     onBreakComplete: playBreakComplete
   });
 
-  const { start: startAmbience, stop: stopAmbience } = useAmbience();
-  const { visualMode, isAmbienceEnabled, setVisualMode, setIsAmbienceEnabled } = useFocusPreferences();
+  const { start: startAmbience, stop: stopAmbience, startMusic, stopMusic } = useAmbience();
+  const { 
+      visualMode, 
+      isAmbienceEnabled, 
+      isMusicEnabled,
+      setVisualMode, 
+      setIsAmbienceEnabled,
+      setIsMusicEnabled
+  } = useFocusPreferences();
   
   // Task Integration
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -39,9 +46,17 @@ export default function FocusPage() {
     } else {
       stopAmbience();
     }
-    // Cleanup on unmount
-    return () => stopAmbience();
+    // Cleanup on unmount handled by hook, but explicit stop is good for toggle responsiveness
   }, [timer.isActive, isAmbienceEnabled, visualMode, startAmbience, stopAmbience]);
+
+  // Music Effect
+  useEffect(() => {
+    if (timer.isActive && isMusicEnabled) {
+      startMusic();
+    } else {
+      stopMusic();
+    }
+  }, [timer.isActive, isMusicEnabled, startMusic, stopMusic]);
 
   const handleModeChange = (mode: VisualizationMode) => {
     playClick();
@@ -105,23 +120,39 @@ export default function FocusPage() {
               onModeChange={handleModeChange}
             />
             
-            {/* Ambience Toggle */}
-            <button 
-                onClick={() => {
-                    playClick();
-                    setIsAmbienceEnabled(!isAmbienceEnabled);
-                }}
-                className={`p-2 rounded-full transition-all ${
-                    isAmbienceEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
-                }`}
-                title="Toggle Ambience (Drone)"
-            >
-                 {isAmbienceEnabled ? (
-                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-                 ) : (
-                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
-                 )}
-            </button>
+            <div className="flex items-center gap-2 bg-white/10 rounded-full p-1 border border-white/5">
+                {/* Ambience Toggle */}
+                <button 
+                    onClick={() => {
+                        playClick();
+                        setIsAmbienceEnabled(!isAmbienceEnabled);
+                    }}
+                    className={`p-2 rounded-full transition-all ${
+                        isAmbienceEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
+                    }`}
+                    title="Toggle Ambience (Drone)"
+                >
+                     {isAmbienceEnabled ? (
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                     ) : (
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+                     )}
+                </button>
+
+                {/* Music Toggle */}
+                <button 
+                    onClick={() => {
+                        playClick();
+                        setIsMusicEnabled(!isMusicEnabled);
+                    }}
+                    className={`p-2 rounded-full transition-all ${
+                        isMusicEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
+                    }`}
+                    title="Toggle Generative Music"
+                >
+                     <Music size={20} className={!isMusicEnabled ? "opacity-50" : ""} />
+                </button>
+            </div>
             
             {/* Settings Toggle */}
             <button 

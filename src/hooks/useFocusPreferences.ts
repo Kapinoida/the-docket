@@ -6,11 +6,13 @@ const PREFERENCES_STORAGE_KEY = 'the-docket-focus-preferences';
 interface FocusPreferences {
   visualMode: VisualizationMode;
   isAmbienceEnabled: boolean;
+  isMusicEnabled: boolean;
 }
 
 const DEFAULT_PREFERENCES: FocusPreferences = {
   visualMode: 'rays',
   isAmbienceEnabled: false,
+  isMusicEnabled: false, // Default to off
 };
 
 export function useFocusPreferences() {
@@ -46,11 +48,17 @@ export function useFocusPreferences() {
     persist({ ...preferences, isAmbienceEnabled: enabled });
   };
 
+  const setIsMusicEnabled = (enabled: boolean) => {
+    persist({ ...preferences, isMusicEnabled: enabled });
+  };
+
   return {
     visualMode: preferences.visualMode,
     isAmbienceEnabled: preferences.isAmbienceEnabled,
+    isMusicEnabled: preferences.isMusicEnabled,
     setVisualMode,
     setIsAmbienceEnabled,
+    setIsMusicEnabled,
     isLoaded,
   };
 }
