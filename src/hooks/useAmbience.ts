@@ -173,5 +173,84 @@ export default function useAmbience() {
     activeLayersRef.current = [];
   }, []);
 
-  return { start, stop };
+  /* --- Music Logic --- */
+  // C Major Pentatonic Scale
+  // C4, D4, E4, G4, A4, C5, D5, E5
+  const NOTES = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
+  
+  const musicTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const musicActiveRef = useRef(false);
+
+  const playNote = (ctx: AudioContext) => {
+    if (!musicActiveRef.current) return;
+
+    // Pick a random note
+    const note = NOTES[Math.floor(Math.random() * NOTES.length)];
+    
+    // Create Oscillator
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = note;
+
+    // Create Gain for Envelope
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 0;
+
+    // Connect
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    // Envelope Parameters (Serene & Sparse)
+    const now = ctx.currentTime;
+    const attack = 2 + Math.random() * 2; // 2-4s attack
+    const sustain = 2 + Math.random() * 3; // 2-5s sustain
+    const release = 3 + Math.random() * 3; // 3-6s release
+    const totalDuration = attack + sustain + release;
+    
+    // Attack
+    gainNode.gain.linearRampToValueAtTime(0.05, now + attack); // Very quiet (0.05)
+    // Release
+    gainNode.gain.setValueAtTime(0.05, now + attack + sustain);
+    gainNode.gain.linearRampToValueAtTime(0, now + totalDuration);
+
+    osc.start(now);
+    osc.stop(now + totalDuration + 1);
+
+    // Schedule next note
+    // Overlapping is nice, but we want it "sparse". 
+    // Wait for at least half the duration before maybe starting another, or strictly one at a time?
+    // Let's do random interval between 4s and 10s
+    const nextDelay = (4 + Math.random() * 6) * 1000;
+    
+    musicTimeoutRef.current = setTimeout(() => {
+        if (musicActiveRef.current) playNote(ctx);
+    }, nextDelay);
+  };
+
+  const startMusic = useCallback(() => {
+    if (musicActiveRef.current) return;
+    const ctx = initAudio();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    musicActiveRef.current = true;
+    playNote(ctx);
+  }, []);
+
+  const stopMusic = useCallback(() => {
+    musicActiveRef.current = false;
+    if (musicTimeoutRef.current) {
+        clearTimeout(musicTimeoutRef.current);
+        musicTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Ensure cleanup on unmount for music too
+  useEffect(() => {
+      return () => {
+          stopMusic();
+      };
+  }, [stopMusic]);
+
+  return { start, stop, startMusic, stopMusic };
 }
