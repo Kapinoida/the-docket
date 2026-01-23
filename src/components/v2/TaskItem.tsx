@@ -67,29 +67,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </button>
 
-      {/* Content Area (Simple Input/Div for Dashboard) */}
-      <div className="flex-1 min-w-0">
-          {onUpdate ? (
-              <input
-                  value={isEditing ? editContent : task.content}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onFocus={() => setIsEditing(true)}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  className={`
-                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-1
-                      ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
-                  `}
-              />
-          ) : (
-              <div className={`text-sm leading-relaxed py-1 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
-                  {task.content}
-              </div>
-          )}
-      </div>
-
-      {/* Metadata / Date Badge */}
-      <div className="flex-shrink-0 flex items-center justify-end mt-1" style={{ width: task.due_date ? 'auto' : '24px' }}>
+      {/* Metadata / Date Badge - Now on Left */}
+      <div className="flex-shrink-0 flex items-center justify-center mt-1" style={{ width: task.due_date ? 'auto' : '24px' }}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
@@ -129,6 +108,29 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                  </button>
              )}
       </div>
+
+      {/* Content Area (Simple Input/Div for Dashboard) */}
+      <div className="flex-1 min-w-0">
+          {onUpdate ? (
+              <input
+                  value={isEditing ? editContent : task.content}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={() => setIsEditing(true)}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className={`
+                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-1
+                      ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
+                  `}
+              />
+          ) : (
+              <div className={`text-sm leading-relaxed py-1 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
+                  {task.content}
+              </div>
+          )}
+      </div>
+
+
 
     </div>
   );
