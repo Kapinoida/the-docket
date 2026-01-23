@@ -65,19 +65,8 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
         )}
       </button>
 
-      {/* Editor Content Area */}
-      <div className="flex-1 min-w-0">
-          <NodeViewContent 
-            className={`
-                outline-none text-sm leading-relaxed min-h-[1.5em] py-1
-                prose-p:m-0 prose-p:leading-relaxed
-                ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
-            `} 
-          />
-      </div>
-
-      {/* Metadata / Date Badge */}
-      <div className="flex-shrink-0 flex items-center justify-end mt-1" style={{ width: task.due_date ? 'auto' : '24px' }} contentEditable={false}>
+      {/* Metadata / Date Badge - Now on Left */}
+      <div className="flex-shrink-0 flex items-center justify-center mt-1" style={{ width: task.due_date ? 'auto' : '24px' }} contentEditable={false}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
@@ -117,6 +106,19 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                  </button>
              )}
       </div>
+
+      {/* Editor Content Area */}
+      <div className="flex-1 min-w-0">
+          <NodeViewContent 
+            className={`
+                outline-none text-sm leading-relaxed min-h-[1.5em] py-1
+                prose-p:m-0 prose-p:leading-relaxed
+                ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
+            `} 
+          />
+      </div>
+
+
 
     </NodeViewWrapper>
   );

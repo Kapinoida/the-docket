@@ -49,7 +49,20 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             case 'tomorrow': newDate = addDays(today, 1); break;
             case 'next-week': newDate = nextMonday(today); break;
         }
-        setSelectedDate(newDate);
+        
+        // Immediate save for quick actions
+        let finalRule: RecurrenceRule | undefined = undefined;
+        if (recurrenceType !== 'none') {
+            finalRule = {
+                type: recurrenceType,
+                interval: Math.max(1, interval),
+                daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : undefined,
+                weekOfMonth: weekOfMonth
+            };
+        }
+        
+        onSelect(newDate, finalRule);
+        onClose();
     };
 
     const handleSave = () => {
