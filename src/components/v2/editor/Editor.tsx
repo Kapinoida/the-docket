@@ -21,7 +21,7 @@ import { useEffect, useState } from 'react';
 import { Page } from '../../../types/v2';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
-import { GlobalDragHandle } from './GlobalDragHandle';
+import { GlobalDragHandle, dragStore } from './GlobalDragHandle';
 
 const lowlight = createLowlight(common);
 
@@ -100,11 +100,34 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
         }
         
         // 2. Handle Content Drops (Block Reordering)
-        const isInternalDrag = event.dataTransfer?.types.includes('application/x-docket-drag');
+        const types = event.dataTransfer?.types ? Array.from(event.dataTransfer.types) : [];
+        const isInternalDrag = types.includes('application/x-docket-drag');
         
         if (moved || isInternalDrag || (slice && slice.content.size > 0)) {
-            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (!coordinates) return false;
+            let coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            
+            // Fallback for dropping in padding/margins
+            if (!coordinates) {
+                 const doc = view.state.doc;
+                 // If we are well below the content, assume append to end
+                 // We can check if clientY is greater than the last node's bottom?
+                 // Simple heuristic: If Y is large -> end, if Y is small -> start?
+                 // Better: check bounding rect of editor
+                 const editorRect = view.dom.getBoundingClientRect();
+                 if (event.clientY > editorRect.bottom - 50) { // Near bottom or below
+                      coordinates = { pos: doc.content.size, inside: -1 };
+                 } else if (event.clientY < editorRect.top + 50) { // Near top
+                      coordinates = { pos: 0, inside: -1 };
+                 } else {
+                     // Maybe in side margins? Snap to nearest line?
+                     // For now, let's just default to end if we are inside the DOM but no coords found (often happens at bottom padding)
+                     coordinates = { pos: doc.content.size, inside: -1 };
+                 }
+            }
+            
+            if (!coordinates) {
+                return false;
+            }
             
             const $pos = view.state.doc.resolve(coordinates.pos);
             
@@ -116,49 +139,109 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
                 node = $pos.node(depth);
             }
             
-            // Ensure we are operating on a block
-            if (depth > 0 && node && node.isBlock) {
+            // Ensure we are operating on a block OR the root doc
+            if (node && node.isBlock) {
                  // Logic to calculate drop position
-                 const beforePos = $pos.before(depth);
+                 let finalPos = coordinates.pos;
                  
-                 let dom = view.nodeDOM(beforePos) as HTMLElement;
-                 if (!dom) {
-                      const target = document.elementFromPoint(event.clientX, event.clientY);
-                      dom = target?.closest('[data-node-view-wrapper], .ProseMirror-widget, p, h1, h2, h3, li') as HTMLElement;
+                 // If we are inside a specific block (not root), determine "before" vs "after" split
+                 if (depth > 0) {
+                     const beforePos = $pos.before(depth);
+                     let dom = view.nodeDOM(beforePos) as HTMLElement;
+                     
+                     if (!dom) {
+                        // Fallback DOM finding
+                         const target = document.elementFromPoint(event.clientX, event.clientY);
+                         dom = target?.closest('[data-node-view-wrapper], .ProseMirror-widget, p, h1, h2, h3, li') as HTMLElement;
+                     }
+    
+                     if (dom) {
+                         const rect = dom.getBoundingClientRect();
+                         const midY = rect.top + rect.height / 2;
+                         const isTopHalf = event.clientY < midY;
+                         finalPos = isTopHalf ? beforePos : $pos.after(depth);
+                     }
                  }
+                 
+                 // Perform the move
+                 let tr = view.state.tr;
+                     
+                 // Robustly check for internal drag using shared singleton
+                 const dragState = dragStore.current;
+                 const isSamePageInternalDrag = !!dragState && dragState.pageId === pageId;
+                 const shouldMove = moved || isSamePageInternalDrag;
 
-                 if (dom) {
-                     const rect = dom.getBoundingClientRect();
-                     const midY = rect.top + rect.height / 2;
-                     const isTopHalf = event.clientY < midY;
-                     const finalPos = isTopHalf ? beforePos : $pos.after(depth);
+                 if (shouldMove) {
+                     let from: number | undefined;
+                     let to: number | undefined;
                      
-                     // Perform the move
-                     let tr = view.state.tr;
-                     
-                     // If it's a move (internal), delete the original selection first
-                     if (moved || isInternalDrag) {
-                         const { from, to } = view.state.selection;
-                         
-                         // Dropping on self?
-                         if (finalPos >= from && finalPos <= to) return true;
-                         
-                         tr.deleteSelection();
-                         
-                         // Map the insertion position because deletion shifted indices
-                         const mappedPos = tr.mapping.map(finalPos);
-                         
-                         // Insert the content
-                         tr.insert(mappedPos, slice.content);
-                     } else {
-                         // External copy
-                         tr.insert(finalPos, slice.content);
+                     // Strategy 1: Explicit Position from DragStore
+                     if (isSamePageInternalDrag && dragState) {
+                         const pos = dragState.pos;
+                         if (pos >= 0 && pos < view.state.doc.content.size) {
+                             const node = view.state.doc.nodeAt(pos);
+                             if (node) {
+                                 from = pos;
+                                 to = pos + node.nodeSize;
+                             }
+                         }
                      }
                      
-                     view.dispatch(tr);
-                     return true;
+                     // Strategy 2: Selection Fallback
+                     if (from === undefined || to === undefined) {
+                         const sel = view.state.selection;
+                         from = sel.from;
+                         to = sel.to;
+                     }
+
+                     // Strategy 3: Task ID Search (The "Nuclear Option" for Tasks)
+                     if (slice.content.childCount === 1) {
+                         const child = slice.content.firstChild;
+                         if (child && child.type.name === 'v2Task' && child.attrs.taskId) {
+                             const targetId = child.attrs.taskId;
+                             
+                             // Check current match
+                             let currentMatch = false;
+                             if (from !== undefined) {
+                                 const nodeAtFrom = view.state.doc.nodeAt(from);
+                                 if (nodeAtFrom && nodeAtFrom.type.name === 'v2Task' && nodeAtFrom.attrs.taskId === targetId) {
+                                     currentMatch = true;
+                                 }
+                             }
+                             
+                             if (!currentMatch) {
+                                 // Search the doc
+                                 view.state.doc.descendants((node, pos) => {
+                                     if (node.type.name === 'v2Task' && node.attrs.taskId === targetId) {
+                                         from = pos;
+                                         to = pos + node.nodeSize;
+                                         return false; // Stop search
+                                     }
+                                     return true;
+                                 });
+                             }
+                         }
+                     }
+                     
+                     // Dropping on self?
+                     if (from !== undefined && to !== undefined) {
+                        if (finalPos >= from && finalPos <= to) {
+                            return true; // Cancel drop on self
+                        }
+                        
+                        tr.delete(from, to);
+                        const mappedPos = tr.mapping.map(finalPos);
+                        tr.insert(mappedPos, slice.content);
+                     } else {
+                         tr.insert(finalPos, slice.content);
+                     }
+                 } else {
+                     tr.insert(finalPos, slice.content);
                  }
-            }
+                 
+                 view.dispatch(tr);
+                 return true;
+             }
         }
         return false;
       },
@@ -177,7 +260,7 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
               }
           }
           return false;
-      }
+      },
     },
     onUpdate: ({ editor }) => {
       handleSave(editor.getJSON());

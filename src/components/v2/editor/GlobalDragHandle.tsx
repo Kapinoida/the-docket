@@ -11,6 +11,11 @@ interface GlobalDragHandleProps {
     pageId: number;
 }
 
+// Singleton to track internal drag state reliably across components
+export const dragStore = {
+    current: null as { pos: number; pageId: number } | null
+};
+
 export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, pageId }) => {
     const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
     const [hoveredNodePos, setHoveredNodePos] = useState<number | null>(null);
@@ -124,12 +129,18 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
     // Handle Drag Start
     const handleDragStart = (event: React.DragEvent) => {
         if (!editor || hoveredNodePos === null) return;
+        
+        // Set global drag store
+        dragStore.current = {
+            pos: hoveredNodePos,
+            pageId: pageId
+        };
+        
         const view = editor.view;
         const node = view.state.doc.nodeAt(hoveredNodePos);
         if (!node) return;
 
         // 1. Select the node
-        // We create a NodeSelection using the exported class from @tiptap/pm/state
         const tr = view.state.tr.setSelection(
             NodeSelection.create(view.state.doc, hoveredNodePos)
         );
@@ -151,22 +162,25 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
         event.dataTransfer.setData('text/html', html);
         event.dataTransfer.setData('text/plain', text);
         event.dataTransfer.setData('application/x-docket-drag', 'true');
+        event.dataTransfer.setData('docket-src-pos', hoveredNodePos.toString());
+        event.dataTransfer.setData('docket-src-page-id', pageId.toString());
         
         // 4. Visuals
-        // Browser handles the ghost image of the dragged element (the handle).
-        // If we want the *content* to look dragged, we need `setDragImage`.
-        // We can try to set the proper drag image to the node's DOM?
         const nodeDOM = view.nodeDOM(hoveredNodePos) as HTMLElement;
         if (nodeDOM) {
-             // We can use the node's DOM as the drag image
-             // But we need to make sure it's visible.
-             // Often setting it directly works.
-             // Adjust x/y to click offset?
              const rect = nodeDOM.getBoundingClientRect();
              const x = event.clientX - rect.left;
              const y = event.clientY - rect.top;
              event.dataTransfer.setDragImage(nodeDOM, x, y);
         }
+    };
+    
+
+
+
+    
+    const handleDragEnd = () => {
+        dragStore.current = null;
     };
 
     const handleMouseDown = () => {
@@ -225,6 +239,7 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
                 draggable="true"
                 onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 onMouseDown={handleMouseDown}
              >
                  <GripVertical size={16} />
