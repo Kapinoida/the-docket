@@ -9,10 +9,14 @@ interface Props {
   onClose: () => void;
 }
 
+import { createPortal } from 'react-dom';
+
 export function SettingsModal({ isOpen, onClose }: Props) {
   const [isPaused, setIsPaused] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setMounted(true);
     if (isOpen) {
       const paused = localStorage.getItem('docket_sync_paused') === 'true';
       setIsPaused(paused);
@@ -25,10 +29,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     localStorage.setItem('docket_sync_paused', String(newState));
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
         <button 
           onClick={onClose}
@@ -73,6 +77,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
