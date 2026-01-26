@@ -7,6 +7,8 @@ import { TaskItem } from './TaskItem';
 import { ListTodo, Plus, Filter, SortAsc, SortDesc, CheckCircle2, Circle } from 'lucide-react';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
 
+import { ConfirmationModal } from '../modals/ConfirmationModal';
+
 type StatusFilter = 'all' | 'todo' | 'done';
 type SortOption = 'created' | 'dueDate' | 'oldest';
 
@@ -16,6 +18,11 @@ export default function AllTasksView() {
   const [sortOption, setSortOption] = useState<SortOption>('created');
   const [isLoading, setIsLoading] = useState(true);
   const { createTask } = useTaskEdit(); // Use context for creating tasks if needed, or simple inline
+  
+  const [confirmState, setConfirmState] = useState<{
+    type: 'bulk' | 'completed' | null;
+    isOpen: boolean;
+  }>({ type: null, isOpen: false });
 
   // Inline creation state
   const [inputValue, setInputValue] = useState('');
@@ -137,8 +144,10 @@ export default function AllTasksView() {
   };
 
   const handleBulkDelete = async () => {
-      if (!confirm(`Are you sure you want to delete ${selectedTaskIds.size} tasks?`)) return;
-
+      setConfirmState({ type: 'bulk', isOpen: true });
+  };
+  
+  const performBulkDelete = async () => {
       const idsToDelete = Array.from(selectedTaskIds);
       
       // Update UI first
@@ -150,6 +159,31 @@ export default function AllTasksView() {
           fetch(`/api/v2/tasks?id=${id}`, { method: 'DELETE' })
       ));
   };  
+
+  const handleDeleteCompleted = async () => {
+    const completedCount = tasks.filter(t => t.status === 'done').length;
+    if (completedCount === 0) return;
+
+    setConfirmState({ type: 'completed', isOpen: true });
+  };
+
+  const performDeleteCompleted = async () => {
+
+    try {
+        const res = await fetch('/api/v2/tasks?bulk_action=delete_completed', {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            // Refresh
+            fetchTasks();
+            // Could show a toast here "Deleted ${data.count} tasks"
+        }
+    } catch (error) {
+        console.error('Failed to bulk delete', error);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-8 font-sans">
@@ -167,14 +201,26 @@ export default function AllTasksView() {
         </div>
         
         {/* Bulk Actions */}
-        {isSelectionMode && (
-            <button 
-                onClick={handleBulkDelete}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
-            >
-                Delete Selected ({selectedTaskIds.size})
-            </button>
-        )}
+        <div className="flex gap-2">
+            {isSelectionMode ? (
+                <button 
+                    onClick={handleBulkDelete}
+                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
+                >
+                    Delete Selected ({selectedTaskIds.size})
+                </button>
+            ) : (
+                 // Only show if there are completed tasks
+                 tasks.some(t => t.status === 'done') && (
+                    <button
+                        onClick={handleDeleteCompleted}
+                        className="px-4 py-2 bg-gray-100 hover:bg-rose-100 text-text-secondary hover:text-rose-600 dark:bg-gray-800 dark:hover:bg-rose-900/20 rounded-lg font-medium transition-colors text-sm flex items-center gap-2 border border-transparent hover:border-rose-200"
+                    >
+                        Delete Completed
+                    </button>
+                 )
+            )}
+        </div>
       </div>
 
       {/* Controls */}
@@ -272,6 +318,21 @@ export default function AllTasksView() {
           ))
         )}
       </div>
+      <ConfirmationModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={() => {
+            if (confirmState.type === 'bulk') performBulkDelete();
+            if (confirmState.type === 'completed') performDeleteCompleted();
+        }}
+        title={confirmState.type === 'bulk' ? 'Delete Selected Tasks' : 'Delete Completed Tasks'}
+        message={
+            confirmState.type === 'bulk' 
+            ? `Are you sure you want to delete ${selectedTaskIds.size} tasks?` 
+            : 'Are you sure you want to delete all completed tasks? This cannot be undone.'
+        }
+        confirmLabel="Delete"
+      />
     </div>
   );
 }
