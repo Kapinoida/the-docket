@@ -3,13 +3,18 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
-import { Menu } from 'lucide-react';
+import RightSidebar from './RightSidebar';
+import { Menu, PanelRight } from 'lucide-react';
+import { RightSidebarProvider, useRightSidebar } from '../../contexts/RightSidebarContext';
 
 import { usePeriodicSync } from '@/hooks/usePeriodicSync';
 
-export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
+
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
 
   // Background Sync (Every 5 minutes)
   usePeriodicSync(300000);
@@ -49,13 +54,42 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
             <Menu size={24} />
           </button>
           <span className="ml-3 font-semibold text-text-primary">The Docket</span>
+          <div className="flex-1" />
+           <button
+            onClick={() => toggleRightSidebar()}
+            className="p-2 rounded-md text-text-secondary hover:bg-bg-tertiary focus:outline-none"
+          >
+            <PanelRight size={24} />
+          </button>
         </div>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto w-full">
-          {children}
+        <main className="flex-1 overflow-y-auto w-full relative flex">
+          <div className="flex-1 overflow-y-auto w-full">
+            {children}
+          </div>
+           {/* Right Sidebar */}
+           <RightSidebar />
+           {!isRightSidebarOpen && (
+              <button
+                onClick={() => toggleRightSidebar()}
+                className="absolute top-4 right-4 p-2 rounded-md bg-secondary text-secondary-foreground hover:bg-muted shadow-md z-20 hidden md:flex items-center justify-center border border-border"
+                aria-label="Toggle Right Sidebar"
+              >
+                <PanelRight size={20} />
+              </button>
+           )}
         </main>
       </div>
     </div>
+  );
+
+}
+
+export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <RightSidebarProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </RightSidebarProvider>
   );
 }

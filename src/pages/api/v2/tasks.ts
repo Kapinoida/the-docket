@@ -1,6 +1,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createTask, getTask, addItemToPage, createTombstone } from '../../../lib/db';
+import { createTask, getTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../lib/db';
 import pool from '../../../lib/db';
 
 export default async function handler(
@@ -148,8 +148,19 @@ export default async function handler(
             // Single task delete
             if (!id) return res.status(400).json({ error: 'Task ID is required for deletion' });
             
-            await createTombstone(Number(id));
+            const taskId = Number(id);
+            await createTombstone(taskId);
+
+            // 1. Remove references from Pages (TipTap Content)
+            await deleteTaskReferences(taskId);
+
+            // 2. Delete the task itself
             await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+            
+            // 3. Clean up context links
+            // Use CASCADE in schema usually, but explicit:
+            await pool.query('DELETE FROM page_items WHERE child_task_id = $1', [id]);
+            
             return res.status(200).json({ success: true });
         }
 
