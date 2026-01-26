@@ -269,6 +269,12 @@ export async function createTombstone(taskId: number) {
   }
 }
 
+export async function deleteTaskReferences(taskId: number) {
+  // Remove references from page items where this task is a child
+  await pool.query('DELETE FROM page_items WHERE child_task_id = $1', [taskId]);
+}
+
+
 // --- Tagging System ---
 
 export interface Tag {

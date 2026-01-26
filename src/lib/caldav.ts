@@ -160,6 +160,76 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
 }
 
 /**
+ * Helper: Push Local changes to Remote and update ETag
+ */
+async function pushLocalToRemote(client: DAVClient, config: CalDAVConfig, rObj: any, local: LocalTask, parsed: any) {
+    if (!parsed.uid) throw new Error("Parsed UID is missing");
+    const vtodoStr = createVTodoString(parsed.uid, local.content, local.status, local.due_date);
+    const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
+    
+    // We use the remote object's url
+    const headers: HeadersInit = {
+        'Authorization': auth,
+        'Content-Type': 'text/calendar; charset=utf-8'
+    };
+    
+    // Only use If-Match if we have an ETag to match against
+    if (rObj.etag) {
+        headers['If-Match'] = `"${rObj.etag}"`;
+    }
+
+    let res = await fetch(rObj.url, {
+        method: 'PUT',
+        headers: headers,
+        body: vtodoStr
+    });
+
+    // Retry on 412 (Precondition Failed) - Force Overwrite strategy
+    // This happens if our captured ETag doesn't match server (but we decided to overwrite anyway)
+    if (res.status === 412) {
+        console.warn(`[Sync] PUT failed with 412 (ETag mismatch). Retrying without If-Match to force update...`);
+        const newHeaders = { ...headers };
+        delete newHeaders['If-Match'];
+        
+        res = await fetch(rObj.url, {
+            method: 'PUT',
+            headers: newHeaders,
+            body: vtodoStr
+        });
+    }
+
+    if (!res.ok) {
+        throw new Error(`PUT failed: ${res.status}`);
+    }
+
+    // Capture new ETag
+    const newEtag = res.headers.get('etag')?.replace(/^"|"$/g, '') || uuidv4(); // Fallback if server doesn't send ETag (rare)
+    
+    await pool.query(
+      'UPDATE task_sync_meta SET last_synced_at = NOW(), caldav_etag = $1 WHERE task_id = $2',
+      [newEtag, local.id]
+    );
+}
+
+/**
+ * Helper: Update Local from Remote
+ */
+async function updateLocalFromRemote(localId: number, parsed: any, newEtag: string | undefined | null) {
+    // Case-insensitive status check
+    const statusStr = parsed.status ? parsed.status.toUpperCase() : '';
+    const newStatus = statusStr === 'COMPLETED' ? 'done' : 'todo';
+    
+    await pool.query(
+      'UPDATE tasks SET content = $1, status = $2, due_date = $3, updated_at = NOW() WHERE id = $4',
+      [parsed.summary, newStatus, parsed.due, localId]
+    );
+    await pool.query(
+      'UPDATE task_sync_meta SET caldav_etag = $1, last_synced_at = NOW() WHERE task_id = $2',
+      [newEtag, localId]
+    );
+}
+
+/**
  * Main Synchronization Function
  */
 /**
@@ -642,7 +712,8 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
                     
                     if (hrefMatch) {
                         const href = hrefMatch[1].trim();
-                        const etag = etagMatch ? etagMatch[1].replace(/^"|"$/g, '') : uuidv4(); 
+                        // Trim the ETag to avoid whitespace issues
+                        const etag = etagMatch ? etagMatch[1].replace(/^"|"$/g, '').trim() : uuidv4(); 
                         
                         let fetchUrl = href;
                         if (!href.startsWith('http')) {
@@ -735,55 +806,50 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
 
       if (local) {
         // MATCH: Compare and Update
-        const etagMatches = rObj.etag === local.caldav_etag || (local.caldav_etag === null && local.last_synced_at);
 
-        if (local.last_synced_at && etagMatches) {
-           const localUpdatedTime = local.updated_at ? new Date(local.updated_at).getTime() : 0;
-           const lastSyncedTime = local.last_synced_at ? new Date(local.last_synced_at).getTime() : 0;
+        // MATCH: Check for ETag match to determine if we are in sync with server state
+        // If local.caldav_etag is null but we have last_synced_at, it means we missed the etag last time, 
+        // effectively a mismatch, but we can try to proceed if we trust our state.
+        const etagMatches = rObj.etag === local.caldav_etag;
 
-           if (localUpdatedTime > lastSyncedTime) {
-             // Local changed -> Push to Remote
-             const vtodoStr = createVTodoString(parsed.uid, local.content, local.status, local.due_date);
-             try {
-                const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
-                await fetch(rObj.url, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': auth,
-                        'Content-Type': 'text/calendar; charset=utf-8',
-                        'If-Match': `"${rObj.etag}"` 
-                    },
-                    body: vtodoStr
-                });
-                // Note: Simplified error handling/etag update for brevity in this refactor, 
-                // but real implementation should match original robust logic. 
-                // I will try to restore critical parts.
-                
-                await pool.query(
-                  'UPDATE task_sync_meta SET last_synced_at = NOW() WHERE task_id = $1',
-                  [local.id]
-                );
-                result.updatedRemote++;
-             } catch (e) {
-                 result.errors.push(`Update failed for task ${local.id}`);
-             }
+        const localUpdatedTime = local.updated_at ? new Date(local.updated_at).getTime() : 0;
+        const lastSyncedTime = local.last_synced_at ? new Date(local.last_synced_at).getTime() : 0;
+        const localHasChanges = localUpdatedTime > lastSyncedTime;
+
+        if (etagMatches) {
+           if (localHasChanges) {
+             // standard push
+             await pushLocalToRemote(client, config, rObj, local, parsed);
+             result.updatedRemote++;
            } else {
-             continue; // No changes
+             // Nothing to do
+             continue;
            }
-        } 
-        
-        // Remote Wins (Implicit else)
-        // Update local task
-        const newStatus = parsed.status === 'COMPLETED' ? 'done' : 'todo';
-        await pool.query(
-          'UPDATE tasks SET content = $1, status = $2, due_date = $3, updated_at = NOW() WHERE id = $4',
-          [parsed.summary, newStatus, parsed.due, local.id]
-        );
-        await pool.query(
-          'UPDATE task_sync_meta SET caldav_etag = $1, last_synced_at = NOW() WHERE task_id = $2',
-          [rObj.etag, local.id]
-        );
-        result.updatedLocal++;
+        } else {
+          // CONFLICT or Remote Changed
+          // Strategy: Last Modified Wins
+          
+          if (localHasChanges) {
+            // Both changed. Compare timestamps.
+            const remoteModified = parsed.lastModified ? parsed.lastModified.getTime() : 0;
+            
+            // If Local is NEWER than Remote, we overwrite Remote.
+            // Using >= favors Local in ties (my change wins)
+            if (localUpdatedTime >= remoteModified) {
+               console.log(`[Sync] Conflict: Local (${local.updated_at}) is newer than Remote (${parsed.lastModified}). Pushing Local.`);
+               await pushLocalToRemote(client, config, rObj, local, parsed);
+               result.updatedRemote++;
+            } else {
+               console.log(`[Sync] Conflict: Remote (${parsed.lastModified}) is newer than Local (${local.updated_at}). Updating Local.`);
+               await updateLocalFromRemote(local.id, parsed, rObj.etag);
+               result.updatedLocal++;
+            }
+          } else {
+             // Only Remote changed (or we are just stale). Update Local.
+             await updateLocalFromRemote(local.id, parsed, rObj.etag);
+             result.updatedLocal++;
+          }
+        }
 
       } else {
         // NO MATCH: New Remote Task -> Create Local
