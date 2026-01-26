@@ -8,6 +8,8 @@ import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, PageItem, Task } from '../../../types/v2';
 import { TaskItem } from '../../../components/v2/TaskItem';
 
+import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
+
 interface Tag {
     id: number;
     name: string;
@@ -28,6 +30,8 @@ export default function PageView() {
   // Tag state
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -42,7 +46,7 @@ export default function PageView() {
   }, [id]);
 
   const handleDelete = async () => {
-      if (!page || !confirm(`Delete page "${page.title}"?\nThis action cannot be undone.`)) return;
+      if (!page) return;
       
       try {
           const res = await fetch(`/api/v2/pages?id=${page.id}`, { method: 'DELETE' });
@@ -222,7 +226,7 @@ export default function PageView() {
 
             {/* Actions */}
             <button 
-                onClick={handleDelete}
+                onClick={() => setShowDeleteModal(true)}
                 className="p-2 text-text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 title="Delete Page"
             >
@@ -328,6 +332,14 @@ export default function PageView() {
             </>
         )}
       </div>
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Delete Page"
+        message={`Are you sure you want to delete "${page?.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

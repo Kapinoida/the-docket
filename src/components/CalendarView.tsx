@@ -31,8 +31,29 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
   const [tasks, setTasks] = useState<TaskInstance[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewType, setViewType] = useState<ViewType>('week');
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendar_current_date');
+      return saved ? new Date(saved) : new Date();
+    }
+    return new Date();
+  });
+  const [viewType, setViewType] = useState<ViewType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendar_view_type');
+      return (saved as ViewType) || 'week';
+    }
+    return 'week';
+  });
+  
+  // Persist state
+  useEffect(() => {
+    localStorage.setItem('calendar_current_date', currentDate.toISOString());
+  }, [currentDate]);
+
+  useEffect(() => {
+    localStorage.setItem('calendar_view_type', viewType);
+  }, [viewType]);
   const [draggedTask, setDraggedTask] = useState<TaskInstance | null>(null);
   const [draggedOverDate, setDraggedOverDate] = useState<string | null>(null);
   const [draggedOverUnscheduled, setDraggedOverUnscheduled] = useState(false);
@@ -44,6 +65,8 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
   useEffect(() => {
     fetchTasks();
   }, []);
+
+
 
   useEffect(() => {
     fetchEvents();
@@ -319,6 +342,22 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
   const isCurrentMonth = (date: Date) => {
     return date.getMonth() === currentDate.getMonth();
   };
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

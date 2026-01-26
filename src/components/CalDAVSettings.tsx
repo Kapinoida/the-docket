@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Calendar, CheckSquare, RefreshCw, X } from 'lucide-react';
+import { ConfirmationModal } from './modals/ConfirmationModal';
 
 interface CalDAVConfig {
   id: number;
@@ -37,6 +38,11 @@ export function CalDAVSettings() {
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; accountId: number | null }>({
+    isOpen: false,
+    accountId: null
+  });
+
   useEffect(() => {
     fetchConfigs();
   }, []);
@@ -55,8 +61,14 @@ export function CalDAVSettings() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to remove this account? Local data may be preserved but sync will stop.')) return;
+  const confirmDelete = (id: number) => {
+    setDeleteConfirmation({ isOpen: true, accountId: id });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirmation.accountId) return;
+    
+    const id = deleteConfirmation.accountId;
     
     try {
       const res = await fetch(`/api/caldav/config?id=${id}`, { method: 'DELETE' });
@@ -164,7 +176,7 @@ export function CalDAVSettings() {
                </div>
              </div>
              <button 
-               onClick={() => handleDelete(config.id)}
+               onClick={() => confirmDelete(config.id)}
                className="p-2 text-text-muted hover:text-red-600 transition-colors"
                title="Disconnect"
              >
@@ -287,6 +299,15 @@ export function CalDAVSettings() {
             </div>
         </div>
       )}
+      
+      <ConfirmationModal
+        isOpen={deleteConfirmation.isOpen}
+        onClose={() => setDeleteConfirmation({ isOpen: false, accountId: null })}
+        onConfirm={handleDelete}
+        title="Remove Account"
+        message="Are you sure you want to remove this account? Local data may be preserved but sync will stop."
+        confirmLabel="Remove"
+      />
     </div>
   );
 }

@@ -124,11 +124,34 @@ export default async function handler(
         return res.status(200).json(updateRes.rows[0]);
 
       case 'DELETE':
-        if (!id) return res.status(400).json({ error: 'Task ID is required for deletion' });
-        
-        await createTombstone(Number(id));
-        await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
-        return res.status(200).json({ success: true });
+        const { bulk_action } = req.query;
+
+        if (bulk_action === 'delete_completed') {
+            // Bulk delete completed tasks
+            const completedTasksRes = await pool.query("SELECT id FROM tasks WHERE status = 'done'");
+            const completedIds = completedTasksRes.rows.map(r => r.id);
+
+            if (completedIds.length === 0) {
+                return res.status(200).json({ count: 0 });
+            }
+
+            // Create tombstones for sync
+            for (const taskId of completedIds) {
+                await createTombstone(taskId);
+            }
+
+            // Delete tasks
+            const deleteRes = await pool.query("DELETE FROM tasks WHERE status = 'done'");
+            return res.status(200).json({ success: true, count: deleteRes.rowCount });
+
+        } else {
+            // Single task delete
+            if (!id) return res.status(400).json({ error: 'Task ID is required for deletion' });
+            
+            await createTombstone(Number(id));
+            await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+            return res.status(200).json({ success: true });
+        }
 
       default:
         res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);

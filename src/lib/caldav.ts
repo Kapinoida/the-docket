@@ -115,16 +115,19 @@ function parseVEvent(icalData: string) {
     const dtstart = vevent.getFirstPropertyValue('dtstart');
     const dtend = vevent.getFirstPropertyValue('dtend');
     
-    return {
+    const parsed = {
       uid: vevent.getFirstPropertyValue('uid'),
-      title: vevent.getFirstPropertyValue('summary'),
+      title: vevent.getFirstPropertyValue('summary') || '(No Title)',
       description: vevent.getFirstPropertyValue('description'),
       location: vevent.getFirstPropertyValue('location'),
       status: vevent.getFirstPropertyValue('status'),
       start_time: dtstart ? dtstart.toJSDate() : null,
       end_time: dtend ? dtend.toJSDate() : null,
       is_all_day: dtstart ? (dtstart as any).isDate : false,
+      rrule: vevent.getFirstPropertyValue('rrule')?.toString() || null,
     };
+    
+    return parsed;
   } catch (e) {
     console.warn("Failed to parse VEVENT", e);
     return null;
@@ -250,7 +253,14 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
            const summary = vevent.getFirstPropertyValue('summary') || '(No Title)';
            
            if (!uid) continue;
-           activeUids.add(uid);
+            
+            // Skip exceptions (recurrence-id) to prevent overwriting the master series
+            if (vevent.getFirstPropertyValue('recurrence-id')) {
+                // console.log(`[Sync] Skipping exception for ${uid}`);
+                continue;
+            }
+
+            activeUids.add(uid);
            
            // Helper to safely get date
            const getJsDate = (propName: string) => {
@@ -267,18 +277,27 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
            const description = vevent.getFirstPropertyValue('description') || '';
            const location = vevent.getFirstPropertyValue('location') || '';
            const status = vevent.getFirstPropertyValue('status') || 'CONFIRMED';
-           const is_all_day = vevent.getFirstPropertyValue('dtstart')?.type === 'date';
+            const is_all_day = vevent.getFirstPropertyValue('dtstart')?.type === 'date';
+            
+            // Extract RRULE using ICAL.Event wrapper for safety
+            const eventObj = new (ICAL as any).Event(vevent);
+            let rrule: string | null = null;
+            
+            if (eventObj.isRecurring()) {
+                const recur = eventObj.component.getFirstPropertyValue('rrule');
+                rrule = recur ? recur.toString() : null;
+                // console.log(`[Sync Debug] Event ${summary} has RRULE: ${rrule}`);
+            }
 
-           // Use hash of data as fake ETag since iCal feeds often lack per-event ETags
-           const rawData = vevent.toString();
-           const etag = uuidv4(); // Generate new one or hash? For now, we update always if we can't reliably diff. 
-           // Better: rely on 'last-modified' if available, or just Upsert.
+            // Use hash of data as fake ETag since iCal feeds often lack per-event ETags
+            const rawData = vevent.toString();
+            const etag = uuidv4();
            
            await pool.query(`
             INSERT INTO calendar_events (
               uid, calendar_id, title, description, start_time, end_time, 
-              is_all_day, location, status, etag, raw_data, last_synced_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+              is_all_day, location, status, etag, raw_data, rrule, last_synced_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
             ON CONFLICT (uid, calendar_id) DO UPDATE SET
               title = EXCLUDED.title,
               description = EXCLUDED.description,
@@ -289,11 +308,16 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
               status = EXCLUDED.status,
               etag = EXCLUDED.etag,
               raw_data = EXCLUDED.raw_data,
+              rrule = EXCLUDED.rrule,
               last_synced_at = NOW()
           `, [
             uid, config.id, summary, description, 
             dtstart, dtend, is_all_day, 
-            location, status, etag, rawData
+            vevent.getFirstPropertyValue('location'), 
+            vevent.getFirstPropertyValue('status') || 'CONFIRMED', 
+            etag, 
+            rawData,
+            rrule
           ]);
           result.updatedLocal++;
        }
@@ -364,10 +388,12 @@ async function syncEvents(config: CalDAVConfig): Promise<SyncResult> {
 
     console.log(`[Sync] Syncing Events from: ${calendar.displayName} - ${calendar.url}`);
 
-    // Time range filter: -1 month to +6 months
+    // Time range filter: -1 year to +2 years to cover typical usage
     const now = new Date();
-    const start = new Date(now); start.setMonth(start.getMonth() - 1);
-    const end = new Date(now); end.setMonth(end.getMonth() + 6);
+    const start = new Date(now); 
+    start.setFullYear(start.getFullYear() - 1);
+    const end = new Date(now); 
+    end.setFullYear(end.getFullYear() + 2);
     
     // Nextcloud/SabreDAV is strict: requires YYYYMMDDTHHMMSSZ format (no hyphens/colons)
     const formatToCalDAV = (date: Date) => {
@@ -467,8 +493,8 @@ async function syncEvents(config: CalDAVConfig): Promise<SyncResult> {
       await pool.query(`
         INSERT INTO calendar_events (
           uid, calendar_id, title, description, start_time, end_time, 
-          is_all_day, location, status, etag, raw_data, last_synced_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+          is_all_day, location, status, etag, raw_data, rrule, last_synced_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         ON CONFLICT (uid, calendar_id) DO UPDATE SET
           title = EXCLUDED.title,
           description = EXCLUDED.description,
@@ -479,11 +505,13 @@ async function syncEvents(config: CalDAVConfig): Promise<SyncResult> {
           status = EXCLUDED.status,
           etag = EXCLUDED.etag,
           raw_data = EXCLUDED.raw_data,
+          rrule = EXCLUDED.rrule,
           last_synced_at = NOW()
       `, [
         parsed.uid, config.id, parsed.title, parsed.description, 
         parsed.start_time, parsed.end_time, parsed.is_all_day, 
-        parsed.location, parsed.status || 'CONFIRMED', rObj.etag, rObj.data
+        parsed.location, parsed.status || 'CONFIRMED', rObj.etag, rObj.data,
+        parsed.rrule
       ]);
       
       result.updatedLocal++; 
