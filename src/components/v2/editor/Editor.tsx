@@ -37,7 +37,19 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable default lists if we want Strict Mode
+        // Disable extensions that we add manually to avoid duplicates
+        codeBlock: false,
+        // The error suggests 'link' is also a duplicate, so we disable it here just in case 
+        // it's being included by StarterKit or another preset.
+        // It's safer to configure it explicitly as we do later in the list.
+        // Note: StarterKit doesn't usually include Link, but if we see a duplicate warning,
+        // it might be coming from a dependency bump or custom build.
+        // However, standard StarterKit has no 'link' option to disable if it's not there.
+        // But if Tiptap warns, it means it IS there or in another extension.
+        // Let's try disabling 'codeBlock' first, as that is 100% a duplicate.
+        // If 'link' persists, we might need to check if another extension pulls it in.
+        // Actually, let's blindly disable 'link' just in case the typedef allows it or it's a runtime check.
+        // If TypeScript complains, we'll remove the 'link: false'.
       }),
       Placeholder.configure({
           placeholder: 'Type \'/\' for commands...',
