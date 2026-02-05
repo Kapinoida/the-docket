@@ -73,6 +73,8 @@ CREATE TABLE caldav_configs (
   username TEXT NOT NULL,
   password TEXT NOT NULL,
   calendar_url TEXT, -- Full URL to the specific calendar
+  name VARCHAR(255),
+  resource_type VARCHAR(50) DEFAULT 'task_list',
   enabled BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
