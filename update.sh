@@ -9,8 +9,10 @@ echo "Pulling latest code..."
 git pull
 
 # Build and restart containers
+# Build and restart containers
 echo "Rebuilding and restarting containers..."
 docker compose up -d --build --remove-orphans
+docker compose restart nginx
 
 # Run database migrations
 echo "Running database migrations..."
