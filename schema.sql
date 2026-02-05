@@ -89,6 +89,14 @@ CREATE TABLE task_sync_meta (
 
 CREATE INDEX idx_task_sync_meta_caldav_uid ON task_sync_meta(caldav_uid);
 
+CREATE TABLE deleted_task_sync_log (
+  id SERIAL PRIMARY KEY,
+  caldav_uid TEXT NOT NULL,
+  deleted_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_deleted_task_log_uid ON deleted_task_sync_log(caldav_uid);
+
 -- 5. Tags (Added 2026-01-20)
 CREATE TABLE tags (
   id SERIAL PRIMARY KEY,

@@ -24,6 +24,21 @@ async function migrate() {
     `);
     console.log("Checked/Added 'resource_type' column to caldav_configs.");
 
+    // 3. Create deleted_task_sync_log table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_task_sync_log (
+        id SERIAL PRIMARY KEY,
+        caldav_uid TEXT NOT NULL,
+        deleted_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    
+    // 4. Create index for deleted_task_sync_log
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_deleted_task_log_uid ON deleted_task_sync_log(caldav_uid);
+    `);
+    console.log("Checked/Created 'deleted_task_sync_log' table.");
+
     console.log('Migration check completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);
