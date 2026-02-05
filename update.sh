@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 
 echo "Starting deployment update..."
 
