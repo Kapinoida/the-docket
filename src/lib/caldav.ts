@@ -252,22 +252,30 @@ export async function syncCalDAV(): Promise<SyncResult> {
     return result;
   }
 
-  for (const config of configs) {
+  // Optimize: Process all configs in parallel
+  const promises = configs.map(async (config) => {
     console.log(`[Sync] Processing '${config.name || 'Unnamed'}' (${config.resource_type})...`);
     try {
       if (config.resource_type === 'event_calendar') {
-        const subResult = await syncEvents(config);
-        mergeResults(result, subResult);
+        return await syncEvents(config);
       } else {
-        // Default to task_list
-        const subResult = await syncTasksForConfig(config);
-        mergeResults(result, subResult);
+         // Default to task_list
+        return await syncTasksForConfig(config);
       }
     } catch (e: any) {
       console.error(`[Sync] Error processing config ${config.id}:`, e);
-      result.errors.push(`Config ${config.id}: ${e.message}`);
+      // Return a partial result with the error
+      return {
+          addedToRemote: 0, addedToLocal: 0, updatedRemote: 0, updatedLocal: 0,
+          errors: [`Config ${config.id}: ${e.message}`]
+      } as SyncResult;
     }
-  }
+  });
+
+  const results = await Promise.all(promises);
+  
+  // Merge all results
+  results.forEach(subResult => mergeResults(result, subResult));
 
   return result;
 }
