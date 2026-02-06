@@ -41,7 +41,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   };
 
   return (
-    <div className={`group flex items-start gap-2 py-1 transition-all duration-200 relative ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}>
+    <div className={`group flex items-start gap-1.5 py-0.5 transition-all duration-200 relative ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}>
       
       {/* Selection Checkbox */}
       {(onSelect || isSelectionEnabled) && (
@@ -110,7 +110,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       </div>
 
       {/* Content Area (Simple Input/Div for Dashboard) */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 py-0.5">
           {onUpdate ? (
               <input
                   value={isEditing ? editContent : task.content}
@@ -119,12 +119,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   className={`
-                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-1
+                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0
                       ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
                   `}
               />
           ) : (
-              <div className={`text-sm leading-relaxed py-1 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
+              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
                   {task.content}
               </div>
           )}

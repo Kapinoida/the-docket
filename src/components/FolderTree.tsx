@@ -140,7 +140,7 @@ const FolderNode = memo(function FolderNode({
         className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-bg-tertiary group transition-colors ${
           isSelected ? 'bg-blue-100 dark:bg-blue-900/40' : ''
         } ${isDragOver ? 'bg-blue-50 dark:bg-blue-800/40 ring-2 ring-blue-400 ring-inset' : ''}`}
-        style={{ paddingLeft: `${level * 10 + 6}px` }}
+        style={{ paddingLeft: `${level * 8 + 4}px` }}
       >
         {pagesLoaded && hasChildren ? (
           <button
@@ -364,7 +364,7 @@ const FolderContents = memo(function FolderContents({
               className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-bg-tertiary group ${
                 selectedPageId === page.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''
               }`}
-              style={{ paddingLeft: `${(level + 1) * 10 + 16}px` }}
+              style={{ paddingLeft: `${(level + 1) * 8 + 12}px` }}
             >
               <svg
                 className="w-3 h-3 mr-1.5 flex-shrink-0 text-gray-400"
