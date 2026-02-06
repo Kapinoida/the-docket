@@ -39,6 +39,35 @@ async function migrate() {
     `);
     console.log("Checked/Created 'deleted_task_sync_log' table.");
 
+    // 5. Create calendar_events table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS calendar_events (
+        uid TEXT NOT NULL,
+        calendar_id INTEGER REFERENCES caldav_configs(id) ON DELETE CASCADE,
+        title TEXT,
+        description TEXT,
+        start_time TIMESTAMP WITH TIME ZONE,
+        end_time TIMESTAMP WITH TIME ZONE,
+        is_all_day BOOLEAN DEFAULT FALSE,
+        location TEXT,
+        status VARCHAR(50),
+        etag TEXT,
+        raw_data TEXT,
+        rrule TEXT,
+        last_synced_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (uid, calendar_id)
+      );
+    `);
+
+    // 6. Create indexes for calendar_events
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_time, end_time);
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_calendar_events_calendar ON calendar_events(calendar_id);
+    `);
+    console.log("Checked/Created 'calendar_events' table.");
+
     console.log('Migration check completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);
