@@ -132,7 +132,7 @@ export default function Sidebar() {
         <Link 
           href={href}
           className={`
-            flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
+            flex-1 flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm transition-colors
             ${active 
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-accent-blue font-medium' 
                 : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
@@ -160,7 +160,7 @@ export default function Sidebar() {
   );
 
   const SectionHeader = ({ label, isOpen, onToggle, onAdd }: any) => (
-      <div className="flex items-center justify-between px-3 py-2 mt-4 group">
+      <div className="flex items-center justify-between px-2 py-1 mt-2 group">
           <button 
             onClick={onToggle}
             className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-secondary uppercase tracking-wider transition-colors"
@@ -177,8 +177,8 @@ export default function Sidebar() {
   );
 
   return (
-    <div className="w-64 h-full bg-bg-secondary border-r border-border-subtle flex flex-col flex-shrink-0 transition-colors duration-200">
-      <div className="p-4">
+    <div className="w-56 h-full bg-bg-secondary border-r border-border-subtle flex flex-col flex-shrink-0 transition-colors duration-200">
+      <div className="p-3">
         <div className="flex items-center gap-2 font-bold text-foreground text-lg mb-4">
             <Layout className="text-blue-600" />
             The Docket

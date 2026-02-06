@@ -8,7 +8,7 @@ import TodayView from './TodayView';
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 600;
-const DEFAULT_WIDTH = 320;
+const DEFAULT_WIDTH = 280;
 
 export default function RightSidebar() {
   const { isOpen, closeSidebar, view, setView } = useRightSidebar();
@@ -86,7 +86,7 @@ export default function RightSidebar() {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border-default bg-bg-tertiary">
+      <div className="flex items-center justify-between p-2 border-b border-border-default bg-bg-tertiary">
         <div className="flex space-x-2">
             <button
                 onClick={() => setView('inbox')}
@@ -112,7 +112,7 @@ export default function RightSidebar() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-2">
         {renderContent()}
       </div>
     </div>
