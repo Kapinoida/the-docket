@@ -12,22 +12,34 @@ interface WeeklyCalendarProps {
 
 export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyCalendarProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 })); // Monday start
+  const [events, setEvents] = useState<any[]>([]);
+  const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    fetchData();
+  }, [currentStart]);
 
-  const fetchTasks = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v2/tasks');
-      if (response.ok) {
-        setTasks(await response.json());
+      // Calculate end of the 7-day window
+      const windowEnd = addDays(currentStart, 7);
+      
+      const [tasksRes, eventsRes] = await Promise.all([
+        fetch('/api/v2/tasks'),
+        fetch(`/api/v2/calendar/events?start=${currentStart.toISOString()}&end=${windowEnd.toISOString()}`)
+      ]);
+
+      if (tasksRes.ok) {
+        setTasks(await tasksRes.json());
+      }
+      
+      if (eventsRes.ok) {
+        setEvents(await eventsRes.json());
       }
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -49,15 +61,16 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
             onTaskComplete?.(taskId);
         } else {
             // Revert optimism if needed (simple app: fetch again or ignore)
-            fetchTasks();
+            fetchData();
         }
     } catch (err) {
         console.error("Failed to complete task", err);
     }
   };
 
-  const nextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
-  const prevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
+  const nextWeek = () => setCurrentStart(addDays(currentStart, 7));
+  const prevWeek = () => setCurrentStart(addDays(currentStart, -7));
+  const resetToToday = () => setCurrentStart(startOfDay(new Date()));
 
   // Filter Tasks
   const today = startOfDay(new Date());
@@ -68,19 +81,25 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     isBefore(new Date(task.due_date), today)
   );
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentStart, i));
 
-  const getTasksForDay = (date: Date) => {
-    return tasks.filter(task => 
+  const getItemsForDay = (date: Date) => {
+    const dayTasks = tasks.filter(task => 
       task.status !== 'done' && 
       task.due_date && 
       isSameDay(new Date(task.due_date), date)
     );
+    
+    const dayEvents = events.filter(event => 
+      isSameDay(new Date(event.start_time), date)
+    );
+    
+    return { tasks: dayTasks, events: dayEvents };
   };
 
   const renderTaskCard = (task: Task, isOverdue = false) => (
     <div 
-        key={task.id}
+        key={`task-${task.id}`}
         onClick={() => onTaskSelect?.(task)}
         className={`group relative p-2 rounded-md border text-sm cursor-pointer transition-all hover:shadow-sm ${
             isOverdue 
@@ -101,20 +120,47 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
         </div>
     </div>
   );
+  
+  const renderEventCard = (event: any) => (
+    <div 
+      key={`event-${event.id}`}
+      className="p-1 px-2 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-1"
+    >
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] opacity-75 whitespace-nowrap">
+          {!event.is_all_day && format(new Date(event.start_time), 'h:mm a')}
+        </span>
+        <span className="font-medium truncate">{event.title}</span>
+      </div>
+    </div>
+  );
 
-  if (loading) return <div className="h-64 flex items-center justify-center text-gray-400">Loading calendar...</div>;
+  if (loading && tasks.length === 0 && events.length === 0) return <div className="h-64 flex items-center justify-center text-gray-400">Loading schedule...</div>;
 
   return (
     <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                <span>{format(currentWeekStart, 'MMMM yyyy')}</span>
-                <span className="text-sm font-normal text-gray-400">Week of {format(currentWeekStart, 'do')}</span>
+                {isSameDay(currentStart, today) ? (
+                    <span>Next 7 Days</span>
+                ) : (
+                    <span>Starting {format(currentStart, 'MMM do')}</span>
+                )}
             </h2>
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                <button onClick={prevWeek} className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded shadow-sm"><ChevronLeft size={16} /></button>
-                <button onClick={nextWeek} className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded shadow-sm"><ChevronRight size={16} /></button>
+            <div className="flex items-center gap-2">
+                {!isSameDay(currentStart, today) && (
+                    <button 
+                        onClick={resetToToday}
+                        className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                    >
+                        Today
+                    </button>
+                )}
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    <button onClick={prevWeek} className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded shadow-sm"><ChevronLeft size={16} /></button>
+                    <button onClick={nextWeek} className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded shadow-sm"><ChevronRight size={16} /></button>
+                </div>
             </div>
         </div>
 
@@ -135,7 +181,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
         {/* Calendar Grid */}
         <div className="grid grid-cols-1 md:grid-cols-7 gap-4 min-h-[300px]">
             {weekDays.map(day => {
-                const dayTasks = getTasksForDay(day);
+                const { tasks: dayTasks, events: dayEvents } = getItemsForDay(day);
                 const isTodayDate = isToday(day);
                 
                 return (
@@ -150,12 +196,20 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
                             </div>
                         </div>
 
-                        {/* Task List for Day */}
+                        {/* Content List for Day */}
                         <div className="flex flex-col gap-2 flex-1">
+                            {/* Events First */}
+                            {dayEvents.length > 0 && (
+                                <div className="flex flex-col gap-1">
+                                    {dayEvents.map(e => renderEventCard(e))}
+                                </div>
+                            )}
+                            
+                            {/* Tasks */}
                             {dayTasks.map(t => renderTaskCard(t))}
                             
-                            {/* Empty State placeholder for drop zones (future) */}
-                            {dayTasks.length === 0 && (
+                            {/* Empty State */}
+                            {dayTasks.length === 0 && dayEvents.length === 0 && (
                                 <div className="h-full border-t border-transparent" />
                             )}
                         </div>
