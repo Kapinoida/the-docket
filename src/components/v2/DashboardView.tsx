@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Task, Page } from '@/types/v2';
-import WeeklyAgenda from '../WeeklyAgenda';
+import WeeklyCalendar from './WeeklyCalendar';
 import RecentNotes from './RecentNotes';
 import { Plus, Layout, Calendar, CheckSquare } from 'lucide-react';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
@@ -169,7 +169,7 @@ export default function DashboardView() {
                     Weekly Schedule
                 </h3>
             </div>
-            <WeeklyAgenda 
+            <WeeklyCalendar 
               onTaskSelect={handleTaskSelect} 
               onTaskComplete={() => fetchStats()}
             />

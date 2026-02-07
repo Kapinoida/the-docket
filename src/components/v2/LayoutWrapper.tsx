@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import RightSidebar from './RightSidebar';
-import { Menu, PanelRight } from 'lucide-react';
+import { Menu, PanelRight, ChevronLeft } from 'lucide-react';
 import { RightSidebarProvider, useRightSidebar } from '../../contexts/RightSidebarContext';
 
 import { usePeriodicSync } from '@/hooks/usePeriodicSync';
@@ -73,10 +73,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
            {!isRightSidebarOpen && (
               <button
                 onClick={() => toggleRightSidebar()}
-                className="absolute top-4 right-4 p-2 rounded-md bg-secondary text-secondary-foreground hover:bg-muted shadow-md z-20 hidden md:flex items-center justify-center border border-border"
+                className="absolute top-1/2 right-0 transform -translate-y-1/2 p-1 rounded-l-md bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary shadow-sm z-50 hidden md:flex items-center justify-center border-y border-l border-border-subtle transition-all opacity-60 hover:opacity-100"
                 aria-label="Toggle Right Sidebar"
               >
-                <PanelRight size={20} />
+                <ChevronLeft size={14} />
               </button>
            )}
         </main>
