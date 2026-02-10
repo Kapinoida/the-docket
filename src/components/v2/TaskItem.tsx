@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Circle, Calendar, Clock } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, Clock, Edit2 } from 'lucide-react';
 import { Task } from '../../types/v2';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
+import { useTaskEdit } from '../../contexts/TaskEditContext';
 
 interface TaskItemProps {
   task: Task;
@@ -19,6 +20,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
+  const { openTaskEdit } = useTaskEdit();
 
   const handleDateSelect = (date: Date | null, recurrence?: any) => {
       onUpdate?.({ 
@@ -38,6 +40,21 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       if (e.key === 'Enter') {
           (e.currentTarget as HTMLInputElement).blur();
       }
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Adapt V2 task to V1 expected by context
+      openTaskEdit({
+          ...task,
+          id: task.id.toString(),
+          dueDate: task.due_date ? new Date(task.due_date) : null,
+          completed: task.status === 'done',
+          createdAt: new Date(task.created_at),
+          updatedAt: new Date(task.updated_at),
+          content: task.content,
+          recurrenceRule: task.recurrence_rule
+      } as any);
   };
 
   return (
@@ -130,7 +147,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           )}
       </div>
 
-
+      {/* Edit Trigger - Only visible on hover */}
+      <button
+        onClick={handleEdit}
+        className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-blue-500 transition-all"
+        title="Edit Task"
+      >
+        <Edit2 size={14} />
+      </button>
 
     </div>
   );

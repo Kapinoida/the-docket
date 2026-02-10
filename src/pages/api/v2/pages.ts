@@ -86,12 +86,12 @@ export default async function handler(
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'ID is required' });
-        const { content: newContent, title: newTitle } = req.body;
+        const { content: newContent, title: newTitle, is_favorite: newIsFavorite } = req.body;
         // Simple update query
         // TODO: Move to db.ts function
         const updateRes = await pool.query(
-          'UPDATE pages SET content = COALESCE($1, content), title = COALESCE($2, title), updated_at = NOW() WHERE id = $3 RETURNING *',
-          [newContent, newTitle, id]
+          'UPDATE pages SET content = COALESCE($1, content), title = COALESCE($2, title), is_favorite = COALESCE($3, is_favorite), updated_at = NOW() WHERE id = $4 RETURNING *',
+          [newContent, newTitle, newIsFavorite, id]
         );
         return res.status(200).json(updateRes.rows[0]);
 

@@ -17,9 +17,9 @@ import { TaskExtension } from './extensions/TaskExtension';
 import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
 import { TagExtension } from './extensions/TagExtension';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Page } from '../../../types/v2';
-import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal } from 'lucide-react';
+import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal, RefreshCw, AlertTriangle } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { GlobalDragHandle, dragStore } from './GlobalDragHandle';
 
@@ -28,11 +28,54 @@ const lowlight = createLowlight(common);
 interface EditorProps {
   pageId: number;
   initialContent: any;
+  initialUpdatedAt: Date;
 }
 
-export default function V2Editor({ pageId, initialContent }: EditorProps) {
+export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // Update Check State
+  const [serverUpdatedAt, setServerUpdatedAt] = useState<Date>(new Date(initialUpdatedAt));
+  const [hasNewerVersion, setHasNewerVersion] = useState(false);
+  const lastKnownUpdateRef = useRef<Date>(new Date(initialUpdatedAt));
+
+  // Update ref when prop changes (e.g. initial load or parent refresh)
+  useEffect(() => {
+    lastKnownUpdateRef.current = new Date(initialUpdatedAt);
+    setServerUpdatedAt(new Date(initialUpdatedAt));
+    setHasNewerVersion(false);
+  }, [initialUpdatedAt]);
+
+  // Poll for updates
+  useEffect(() => {
+    if (!pageId) return;
+
+    const checkForUpdates = async () => {
+        try {
+            const res = await fetch(`/api/v2/pages?id=${pageId}`);
+            if (res.ok) {
+                const data = await res.json();
+                const remoteDate = new Date(data.updated_at);
+                
+                // If remote date is newer than our last known save/load time
+                // AND the difference is significant (> 2 seconds to avoid clock skew issues with self-saves)
+                if (remoteDate.getTime() > lastKnownUpdateRef.current.getTime() + 2000) {
+                    setHasNewerVersion(true);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to check for updates", e);
+        }
+    };
+
+    const intervalId = setInterval(checkForUpdates, 30000); // Check every 30 seconds
+    return () => clearInterval(intervalId);
+  }, [pageId]);
+
+  const handleRefresh = () => {
+      window.location.reload();
+  };
 
   const editor = useEditor({
     extensions: [
@@ -324,12 +367,23 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
     if (!pageId) return;
     setIsSaving(true);
     try {
-      await fetch(`/api/v2/pages?id=${pageId}`, {
+      const res = await fetch(`/api/v2/pages?id=${pageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       });
-      setLastSaved(new Date());
+      
+      if (res.ok) {
+          const data = await res.json();
+          // Update our local knowledge of the server state so we don't warn about our own edits
+          const newDate = new Date(data.updated_at);
+          lastKnownUpdateRef.current = newDate;
+          setLastSaved(newDate);
+          setServerUpdatedAt(newDate);
+          // If we had a warning, clear it if we successfully overwrote (though ideally we should have stopped them, 
+          // but for now this is a collaborative "check" not a lock)
+          setHasNewerVersion(false); 
+      }
     } catch (err) {
       console.error('Failed to save', err);
     } finally {
@@ -343,6 +397,22 @@ export default function V2Editor({ pageId, initialContent }: EditorProps) {
 
   return (
     <div className="max-w-6xl mx-auto py-8">
+        {hasNewerVersion && (
+            <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center justify-between text-amber-800 dark:text-amber-200">
+                <div className="flex items-center gap-2">
+                    <AlertTriangle size={18} />
+                    <span className="font-medium">Page has been updated in another tab/window.</span>
+                </div>
+                <button 
+                    onClick={handleRefresh}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-100 dark:bg-amber-800 hover:bg-amber-200 dark:hover:bg-amber-700 rounded text-sm transition-colors"
+                >
+                    <RefreshCw size={14} />
+                    Refresh Page
+                </button>
+            </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between text-sm text-text-muted pb-2 border-b border-border-default">
              {/* Toolbar container */}
              <div className="flex-1">

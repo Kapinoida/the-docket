@@ -308,7 +308,10 @@ export const TaskExtension = Node.create({
                        return editor.commands.setParagraph();
                   }
                   // Otherwise, split block (create new task)
-                  return editor.commands.splitBlock();
+                  return editor.chain()
+                      .splitBlock()
+                      .setNode('v2Task', { taskId: null, pageId: this.options.pageId, status: 'todo', autoFocus: true })
+                      .run();
               }
               return false;
           },

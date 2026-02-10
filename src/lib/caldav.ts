@@ -147,7 +147,8 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
   vtodo.addPropertyWithValue('status', status === 'done' ? 'COMPLETED' : 'NEEDS-ACTION');
   
   if (dueDate) {
-    const time = ICAL.Time.fromJSDate(dueDate);
+    // @ts-ignore - ical.js types are missing the useUTC argument
+    const time = ICAL.Time.fromJSDate(dueDate, true);
     (time as any).isDate = true; // Force DATE-only (All Day) to avoid timezone shifts
     vtodo.addPropertyWithValue('due', time);
   }
