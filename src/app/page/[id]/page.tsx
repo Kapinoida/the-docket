@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus } from 'lucide-react';
+import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, PageItem, Task } from '../../../types/v2';
 import { TaskItem } from '../../../components/v2/TaskItem';
@@ -56,6 +56,28 @@ export default function PageView() {
       } catch (err) {
           console.error("Failed to delete page", err);
       }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!page) return;
+
+    // Optimistic update
+    const newStatus = !page.is_favorite;
+    setPage({ ...page, is_favorite: newStatus });
+
+    try {
+      await fetch(`/api/v2/pages?id=${page.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_favorite: newStatus })
+      });
+      // Notify sidebar
+      window.dispatchEvent(new Event('pageUpdated'));
+    } catch (err) {
+      console.error("Failed to toggle favorite", err);
+      // Revert on failure
+      setPage({ ...page, is_favorite: !newStatus });
+    }
   };
 
   const handleTitleBlur = async (e: React.FocusEvent<HTMLHeadingElement>) => {
@@ -232,6 +254,17 @@ export default function PageView() {
             >
                 <Trash2 size={18} />
             </button>
+            <button 
+                onClick={handleToggleFavorite}
+                className={`p-2 rounded-lg transition-colors ${
+                  page.is_favorite 
+                    ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' 
+                    : 'text-text-muted hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                }`}
+                title={page.is_favorite ? "Remove from favorites" : "Add to favorites"}
+            >
+                <Star size={18} fill={page.is_favorite ? "currentColor" : "none"} />
+            </button>
         </div>
 
         <h1 
@@ -289,7 +322,11 @@ export default function PageView() {
         </div>
       </div>
       
-      <V2Editor pageId={page.id} initialContent={page.content} />
+      <V2Editor 
+          pageId={page.id} 
+          initialContent={page.content} 
+          initialUpdatedAt={page.updated_at}
+      />
 
       {/* Context Links Section */}
       <div className="max-w-4xl mx-auto mt-12 px-8 pb-32">

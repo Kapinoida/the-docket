@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, Editor } from '@tiptap/react';
-import { CheckCircle2, Circle, Calendar, Clock, GripVertical, MoreHorizontal } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, Clock, Edit2 } from 'lucide-react';
 import { Task } from '../../types/v2';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
+import { useTaskEdit } from '../../contexts/TaskEditContext';
 import { useTaskParser } from '../../hooks/useTaskParser';
 import { Node as ProseMirrorNode } from '@tiptap/pm/model';
 
@@ -25,6 +26,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
     task, onToggle, onUpdate
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const { openTaskEdit } = useTaskEdit();
 
   // Hook to handle @date parsing automatically
   useTaskParser({
@@ -47,6 +49,22 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
           due_date: date,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Stop prose mirror from stealing focus immediately if needed, though this is an overlay
+      
+      // Adapt V2 task to V1 expected by context
+      openTaskEdit({
+          ...task,
+          id: task.id.toString(),
+          dueDate: task.due_date ? new Date(task.due_date) : null,
+          completed: task.status === 'done',
+          createdAt: new Date(task.created_at),
+          updatedAt: new Date(task.updated_at),
+          content: task.content,
+          recurrenceRule: task.recurrence_rule
+      } as any);
   };
 
   return (
@@ -118,7 +136,16 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
           />
       </div>
 
-
+      {/* Edit Trigger - Only visible on hover */}
+      <div className="opacity-0 group-hover:opacity-100 absolute right-0 top-1" contentEditable={false}>
+          <button
+            onClick={handleEdit}
+            className="p-1 text-text-muted hover:text-blue-500 transition-all bg-white dark:bg-gray-800 rounded shadow-sm border border-gray-200 dark:border-gray-700"
+            title="Edit Task"
+          >
+            <Edit2 size={12} />
+          </button>
+      </div>
 
     </NodeViewWrapper>
   );
