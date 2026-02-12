@@ -33,7 +33,7 @@ interface EditorProps {
 
 export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(initialUpdatedAt ? new Date(initialUpdatedAt) : null);
   
   // Update Check State
   const [serverUpdatedAt, setServerUpdatedAt] = useState<Date>(new Date(initialUpdatedAt));
@@ -44,6 +44,7 @@ export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: E
   useEffect(() => {
     lastKnownUpdateRef.current = new Date(initialUpdatedAt);
     setServerUpdatedAt(new Date(initialUpdatedAt));
+    setLastSaved(new Date(initialUpdatedAt));
     setHasNewerVersion(false);
   }, [initialUpdatedAt]);
 
@@ -363,32 +364,56 @@ export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: E
     // Let's implement a simple debounce for the `handleSave`.
   }, []);
 
-  const handleSave = async (content: any) => {
+  // Debounced save ref
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+    };
+  }, []);
+
+  const handleSave = (content: any) => {
     if (!pageId) return;
-    setIsSaving(true);
-    try {
-      const res = await fetch(`/api/v2/pages?id=${pageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      
-      if (res.ok) {
-          const data = await res.json();
-          // Update our local knowledge of the server state so we don't warn about our own edits
-          const newDate = new Date(data.updated_at);
-          lastKnownUpdateRef.current = newDate;
-          setLastSaved(newDate);
-          setServerUpdatedAt(newDate);
-          // If we had a warning, clear it if we successfully overwrote (though ideally we should have stopped them, 
-          // but for now this is a collaborative "check" not a lock)
-          setHasNewerVersion(false); 
-      }
-    } catch (err) {
-      console.error('Failed to save', err);
-    } finally {
-      setIsSaving(false);
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
     }
+    
+    // Set loading state immediately for UI feedback
+    setIsSaving(true);
+
+    // Set new timeout
+    saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/v2/pages?id=${pageId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+          });
+          
+          if (res.ok) {
+              const data = await res.json();
+              // Update our local knowledge of the server state so we don't warn about our own edits
+              const newDate = new Date(data.updated_at);
+              lastKnownUpdateRef.current = newDate;
+              setLastSaved(newDate);
+              setServerUpdatedAt(newDate);
+              // If we had a warning, clear it if we successfully overwrote (though ideally we should have stopped them, 
+              // but for now this is a collaborative "check" not a lock)
+              setHasNewerVersion(false); 
+          }
+        } catch (err) {
+          console.error('Failed to save', err);
+        } finally {
+          setIsSaving(false);
+          saveTimeoutRef.current = null;
+        }
+    }, 1000); // 1 second debounce
   };
 
   if (!editor) {
@@ -419,11 +444,13 @@ export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: E
                  <EditorToolbar editor={editor} />
              </div>
             
-            <div className="flex items-center gap-2 ml-4 self-start mt-1">
+            <div className="flex items-center gap-2 ml-4 self-start mt-1 h-6 min-w-[24px] justify-end" title={lastSaved ? `Last saved at ${lastSaved.toLocaleTimeString()}` : 'Unsaved'}>
                 {isSaving ? (
-                    <span className="flex items-center gap-1 text-blue-500"><Save size={14} className="animate-pulse" /> Saving...</span>
+                    <RefreshCw size={16} className="text-blue-500 animate-spin" />
+                ) : lastSaved ? (
+                     <CheckSquare size={16} className="text-green-500/50" />
                 ) : (
-                    <span>{lastSaved ? `Saved ${lastSaved.toLocaleTimeString()}` : 'Unsaved'}</span>
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
                 )}
             </div>
         </div>
