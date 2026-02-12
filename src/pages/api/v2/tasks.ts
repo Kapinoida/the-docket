@@ -20,49 +20,65 @@ export default async function handler(
         } else {
           const { due, context } = req.query;
           
-          let query = 'SELECT * FROM tasks';
+          let query = `
+            SELECT t.*, p.id as context_page_id, p.title as context_page_title 
+            FROM tasks t
+            LEFT JOIN page_items pi ON t.id = pi.child_task_id
+            LEFT JOIN pages p ON pi.page_id = p.id
+          `;
           let params: any[] = [];
           
           if (due === 'today') {
               // Tasks due on or before today that are not done
-              query += ` WHERE due_date::date <= CURRENT_DATE AND (status IS NULL OR status != 'done') AND content != ''`;
-              query += ` ORDER BY due_date ASC, created_at ASC`;
+              query += ` WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
+              query += ` ORDER BY t.due_date ASC, t.created_at ASC`;
           } else if (context === 'none') {
               // Contextless Inbox: Not done, no page context
               query += ` 
-                WHERE content != '' 
-                AND (status IS NULL OR status != 'done')
-                AND id NOT IN (SELECT child_task_id FROM page_items WHERE child_task_id IS NOT NULL)
-                ORDER BY created_at DESC
+                WHERE t.content != '' 
+                AND (t.status IS NULL OR t.status != 'done')
+                AND pi.child_task_id IS NULL
+                ORDER BY t.created_at DESC
               `;
           } else {
               // General Listing with Filters
               const { status, sort } = req.query;
 
-              query += " WHERE content != ''";
+              query += " WHERE t.content != ''";
               
               // Status Filter
               if (status === 'todo') {
-                  query += " AND (status IS NULL OR status != 'done')";
+                  query += " AND (t.status IS NULL OR t.status != 'done')";
               } else if (status === 'done') {
-                  query += " AND status = 'done'";
+                  query += " AND t.status = 'done'";
               }
               // 'all' includes both, so no extra clause needed
               
               // Sorting
               if (sort === 'dueDate') {
                   // Sort by due date (nulls last), then created
-                  query += " ORDER BY due_date ASC NULLS LAST, created_at ASC";
+                  query += " ORDER BY t.due_date ASC NULLS LAST, t.created_at ASC";
               } else if (sort === 'oldest') {
-                  query += " ORDER BY created_at ASC";
+                  query += " ORDER BY t.created_at ASC";
               } else {
                   // Default: Newest created first
-                  query += " ORDER BY created_at DESC";
+                  query += " ORDER BY t.created_at DESC";
               }
           }
           
           const result = await pool.query(query, params);
-          return res.status(200).json(result.rows);
+          
+          const tasks = result.rows.map((row: any) => {
+            const task = {
+                ...row,
+                context: row.context_page_id ? { page_id: row.context_page_id, title: row.context_page_title } : null,
+            };
+            delete task.context_page_id;
+            delete task.context_page_title;
+            return task;
+          });
+          
+          return res.status(200).json(tasks);
         }
 
       case 'POST':
@@ -117,9 +133,9 @@ export default async function handler(
         console.log('[API] PUT Request:', { id, body: req.body, query: updateQuery, params: updateParams });
 
         const updateRes = await pool.query(updateQuery, updateParams);
-        console.log('[API] PUT Result:', { rowCount: updateRes.rowCount, found: updateRes.rowCount > 0 });
+        console.log('[API] PUT Result:', { rowCount: updateRes.rowCount, found: (updateRes.rowCount || 0) > 0 });
 
-        if (updateRes.rowCount === 0) return res.status(404).json({ error: 'Task not found' });
+        if ((updateRes.rowCount || 0) === 0) return res.status(404).json({ error: 'Task not found' });
         
         return res.status(200).json(updateRes.rows[0]);
 
