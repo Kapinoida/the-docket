@@ -156,6 +156,7 @@ export default function InboxView() {
                 task={task} 
                 onToggle={handleToggle} 
                 onUpdate={(updates) => handleUpdate(task.id, updates)}
+                showContext={false}
                 extraActions={
                     <button 
                         onClick={() => openMoveModal(task)}

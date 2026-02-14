@@ -12,10 +12,12 @@ interface TaskItemProps {
   isSelectionEnabled?: boolean;
   isSelected?: boolean;
   onSelect?: (id: number, selected: boolean) => void;
+  showContext?: boolean;
+  extraActions?: React.ReactNode;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ 
-    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect 
+    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect, showContext = true, extraActions
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -147,14 +149,32 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           )}
       </div>
 
+      {/* Context Badge */}
+      {showContext && (
+        <div className="flex-shrink-0 flex items-center ml-2">
+            {task.context ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-text-secondary border border-border-default max-w-[150px] truncate" title={`From: ${task.context.title}`}>
+                {task.context.title}
+                </span>
+            ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 dark:bg-gray-800/50 text-text-muted border border-transparent">
+                Inbox
+                </span>
+            )}
+        </div>
+      )}
+
       {/* Edit Trigger - Only visible on hover */}
-      <button
-        onClick={handleEdit}
-        className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-blue-500 transition-all"
-        title="Edit Task"
-      >
-        <Edit2 size={14} />
-      </button>
+      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+            onClick={handleEdit}
+            className="p-1 text-text-muted hover:text-blue-500 transition-all"
+            title="Edit Task"
+        >
+            <Edit2 size={14} />
+        </button>
+        {extraActions}
+      </div>
 
     </div>
   );
