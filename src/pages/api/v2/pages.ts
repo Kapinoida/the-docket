@@ -86,13 +86,41 @@ export default async function handler(
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'ID is required' });
-        const { content: newContent, title: newTitle, is_favorite: newIsFavorite } = req.body;
-        // Simple update query
-        // TODO: Move to db.ts function
-        const updateRes = await pool.query(
-          'UPDATE pages SET content = COALESCE($1, content), title = COALESCE($2, title), is_favorite = COALESCE($3, is_favorite), updated_at = NOW() WHERE id = $4 RETURNING *',
-          [newContent, newTitle, newIsFavorite, id]
-        );
+        const { content: newContent, title: newTitle, is_favorite: newIsFavorite, folderId: newFolderId } = req.body;
+        
+        const updateFields: string[] = [];
+        const updateValues: any[] = [];
+        let valueIdx = 1;
+
+        if (newContent !== undefined) {
+          updateFields.push(`content = $${valueIdx++}`);
+          updateValues.push(newContent);
+        }
+        if (newTitle !== undefined) {
+          updateFields.push(`title = $${valueIdx++}`);
+          updateValues.push(newTitle);
+        }
+        if (newIsFavorite !== undefined) {
+          updateFields.push(`is_favorite = $${valueIdx++}`);
+          updateValues.push(newIsFavorite);
+        }
+        if (newFolderId !== undefined) {
+          updateFields.push(`folder_id = $${valueIdx++}`);
+          updateValues.push(newFolderId);
+        }
+
+        updateFields.push(`updated_at = NOW()`);
+        
+        if (updateFields.length === 1) { 
+           // Only updated_at - nothing really to update
+           const currentRes = await pool.query('SELECT * FROM pages WHERE id = $1', [id]);
+           return res.status(200).json(currentRes.rows[0]);
+        }
+
+        updateValues.push(id);
+        const updateQuery = `UPDATE pages SET ${updateFields.join(', ')} WHERE id = $${valueIdx} RETURNING *`;
+        
+        const updateRes = await pool.query(updateQuery, updateValues);
         return res.status(200).json(updateRes.rows[0]);
 
       case 'DELETE':

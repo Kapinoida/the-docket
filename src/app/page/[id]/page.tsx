@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star } from 'lucide-react';
+import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, PageItem, Task } from '../../../types/v2';
 import { TaskItem } from '../../../components/v2/TaskItem';
 
 import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
+import { MovePageModal } from '../../../components/modals/MovePageModal';
 
 interface Tag {
     id: number;
@@ -32,6 +33,7 @@ export default function PageView() {
   const [tagInput, setTagInput] = useState('');
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -78,6 +80,32 @@ export default function PageView() {
       // Revert on failure
       setPage({ ...page, is_favorite: !newStatus });
     }
+  };
+
+  const handleMove = async (newFolderId: string | null) => {
+      if (!page) return;
+      try {
+          // Explicitly pass null for "no folder" which is equivalent to root/home conceptually here.
+          // Wait, 'newFolderId' is passed. If "Home" is selected, it might pass null or '1'.
+          // Wait: what is newFolderId from the select? '1' is Home in the tree but the selector uses fetched folders.
+          // Actually Home is folder_id=1. So if 'null' is passed from select (value="") it sets to null.
+          // But folder Tree treats null parent as root or folderId=1 as Home. Let's look at Folder tree: Home folder has ID 1.
+          // The fetch(`/api/v2/folders`) will return it. If user selects "Home" folder they get ID 1.
+          
+          const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ folderId: newFolderId })
+          });
+          if (res.ok) {
+              const freshRes = await fetch(`/api/v2/pages?id=${page.id}`);
+              const freshData = await freshRes.json();
+              setPage(freshData);
+              window.dispatchEvent(new Event('pageUpdated'));
+          }
+      } catch (err) {
+          console.error("Failed to move page", err);
+      }
   };
 
   const handleTitleBlur = async (e: React.FocusEvent<HTMLHeadingElement>) => {
@@ -248,6 +276,13 @@ export default function PageView() {
 
             {/* Actions */}
             <button 
+                onClick={() => setShowMoveModal(true)}
+                className="p-2 text-text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                title="Move Page"
+            >
+                <FolderInput size={18} />
+            </button>
+            <button 
                 onClick={() => setShowDeleteModal(true)}
                 className="p-2 text-text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 title="Delete Page"
@@ -324,6 +359,7 @@ export default function PageView() {
       
       <V2Editor 
           pageId={page.id} 
+          pageTitle={page.title}
           initialContent={page.content} 
           initialUpdatedAt={page.updated_at}
       />
@@ -376,6 +412,14 @@ export default function PageView() {
         title="Delete Page"
         message={`Are you sure you want to delete "${page?.title}"? This action cannot be undone.`}
         confirmLabel="Delete"
+      />
+      
+      <MovePageModal
+        isOpen={showMoveModal}
+        onClose={() => setShowMoveModal(false)}
+        onConfirm={handleMove}
+        title={page?.title || ''}
+        currentFolderId={page?.folder_id ? String(page.folder_id) : null}
       />
     </div>
   );

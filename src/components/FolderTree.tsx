@@ -13,6 +13,7 @@ interface FolderTreeProps {
   onCreatePage?: (folderId: string, folderName?: string) => void;
   onCreateTask?: () => void;
   onDeletePage?: (pageId: number) => void;
+  onMovePage?: (pageId: number, newFolderId: string) => Promise<void>;
 }
 
 interface FolderNodeProps {
@@ -32,6 +33,7 @@ interface FolderNodeProps {
   refreshTrigger?: number;
   onCreatePage?: (folderId: string, folderName?: string) => void;
   onDeletePage?: (pageId: number) => void;
+  onMovePage?: (pageId: number, newFolderId: string) => Promise<void>;
 }
 
 const FolderNode = memo(function FolderNode({ 
@@ -50,7 +52,8 @@ const FolderNode = memo(function FolderNode({
   selectedPageId,
   refreshTrigger,
   onCreatePage,
-  onDeletePage
+  onDeletePage,
+  onMovePage
 }: FolderNodeProps) {
   const [pages, setPages] = useState<Page[]>([]);
   const [pagesLoaded, setPagesLoaded] = useState(false);
@@ -120,6 +123,15 @@ const FolderNode = memo(function FolderNode({
     e.stopPropagation();
     setIsDragOver(false);
     
+    // Check if it's a page being dropped
+    const draggedPageId = e.dataTransfer.getData('pageId');
+    if (draggedPageId) {
+       if (onMovePage) {
+           await onMovePage(Number(draggedPageId), folder.id);
+       }
+       return;
+    }
+
     const draggedFolderId = e.dataTransfer.getData('folderId');
     if (!draggedFolderId || draggedFolderId === folder.id) return;
 
@@ -232,6 +244,54 @@ const FolderNode = memo(function FolderNode({
                   </svg>
                 </button>
               )}
+              {/* Export Folder button on hover */}
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // Trigger export
+                  try {
+                      // We need JSZip to create the zip client-side
+                      const JSZip = (await import('jszip')).default;
+                      const zip = new JSZip();
+                      
+                      const res = await fetch(`/api/v2/folders/${folder.id}/export`);
+                      if (!res.ok) throw new Error('Failed to fetch folder pages');
+                      const data = await res.json();
+                      
+                      // Import our markdown converter
+                      const { jsonToMarkdown } = await import('@/lib/jsonToMarkdown');
+                      
+                      const pages = data.pages as Page[];
+                      if (pages.length === 0) {
+                          alert('Folder is empty.');
+                          return;
+                      }
+                      
+                      // Convert and add each page to the zip
+                      for (const page of pages) {
+                          const markdown = jsonToMarkdown(page.content);
+                          // Sanitize filename
+                          const filename = `${page.title.replace(/[\/\\?%*:|"<>]/g, '-')}.md`;
+                          zip.file(filename, markdown);
+                      }
+                      
+                      // Generate and download
+                      const content = await zip.generateAsync({ type: 'blob' });
+                      const saveAs = (await import('file-saver')).saveAs;
+                      saveAs(content, `${data.folderName}.zip`);
+                      
+                  } catch (e) {
+                      console.error('Export failed:', e);
+                      alert('Failed to export folder');
+                  }
+                }}
+                className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400"
+                title="Export folder to ZIP"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
             </>
           )}
           
@@ -294,6 +354,7 @@ const FolderNode = memo(function FolderNode({
           refreshTrigger={refreshTrigger}
           onCreatePage={onCreatePage}
           onDeletePage={onDeletePage}
+          onMovePage={onMovePage}
           pages={pages}
         />
       )}
@@ -318,6 +379,7 @@ interface FolderContentsProps {
   refreshTrigger?: number;
   onCreatePage?: (folderId: string, folderName?: string) => void;
   onDeletePage?: (pageId: number) => void;
+  onMovePage?: (pageId: number, newFolderId: string) => Promise<void>;
 }
 
 const FolderContents = memo(function FolderContents({
@@ -337,6 +399,7 @@ const FolderContents = memo(function FolderContents({
   refreshTrigger,
   onCreatePage,
   onDeletePage,
+  onMovePage,
   pages
 }: FolderContentsProps & { pages: Page[] }) {
   const [deletingPage, setDeletingPage] = useState<Page | null>(null);
@@ -361,6 +424,12 @@ const FolderContents = memo(function FolderContents({
           {pages.map((page) => (
             <div
               key={page.id}
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                e.dataTransfer.setData('pageId', page.id.toString());
+                e.dataTransfer.effectAllowed = 'move';
+              }}
               className={`flex items-center py-0.5 px-1.5 rounded cursor-pointer hover:bg-bg-tertiary group ${
                 selectedPageId === page.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''
               }`}
@@ -430,6 +499,7 @@ const FolderContents = memo(function FolderContents({
               refreshTrigger={refreshTrigger}
               onCreatePage={onCreatePage}
               onDeletePage={onDeletePage}
+              onMovePage={onMovePage}
             />
           ))}
         </div>
@@ -480,7 +550,7 @@ const FolderContents = memo(function FolderContents({
   );
 });
 
-export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSelect, selectedPageId, refreshTrigger, onCreatePage, onCreateTask, onDeletePage }: FolderTreeProps) {
+export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSelect, selectedPageId, refreshTrigger, onCreatePage, onCreateTask, onDeletePage, onMovePage }: FolderTreeProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['1'])); // Expand Home by default
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -721,6 +791,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
             refreshTrigger={refreshTrigger}
             onCreatePage={onCreatePage}
             onDeletePage={onDeletePage}
+            onMovePage={onMovePage}
           />
         ))}
       </div>
