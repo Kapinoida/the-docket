@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -20,6 +20,10 @@ interface Tag {
     name: string;
     color: string;
 }
+
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 600;
+const DEFAULT_WIDTH = 224;
 
 export default function Sidebar() {
   const { theme, setTheme } = useTheme();
@@ -45,6 +49,53 @@ export default function Sidebar() {
   const [isFoldersOpen, setIsFoldersOpen] = useState(true);
   const [isAllPagesOpen, setIsAllPagesOpen] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(true);
+
+  // Resize state
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Load saved width on mount
+  useEffect(() => {
+    const savedWidth = localStorage.getItem('leftSidebarWidth');
+    if (savedWidth) {
+      const parsed = parseInt(savedWidth, 10);
+      if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) {
+        setWidth(parsed);
+      }
+    }
+  }, []);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+    localStorage.setItem('leftSidebarWidth', width.toString());
+  }, [width]);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = e.clientX;
+      if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
+        setWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
 
   const { createTask } = useTaskEdit();
   
@@ -177,7 +228,19 @@ export default function Sidebar() {
   );
 
   return (
-    <div className="w-56 h-full bg-bg-secondary border-r border-border-subtle flex flex-col flex-shrink-0 transition-colors duration-200">
+    <div 
+        ref={sidebarRef}
+        className={`relative h-full bg-bg-secondary border-r border-border-subtle flex flex-col flex-shrink-0 transition-colors duration-200 ${isResizing ? 'select-none transition-none' : ''}`}
+        style={{ width: `${width}px` }}
+    >
+      {/* Drag Handle */}
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1 hover:w-2 cursor-col-resize z-40 group flex items-center justify-center translate-x-1/2 hover:bg-blue-500/10 transition-all"
+        onMouseDown={startResizing}
+      >
+        <div className="w-[1px] h-full bg-border-subtle group-hover:bg-blue-500/50 transition-colors" />
+      </div>
+
       <div className="p-3">
         <div className="flex items-center gap-2 font-bold text-foreground text-lg mb-4">
             <Layout className="text-blue-600" />
