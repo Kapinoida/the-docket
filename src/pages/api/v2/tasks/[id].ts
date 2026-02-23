@@ -114,55 +114,8 @@ export default async function handler(
       case 'DELETE':
         await createTombstone(taskId); // Log for Sync Deletion
         
-        // 1. Remove references from Pages (TipTap Content)
-        // Find pages that MIGHT contain this task ID (broad search to catch string/number/spacing variants)
-        // We use a regex to match "taskId": 123, "taskId": "123", "taskId":123 etc.
-        // 1. Remove references from Pages (TipTap Content)
-        // Find pages that MIGHT contain this task ID
-        // Note: content::text on JSONB often escapes quotes like "{\"taskId\": 244}" 
-        // So we need to match both ` "taskId":` and ` \"taskId\":` or just match blindly on the key name.
-        // We'll match `taskId` followed by the ID, ignoring punctuation.
-        const pagesWithTask = await pool.query(
-            `SELECT id, content FROM pages WHERE content::text ~ $1`, 
-            [`taskId\\\\*":\\\\*\\s*\\\\*"?${taskId}\\\\*"?`] // Match "taskId": 123 with optional backslash escaping
-        );
-        
-        console.log(`[Cleaner] Checking pages for task ${taskId}. Found candidates: ${pagesWithTask.rows.length}`);
-
-        for (const page of pagesWithTask.rows) {
-            const oldContent = page.content;
-            let changed = false;
-
-            // Recursive function to filter out the task node
-            const removeTaskNode = (node: any): any => {
-                if (!node) return node;
-                
-                // Check if it's the task we're looking for
-                // Use loose equality (==) to handle string/number mismatch
-                if (node.type === 'v2Task' && node.attrs && node.attrs.taskId == taskId) {
-                    changed = true;
-                    return null;
-                }
-
-                // If it has content, recurse
-                if (node.content && Array.isArray(node.content)) {
-                    node.content = node.content
-                        .map((child: any) => removeTaskNode(child))
-                        .filter((child: any) => child !== null);
-                }
-                
-                return node;
-            };
-
-            const newContent = removeTaskNode(JSON.parse(JSON.stringify(oldContent))); // Deep copy
-
-            if (changed) {
-                await pool.query('UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2', [newContent, page.id]);
-                console.log(`[Cleaner] Removed task ${taskId} from page ${page.id}`);
-            } else {
-                 console.log(`[Cleaner] Task ${taskId} not found in nodes of page ${page.id} despite text match.`);
-            }
-        }
+        // 1. Remove references from Pages (TipTap Content) and page_items
+        await deleteTaskReferences(taskId);
 
         // 2. Delete the task itself
         await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);

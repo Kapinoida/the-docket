@@ -314,6 +314,21 @@ export default function Sidebar() {
                             if (page) setPageToDelete(page);
                             else handleDeletePage(pageId); // Fallback if we can't find object for modal
                         }}
+                        onMovePage={async (pageId, newFolderId) => {
+                            try {
+                                const res = await fetch(`/api/v2/pages?id=${pageId}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ folderId: newFolderId === '1' ? null : newFolderId })
+                                });
+                                if (res.ok) {
+                                    setRefreshTrigger(prev => prev + 1);
+                                    window.dispatchEvent(new Event('pageUpdated'));
+                                }
+                            } catch (e) {
+                                console.error('Failed to move page', e);
+                            }
+                        }}
                     />
                 </div>
             )}

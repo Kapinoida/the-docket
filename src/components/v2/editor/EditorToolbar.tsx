@@ -22,14 +22,16 @@ import {
   Trash2,
   Plus, 
   GripVertical, 
-  GripHorizontal
+  GripHorizontal,
+  Download
 } from 'lucide-react';
 
 interface EditorToolbarProps {
   editor: Editor | null;
+  pageTitle?: string;
 }
 
-export const EditorToolbar = ({ editor }: EditorToolbarProps) => {
+export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
   React.useEffect(() => {
@@ -255,6 +257,31 @@ export const EditorToolbar = ({ editor }: EditorToolbarProps) => {
         isActive={false}
         icon={Redo}
         title="Redo"
+      />
+      <ToggleButton
+        onClick={() => {
+            // @ts-ignore
+            const markdownOutput = editor.storage.markdown.getMarkdown();
+            const blob = new Blob([markdownOutput], { type: 'text/markdown;charset=utf-8' });
+            
+            // Try to extract a title from the first heading, or use a default
+            let title = 'Note';
+            const firstHeadingMatch = markdownOutput.match(/^#\s+(.*)/m);
+            if (firstHeadingMatch && firstHeadingMatch[1]) {
+                title = firstHeadingMatch[1].trim();
+            } else {
+                title = pageTitle || 'Untitled Note';
+            }
+            
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${title}.md`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }}
+        isActive={false}
+        icon={Download}
+        title="Export as Markdown"
       />
     </div>
   );

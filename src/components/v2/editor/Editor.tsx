@@ -17,6 +17,7 @@ import { TaskExtension } from './extensions/TaskExtension';
 import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
 import { TagExtension } from './extensions/TagExtension';
+import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
 import { Page } from '../../../types/v2';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal, RefreshCw, AlertTriangle } from 'lucide-react';
@@ -27,11 +28,12 @@ const lowlight = createLowlight(common);
 
 interface EditorProps {
   pageId: number;
+  pageTitle?: string;
   initialContent: any;
   initialUpdatedAt: Date;
 }
 
-export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: EditorProps) {
+export default function V2Editor({ pageId, pageTitle, initialContent, initialUpdatedAt }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(initialUpdatedAt ? new Date(initialUpdatedAt) : null);
   
@@ -119,6 +121,11 @@ export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: E
       }),
       SlashCommand,
       TagExtension,
+      Markdown.configure({
+          html: false,
+          transformCopiedText: true,
+          transformPastedText: true,
+      }),
     ],
     content: initialContent || { type: 'doc', content: [] },
     immediatelyRender: false,
@@ -441,7 +448,7 @@ export default function V2Editor({ pageId, initialContent, initialUpdatedAt }: E
         <div className="mb-4 flex items-center justify-between text-sm text-text-muted pb-2 border-b border-border-default">
              {/* Toolbar container */}
              <div className="flex-1">
-                 <EditorToolbar editor={editor} />
+                 <EditorToolbar editor={editor} pageTitle={pageTitle} />
              </div>
             
             <div className="flex items-center gap-2 ml-4 self-start mt-1 h-6 min-w-[24px] justify-end" title={lastSaved ? `Last saved at ${lastSaved.toLocaleTimeString()}` : 'Unsaved'}>

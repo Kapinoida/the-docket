@@ -270,7 +270,45 @@ export async function createTombstone(taskId: number) {
 }
 
 export async function deleteTaskReferences(taskId: number) {
-  // Remove references from page items where this task is a child
+  // 1. Remove references from Pages (TipTap Content)
+  // Match "taskId": 123, "taskId":"123", \"taskId\": 123, etc.
+  try {
+    const pagesWithTask = await pool.query(
+        `SELECT id, content FROM pages WHERE content::text ~ $1`, 
+        [`"taskId"\\s*:\\s*"?${taskId}"?`]
+    );
+    
+    for (const page of pagesWithTask.rows) {
+        let changed = false;
+
+        const removeTaskNode = (node: any): any => {
+            if (!node) return node;
+            
+            if (node.type === 'v2Task' && node.attrs && node.attrs.taskId == taskId) {
+                changed = true;
+                return null;
+            }
+
+            if (node.content && Array.isArray(node.content)) {
+                node.content = node.content
+                    .map((child: any) => removeTaskNode(child))
+                    .filter((child: any) => child !== null);
+            }
+            return node;
+        };
+
+        const newContent = removeTaskNode(JSON.parse(JSON.stringify(page.content)));
+
+        if (changed) {
+            await pool.query('UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2', [newContent, page.id]);
+            console.log(`[Cleaner] Removed task ${taskId} from page ${page.id}`);
+        }
+    }
+  } catch (error) {
+      console.error(`[Cleaner] Failed to remove task references from pages:`, error);
+  }
+
+  // 2. Remove references from page items where this task is a child
   await pool.query('DELETE FROM page_items WHERE child_task_id = $1', [taskId]);
 }
 

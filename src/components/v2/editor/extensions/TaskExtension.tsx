@@ -253,6 +253,24 @@ export const TaskExtension = Node.create({
       }
   },
 
+  addStorage() {
+      return {
+          markdown: {
+              serialize(state: any, node: any) {
+                  const status = node.attrs.status === 'done' ? 'x' : ' ';
+                  state.write(`- [${status}] `);
+                  state.text(node.textContent, false);
+                  state.closeBlock(node);
+              },
+              parse: {
+                  setup(markdownit: any) {
+                      // We already handle parsing via input rules, but this is here for completeness.
+                  }
+              }
+          }
+      };
+  },
+
   addAttributes() {
     return {
       taskId: {
