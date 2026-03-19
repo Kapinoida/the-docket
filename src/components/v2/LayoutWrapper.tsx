@@ -14,7 +14,7 @@ import { usePeriodicSync } from '@/hooks/usePeriodicSync';
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
+  const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, closeSidebar: closeRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
 
   // Background Sync (Every 5 minutes)
   usePeriodicSync(300000);
@@ -26,11 +26,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex w-full h-full overflow-hidden bg-bg-primary">
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Left Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Right Sidebar Overlay */}
+      {isRightSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => closeRightSidebar()}
         />
       )}
 
@@ -68,8 +76,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div className="flex-1 overflow-y-auto w-full">
             {children}
           </div>
-           {/* Right Sidebar */}
-           <RightSidebar />
            {!isRightSidebarOpen && (
               <button
                 onClick={() => toggleRightSidebar()}
@@ -80,6 +86,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               </button>
            )}
         </main>
+      </div>
+
+      {/* Right Sidebar Container */}
+      {/* Mobile: Fixed, slide-in from right. Desktop: Static (flex item) */}
+      <div className={`
+        fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0
+        ${isRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
+        <RightSidebar />
       </div>
     </div>
   );
