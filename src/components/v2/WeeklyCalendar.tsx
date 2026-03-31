@@ -91,9 +91,10 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
       isSameDay(parseLocalDateNode(task.due_date) as Date, date)
     );
     
-    const dayEvents = events.filter(event => 
-      isSameDay(new Date(event.start_time), date)
-    );
+    const dayEvents = events.filter(event => {
+      const eventDate = event.is_all_day ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
+      return isSameDay(eventDate, date);
+    });
     
     return { tasks: dayTasks, events: dayEvents };
   };
