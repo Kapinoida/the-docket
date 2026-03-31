@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Task } from '@/types/v2';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isTomorrow, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
+import { parseLocalDateNode } from '../../lib/dateUtils';
 
 interface WeeklyCalendarProps {
   onTaskSelect?: (task: Task) => void;
@@ -78,7 +79,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
   const overdueTasks = tasks.filter(task => 
     task.status !== 'done' && 
     task.due_date && 
-    isBefore(new Date(task.due_date), today)
+    isBefore(parseLocalDateNode(task.due_date) as Date, today)
   );
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentStart, i));
@@ -87,7 +88,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     const dayTasks = tasks.filter(task => 
       task.status !== 'done' && 
       task.due_date && 
-      isSameDay(new Date(task.due_date), date)
+      isSameDay(parseLocalDateNode(task.due_date) as Date, date)
     );
     
     const dayEvents = events.filter(event => 

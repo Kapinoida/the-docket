@@ -7,6 +7,7 @@ import WeeklyCalendar from './WeeklyCalendar';
 import RecentNotes from './RecentNotes';
 import { Plus, Layout, Calendar, CheckSquare } from 'lucide-react';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { parseLocalDateNode } from '@/lib/dateUtils';
 
 export default function DashboardView() {
   const router = useRouter();
@@ -39,12 +40,12 @@ export default function DashboardView() {
         const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
         
         const overdueTasks = tasks.filter(task => 
-          task.status !== 'done' && task.due_date && new Date(task.due_date) < today
+          task.status !== 'done' && task.due_date && parseLocalDateNode(task.due_date)! < today
         ).length;
         
         const dueTodayTasks = tasks.filter(task => 
           task.status !== 'done' && task.due_date && 
-          new Date(task.due_date) >= today && new Date(task.due_date) < tomorrow
+          parseLocalDateNode(task.due_date)! >= today && parseLocalDateNode(task.due_date)! < tomorrow
         ).length;
         
         setStats(prev => ({ 
@@ -84,7 +85,7 @@ export default function DashboardView() {
     openTaskEdit({
       ...task,
       id: task.id.toString(), // V2 uses number, V1 uses string
-      dueDate: task.due_date ? new Date(task.due_date) : null,
+      dueDate: task.due_date ? parseLocalDateNode(task.due_date) : null,
       completed: task.status === 'done',
       createdAt: new Date(task.created_at),
       updatedAt: new Date(task.updated_at),

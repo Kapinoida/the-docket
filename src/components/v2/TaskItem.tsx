@@ -4,6 +4,7 @@ import { Task } from '../../types/v2';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
+import { parseLocalDateNode } from '../../lib/dateUtils';
 
 interface TaskItemProps {
   task: Task;
@@ -50,7 +51,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       openTaskEdit({
           ...task,
           id: task.id.toString(),
-          dueDate: task.due_date ? new Date(task.due_date) : null,
+          dueDate: task.due_date ? parseLocalDateNode(task.due_date) : null,
           completed: task.status === 'done',
           createdAt: new Date(task.created_at),
           updatedAt: new Date(task.updated_at),
@@ -99,7 +100,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                         `}
                     >
                         {task.due_date ? (
-                             <span className="font-mono font-medium">{format(new Date(task.due_date), 'MMM d')}</span>
+                             <span className="font-mono font-medium">{format(parseLocalDateNode(task.due_date) as Date, 'MMM d')}</span>
                         ) : (
                              <Calendar size={12} />
                         )}
@@ -108,7 +109,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
                     {showDatePicker && (
                         <DatePickerPopover 
-                            date={task.due_date ? new Date(task.due_date) : null}
+                            date={task.due_date ? parseLocalDateNode(task.due_date) : null}
                             recurrenceRule={task.recurrence_rule}
                             onSelect={handleDateSelect}
                             onClose={() => setShowDatePicker(false)}
