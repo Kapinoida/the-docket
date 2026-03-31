@@ -3,6 +3,14 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createTask, getTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../lib/db';
 import pool from '../../../lib/db';
 
+const normalizeDateToNoon = (dateVal: any): Date | null => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(12, 0, 0, 0); // Force to noon in Node's local timezone
+    return d;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -87,7 +95,7 @@ export default async function handler(
         // Allow empty string for content (new task from editor widget)
         if (content === undefined || content === null) return res.status(400).json({ error: 'Content is required' });
         
-        const newTask = await createTask(content, dueDate ? new Date(dueDate) : null, recurrenceRule || null);
+        const newTask = await createTask(content, normalizeDateToNoon(dueDate), recurrenceRule || null);
         
         // If created in context of a page, link it
         if (pageId) {
@@ -115,7 +123,7 @@ export default async function handler(
         }
         if (newDueDate !== undefined) {
             updateFields.push(`due_date = $${pIdx++}`);
-            updateParams.push(newDueDate ? new Date(newDueDate) : null);
+            updateParams.push(normalizeDateToNoon(newDueDate));
         }
         if (newRecurrenceRule !== undefined) {
             updateFields.push(`recurrence_rule = $${pIdx++}`);

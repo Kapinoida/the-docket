@@ -2,6 +2,14 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import pool, { createTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../../lib/db'; // Ensure createTask is exported
 import { calculateNextDueDate } from '../../../../lib/recurrence';
 
+const normalizeDateToNoon = (dateVal: any): Date | null => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(12, 0, 0, 0); // Force to noon in Node's local timezone
+    return d;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -77,7 +85,7 @@ export default async function handler(
         }
         if (due_date !== undefined) {
             updates.push(`due_date = $${paramIndex++}`);
-            values.push(due_date);
+            values.push(normalizeDateToNoon(due_date));
         }
         
         // Fix: Allow updating the recurrence rule
