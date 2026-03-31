@@ -84,6 +84,15 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentStart, i));
 
+  const isTrulyAllDay = (event: any) => {
+    if (event.is_all_day) return true;
+    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
+        const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+        if (dur === 24 * 60 * 60 * 1000) return true;
+    }
+    return false;
+  };
+
   const getItemsForDay = (date: Date) => {
     const dayTasks = tasks.filter(task => 
       task.status !== 'done' && 
@@ -92,7 +101,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     );
     
     const dayEvents = events.filter(event => {
-      const eventDate = event.is_all_day ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
+      const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
       return isSameDay(eventDate, date);
     });
     
@@ -130,7 +139,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     >
       <div className="flex items-center gap-1">
         <span className="text-[10px] opacity-75 whitespace-nowrap">
-          {!event.is_all_day && format(new Date(event.start_time), 'h:mm a')}
+          {!isTrulyAllDay(event) && format(new Date(event.start_time), 'h:mm a')}
         </span>
         <span className="font-medium truncate">{event.title}</span>
       </div>

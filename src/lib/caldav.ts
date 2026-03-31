@@ -123,7 +123,19 @@ function parseVEvent(icalData: string) {
       status: vevent.getFirstPropertyValue('status'),
       start_time: dtstart ? dtstart.toJSDate() : null,
       end_time: dtend ? dtend.toJSDate() : null,
-      is_all_day: dtstart ? (dtstart as any).isDate : false,
+      is_all_day: (() => {
+          if (!dtstart) return false;
+          if ((dtstart as any).isDate || (dtstart as any).type === 'date') return true;
+          if (dtstart && dtend) {
+              const sJS = dtstart.toJSDate();
+              const eJS = dtend.toJSDate();
+              const dur = eJS.getTime() - sJS.getTime();
+              if (dur > 0 && dur % (24 * 60 * 60 * 1000) === 0 && sJS.toISOString().endsWith('T00:00:00.000Z')) {
+                  return true;
+              }
+          }
+          return false;
+      })(),
       rrule: vevent.getFirstPropertyValue('rrule')?.toString() || null,
     };
     
