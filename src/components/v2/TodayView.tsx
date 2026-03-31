@@ -35,13 +35,15 @@ export default function TodayView() {
     if (!inputValue.trim()) return;
 
     try {
-      const today = new Date();
+      const dueDate = new Date();
+      dueDate.setHours(12, 0, 0, 0); // explicitly set to local noon to avoid timezone shifts
+
       const res = await fetch('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             content: inputValue,
-            dueDate: today.toISOString() // Explicitly set due date to today
+            dueDate: dueDate.toISOString()
         }),
       });
 
@@ -86,25 +88,29 @@ export default function TodayView() {
   };
 
   // Grouping Logic
-  // Fix: Use local date comparison instead of UTC toISOString to avoid timezone bugs
-  const toLocalDateStr = (d: Date) => {
+  // Fix: Extract YYYY-MM-DD reliably without timezone shifting
+  const getCalendarDateStr = (dateVal: Date | string) => {
+      if (typeof dateVal === 'string') {
+          return dateVal.split('T')[0]; // Extract YYYY-MM-DD directly from ISO string
+      }
+      const d = new Date(dateVal);
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
   };
 
-  const todayStr = toLocalDateStr(new Date());
+  const todayStr = getCalendarDateStr(new Date());
   
   const overdueTasks = tasks.filter(t => {
       if (!t.due_date) return false;
-      const dueStr = toLocalDateStr(new Date(t.due_date));
+      const dueStr = getCalendarDateStr(t.due_date);
       return dueStr < todayStr;
   });
 
   const todayTasks = tasks.filter(t => {
       if (!t.due_date) return false;
-      const dueStr = toLocalDateStr(new Date(t.due_date));
+      const dueStr = getCalendarDateStr(t.due_date);
       return dueStr === todayStr;
   });
 
