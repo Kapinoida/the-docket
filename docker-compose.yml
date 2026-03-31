@@ -20,6 +20,8 @@ services:
         condition: service_healthy
     networks:
       - internal-net
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   nginx:
     image: nginx:alpine
@@ -34,6 +36,8 @@ services:
       - app
     networks:
       - internal-net
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   postgres:
     image: postgres:15
@@ -55,6 +59,8 @@ services:
       retries: 5
     networks:
       - internal-net
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
 volumes:
   postgres_data:
