@@ -271,11 +271,12 @@ export async function createTombstone(taskId: number) {
 
 export async function deleteTaskReferences(taskId: number) {
   // 1. Remove references from Pages (TipTap Content)
-  // Match "taskId": 123, "taskId":"123", \"taskId\": 123, etc.
+  // Match task widget nodes that contain a specific taskId
+  // Pattern handles: "taskId": 123, "taskId":"123", "taskId": "123"
   try {
     const pagesWithTask = await pool.query(
         `SELECT id, content FROM pages WHERE content::text ~ $1`, 
-        [`"taskId"\\s*:\\s*"?${taskId}"?`]
+        [`\"taskId\"\\s*:\\s*(?:\"|\\s*)(${taskId})(?:\"|\\s*)`]
     );
     
     for (const page of pagesWithTask.rows) {
@@ -305,7 +306,7 @@ export async function deleteTaskReferences(taskId: number) {
         }
     }
   } catch (error) {
-      console.error(`[Cleaner] Failed to remove task references from pages:`, error);
+    console.error(`[Cleaner] Failed to remove task references from pages:`, error);
   }
 
   // 2. Remove references from page items where this task is a child
