@@ -11,12 +11,20 @@ interface DatePickerPopoverProps {
     onSelect: (date: Date | null, recurrence?: RecurrenceRule) => void;
     onClose: () => void;
     position?: { top?: number; left?: number; right?: number };
+    showTime?: boolean;
 }
 
 type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none';
 
-export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position }: DatePickerPopoverProps) {
+export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position, showTime = true }: DatePickerPopoverProps) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? new Date(date) : undefined);
+    const [selectedTime, setSelectedTime] = useState<string>(() => {
+        if (!date) return '';
+        // Only show time if non-midnight
+        const d = new Date(date);
+        if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return '';
+        return format(d, 'HH:mm');
+    });
     
     // Recurrence State
     const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(recurrenceRule?.type || 'none');
@@ -50,6 +58,12 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             case 'next-week': newDate = nextMonday(today); break;
         }
         
+        // Apply time if set
+        if (selectedTime && newDate) {
+            const [h, m] = selectedTime.split(':').map(Number);
+            newDate.setHours(h, m, 0, 0);
+        }
+        
         // Immediate save for quick actions
         let finalRule: RecurrenceRule | undefined = undefined;
         if (recurrenceType !== 'none') {
@@ -77,7 +91,15 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             };
         }
 
-        onSelect(selectedDate || null, finalRule);
+        // Apply time to selected date if set
+        let finalDate = selectedDate || null;
+        if (finalDate && selectedTime) {
+            const [h, m] = selectedTime.split(':').map(Number);
+            finalDate = new Date(finalDate);
+            finalDate.setHours(h, m, 0, 0);
+        }
+
+        onSelect(finalDate, finalRule);
         onClose();
     };
 
@@ -136,6 +158,28 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                     showOutsideDays
                 />
             </div>
+
+            {/* Time Selector */}
+            {showTime && (
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted w-8">Time</span>
+                    <input
+                        type="time"
+                        value={selectedTime}
+                        onChange={(e) => setSelectedTime(e.target.value)}
+                        disabled={!selectedDate}
+                        className="flex-1 px-2 py-1.5 border border-border-default rounded-md bg-bg-primary text-text-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {selectedTime && (
+                        <button
+                            onClick={() => setSelectedTime('')}
+                            className="text-xs text-text-muted hover:text-red-500 px-1"
+                        >
+                            Clear
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Recurrence Selector */}
             <div className={`border border-border-default rounded-lg overflow-hidden transition-all duration-200 ${showCustom ? 'bg-bg-secondary' : 'bg-transparent'}`}>

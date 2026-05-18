@@ -100,7 +100,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                         `}
                     >
                         {task.due_date ? (
-                             <span className="font-mono font-medium">{format(parseLocalDateNode(task.due_date) as Date, 'MMM d')}</span>
+                             <span className="font-mono font-medium">{format(parseLocalDateNode(task.due_date) as Date, 'MMM d')}
+                               {format(parseLocalDateNode(task.due_date) as Date, 'HH:mm') !== '00:00' && (
+                                 <span className="ml-1 text-text-muted">{format(parseLocalDateNode(task.due_date) as Date, 'h:mm a')}</span>
+                               )}
+                             </span>
                         ) : (
                              <Calendar size={12} />
                         )}
