@@ -6,8 +6,13 @@ const normalizeDateToNoon = (dateVal: any): Date | null => {
     if (!dateVal) return null;
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return null;
-    d.setHours(12, 0, 0, 0); // Force to noon in Node's local timezone
-    return d;
+    // If the input has a non-midnight time in UTC, it was explicitly set — preserve it
+    if (d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || d.getUTCSeconds() !== 0) {
+        return d;
+    }
+    // Date-only value (midnight UTC) — use UTC date parts to avoid timezone day-shift
+    // This ensures "2026-05-18T00:00:00.000Z" becomes noon May 18, not May 17
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0, 0);
 };
 
 export default async function handler(

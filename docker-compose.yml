@@ -6,6 +6,7 @@ services:
     container_name: the-docket-app
     restart: always
     environment:
+      TZ: America/Chicago
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -47,6 +48,7 @@ services:
       POSTGRES_DB: the_docket
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      TZ: America/Chicago
     ports:
       - "5433:5432"
     volumes:

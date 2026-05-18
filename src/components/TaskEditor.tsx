@@ -5,6 +5,7 @@ import { TaskInstance, Note, RecurrenceRule } from '@/types';
 import { format } from 'date-fns';
 import { Calendar, X, Repeat } from 'lucide-react';
 import { DatePickerPopover } from './v2/DatePickerPopover';
+import { parseLocalDateNode } from '@/lib/dateUtils';
 
 interface TaskEditorProps {
   task?: TaskInstance;
@@ -18,8 +19,17 @@ interface TaskEditorProps {
 export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = false, onNoteSelect }: TaskEditorProps) {
   const [content, setContent] = useState(task?.content || '');
   const [dueDate, setDueDate] = useState(
-    task?.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : ''
+    task?.dueDate ? format(parseLocalDateNode(task.dueDate) as Date, 'yyyy-MM-dd') : ''
   );
+  const [dueTime, setDueTime] = useState(() => {
+    if (!task?.dueDate) return '';
+    // Only show time if the stored date isn't midnight UTC (date-only)
+    const rawDate = new Date(task.dueDate);
+    if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
+      return ''; // Date-only value, no time to show
+    }
+    return format(parseLocalDateNode(task.dueDate) as Date, 'HH:mm');
+  });
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrenceRule);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [completed, setCompleted] = useState(task?.completed || false);
@@ -28,7 +38,18 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
   useEffect(() => {
     if (task) {
       setContent(task.content);
-      setDueDate(task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '');
+      setDueDate(task.dueDate ? format(parseLocalDateNode(task.dueDate) as Date, 'yyyy-MM-dd') : '');
+      // Only show time if it was explicitly set (not midnight UTC)
+      if (task.dueDate) {
+        const rawDate = new Date(task.dueDate);
+        if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
+          setDueTime(''); // Date-only value
+        } else {
+          setDueTime(format(parseLocalDateNode(task.dueDate) as Date, 'HH:mm'));
+        }
+      } else {
+        setDueTime('');
+      }
       setRecurrenceRule(task.recurrenceRule);
       setCompleted(task.completed || false);
     }
@@ -45,7 +66,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
       // Construct updates object
       const updates: any = {
         content: content.trim(),
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null,
         recurrenceRule: recurrenceRule || null,
         completed: completed,
       };
@@ -129,9 +150,10 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
           {/* Due Date & Recurrence */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Due Date & Recurrence
+              Due Date & Time
             </label>
-            <div className="relative">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
                 <button 
                   onClick={() => setShowDatePicker(!showDatePicker)}
                   className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -159,6 +181,10 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                     recurrenceRule={recurrenceRule}
                     onSelect={(date, rule) => {
                       setDueDate(date ? format(date, 'yyyy-MM-dd') : '');
+                      // Preserve existing time when date changes
+                      if (date && !dueTime) {
+                        setDueTime('12:00');
+                      }
                       setRecurrenceRule(rule);
                       setShowDatePicker(false);
                     }}
@@ -166,6 +192,16 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                     position={{ top: 45, left: 0 }}
                   />
                 )}
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  disabled={!dueDate}
+                  className="px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
 
