@@ -30,9 +30,23 @@ export default async function handler(
       case 'PUT':
         const { content, status, due_date, addToPageId } = req.body;
         
-        // Handle Move/Add to Context
         if (addToPageId) {
-             await addItemToPage(Number(addToPageId), taskId, 'task');
+            const taskRes = await pool.query("SELECT content FROM tasks WHERE id = $1", [taskId]);
+            const taskContent = taskRes.rows[0]?.content || "";
+            const pageRes = await pool.query("SELECT content FROM pages WHERE id = $1", [addToPageId]);
+            if (pageRes.rows.length > 0) {
+                let content = pageRes.rows[0].content;
+                if (!content || typeof content !== "object" || content.type !== "doc") {
+                    content = { type: "doc", content: [] };
+                }
+                content.content.push({
+                    type: "v2Task",
+                    attrs: { taskId, pageId: Number(addToPageId), status: "todo", autoFocus: false, due_date: null },
+                    content: [{ type: "text", text: taskContent }]
+                });
+                await pool.query("UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2", [JSON.stringify(content), addToPageId]);
+            }
+            await addItemToPage(Number(addToPageId), taskId, "task");
         }
 
         // Build dynamic query
@@ -68,13 +82,6 @@ export default async function handler(
                                 // Create the next task (Active, with same recurrence rule)
                                 const newTask = await createTask(currentTask.content, nextDate, rule);
                                 console.log(`[Recurrence] Created next instance for task ${taskId} due on ${nextDate}`);
-
-                                // Context Inheritance: Link new task to same pages as old task
-                                const contextRes = await pool.query('SELECT page_id FROM page_items WHERE child_task_id = $1', [taskId]);
-                                for (const row of contextRes.rows) {
-                                    await addItemToPage(row.page_id, newTask.id, 'task');
-                                    console.log(`[Recurrence] Linked new task ${newTask.id} to page ${row.page_id}`);
-                                }
 
                                 // Strip the recurrence rule from the COMPLETED task
                                 // so it doesn't try to regenerate again if toggled, and history is clear.

@@ -161,7 +161,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
-                      {dueDate ? format(new Date(dueDate), 'MMMM d, yyyy') : 'Set due date...'}
+                      {dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return format(new Date(y, m - 1, d), 'MMMM d, yyyy'); })() : 'Set due date...'}
                     </span>
                   </div>
                   {recurrenceRule && (
@@ -177,7 +177,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                 
                 {showDatePicker && (
                   <DatePickerPopover 
-                    date={dueDate ? new Date(dueDate) : null}
+                    date={dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return new Date(y, m - 1, d); })() : null}
                     recurrenceRule={recurrenceRule}
                     onSelect={(date, rule) => {
                       setDueDate(date ? format(date, 'yyyy-MM-dd') : '');

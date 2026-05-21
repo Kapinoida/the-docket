@@ -17,6 +17,7 @@ import { TaskExtension } from './extensions/TaskExtension';
 import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
 import { TagExtension } from './extensions/TagExtension';
+import { CollapsibleBlockExtension } from './extensions/CollapsibleBlockExtension';
 import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
 import { Page } from '../../../types/v2';
@@ -121,6 +122,7 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
       }),
       SlashCommand,
       TagExtension,
+      CollapsibleBlockExtension,
       Markdown.configure({
           html: false,
           transformCopiedText: true,

@@ -487,46 +487,91 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
                }
              </p>
              
-             <div className="flex flex-wrap gap-2">
-                {/* ... map tasks ... */}
-                {unscheduledTasks.map(task => {
-                 const isOverdue = isTaskOverdue(task);
-                 const isDragging = draggedTask?.id === task.id;
-                 return (
-                   <div
-                     key={task.id}
-                     draggable={!task.completed}
-                     onDragStart={(e) => handleTaskDragStart(e, task)}
-                     onDragEnd={handleTaskDragEnd}
-                     className={`p-2 rounded text-sm cursor-pointer transition-all inline-block ${
-                       isDragging
-                         ? 'opacity-50 transform rotate-1 scale-95'
-                         : task.completed
-                           ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 line-through'
-                           : 'bg-bg-primary text-text-primary hover:bg-bg-tertiary border border-border-subtle'
-                     }`}
-                     onClick={() => !isDragging && openTaskEdit(task as any)}
-                   >
-                     {/* ... content ... */}
-                     <div className="flex items-center gap-2">
-                       <button
-                         onClick={(e) => handleTaskComplete(task.id, e)}
-                         className="text-text-muted hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                       >
-                            {task.completed ? <CheckCircle2 size={16} className="text-green-600" /> : <Circle size={16} />}
-                       </button>
-                       <span className="leading-tight">
-                         {task.content}
-                       </span>
-                       {task.sourceNote && (
-                         <span className="text-xs text-text-muted">
-                           📝
-                         </span>
-                       )}
-                     </div>
-                   </div>
-                 );
-               })}
+             <div className="space-y-1">
+                {(() => {
+                  // Group unscheduled tasks by page_name
+                  const grouped = unscheduledTasks.reduce((acc: Record<string, any[]>, task: any) => {
+                    const key = task.page_name || '__no_page__';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(task);
+                    return acc;
+                  }, {});
+                  const groupKeys = Object.keys(grouped).sort((a, b) => {
+                    if (a === '__no_page__') return 1;
+                    if (b === '__no_page__') return -1;
+                    return a.localeCompare(b);
+                  });
+                  return groupKeys.map(groupKey => {
+                    const isNoPage = groupKey === '__no_page__';
+                    const displayName = isNoPage ? 'No Page' : groupKey;
+                    const collapseKey = `unsched_${groupKey}`;
+                    const isCollapsed = collapsedGroups[collapseKey];
+                    const tasksInGroup = grouped[groupKey];
+                    return (
+                      <div key={groupKey}>
+                        {/* Group Header */}
+                        <button
+                          onClick={() => setCollapsedGroups((prev: Record<string, boolean>) => ({
+                            ...prev,
+                            [collapseKey]: !prev[collapseKey]
+                          }))}
+                          className="flex items-center gap-1.5 w-full text-left py-1 group/header"
+                        >
+                          <span className="text-xs text-text-muted transition-transform duration-150"
+                                style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+                            ▾
+                          </span>
+                          <span className={`text-xs font-semibold uppercase tracking-wider ${isNoPage ? 'text-gray-400' : 'text-blue-500 dark:text-blue-400'}`}>
+                            {displayName}
+                          </span>
+                          <span className="text-xs text-text-muted">({tasksInGroup.length})</span>
+                        </button>
+                        {/* Tasks */}
+                        {!isCollapsed && (
+                          <div className="flex flex-wrap gap-2">
+                            {tasksInGroup.map((task: any) => {
+                              const isOverdue = isTaskOverdue(task);
+                              const isDragging = draggedTask?.id === task.id;
+                              return (
+                                <div
+                                  key={task.id}
+                                  draggable={!task.completed}
+                                  onDragStart={(e) => handleTaskDragStart(e, task)}
+                                  onDragEnd={handleTaskDragEnd}
+                                  className={`p-2 rounded text-sm cursor-pointer transition-all inline-block ${
+                                    isDragging
+                                      ? 'opacity-50 transform rotate-1 scale-95'
+                                      : task.completed
+                                        ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 line-through'
+                                        : 'bg-bg-primary text-text-primary hover:bg-bg-tertiary border border-border-subtle'
+                                  }`}
+                                  onClick={() => !isDragging && openTaskEdit(task as any)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => handleTaskComplete(task.id, e)}
+                                      className="text-text-muted hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                                    >
+                                         {task.completed ? <CheckCircle2 size={16} className="text-green-600" /> : <Circle size={16} />}
+                                    </button>
+                                    <span className="leading-tight">
+                                      {task.content}
+                                    </span>
+                                    {task.sourceNote && (
+                                      <span className="text-xs text-text-muted">
+                                        📝
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
                {/* ... */}
                {/* Drop zone indicator when dragging scheduled task over empty unscheduled section */}
                {draggedOverUnscheduled && draggedTask?.dueDate && unscheduledTasks.length === 0 && (
@@ -673,11 +718,6 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
                                     <span className="flex-1 leading-tight">
                                       {task.content}
                                     </span>
-                                    {task.page_name && (
-                                      <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 mt-0.5">
-                                        {task.page_name}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                               );

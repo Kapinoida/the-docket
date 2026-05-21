@@ -5,8 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
-import { Page, PageItem, Task } from '../../../types/v2';
-import { TaskItem } from '../../../components/v2/TaskItem';
+import { Page, Task } from '../../../types/v2';
 
 import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
 import { MovePageModal } from '../../../components/modals/MovePageModal';
@@ -240,9 +239,6 @@ export default function PageView() {
   if (loading) return <div className="p-8">Loading Page...</div>;
   if (!page) return <div className="p-8">Page not found</div>;
 
-  const contextTasks = page.items?.filter(i => i.type === 'task' && i.item) || [];
-  const contextPages = page.items?.filter(i => i.type === 'page' && i.item) || [];
-
   return (
     <div className="min-h-screen bg-bg-primary">
       <div className="max-w-6xl mx-auto pt-8 px-4 md:px-8">
@@ -364,47 +360,7 @@ export default function PageView() {
           initialUpdatedAt={page.updated_at}
       />
 
-      {/* Context Links Section */}
-      <div className="max-w-4xl mx-auto mt-12 px-8 pb-32">
-        {(contextTasks.length > 0 || contextPages.length > 0) && (
-            <>
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Page Context</h2>
-                
-                {/* Linked Pages */}
-                {contextPages.length > 0 && (
-                    <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {contextPages.map(pItem => {
-                            const subPage = pItem.item as Page;
-                            return (
-                                <Link 
-                                    key={pItem.id} 
-                                    href={`/page/${subPage.id}`}
-                                    className="block p-4 rounded-xl border border-border-subtle hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    <div className="font-medium text-text-primary">{subPage.title}</div>
-                                    <div className="text-xs text-text-secondary mt-1">Linked Page</div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                )}
 
-                {/* Linked Tasks */}
-                {contextTasks.length > 0 && (
-                    <div className="space-y-2">
-                        {contextTasks.map(pItem => (
-                            <TaskItem 
-                                key={pItem.id} 
-                                task={pItem.item as Task} 
-                                onToggle={handleTaskToggle}
-                                // Read-only in list view for now, or implement onUpdate if needed
-                            />
-                        ))}
-                    </div>
-                )}
-            </>
-        )}
-      </div>
       <ConfirmationModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

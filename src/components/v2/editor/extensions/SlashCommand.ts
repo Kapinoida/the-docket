@@ -17,7 +17,8 @@ import {
     Code,
     Quote as WrapText,
     Table as TableIcon,
-    FileText // Import for Subpage
+    FileText,
+    ChevronDown
   } from 'lucide-react';
 import React from 'react';
 
@@ -112,6 +113,13 @@ const CommandListItems = [
                editor.chain().focus().deleteRange(range).run();
            }
       }
+  },
+  {
+      title: 'Toggle Block',
+      icon: React.createElement(ChevronDown, { size: 18 }),
+      command: ({ editor, range }: any) => {
+          editor.chain().focus().deleteRange(range).insertCollapsibleBlock().run();
+      },
   }
 ];
 

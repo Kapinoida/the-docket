@@ -6,9 +6,11 @@ import { Task } from '../../types/v2';
 import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
+import { parseLocalDateNode } from '@/lib/dateUtils';
 
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,8 +28,29 @@ export default function TodayView() {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      // Get today's date in ISO format
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      
+      const startISOString = startOfToday.toISOString();
+      const endISOString = endOfToday.toISOString();
+
+      const res = await fetch(`/api/v2/calendar/events?start=${startISOString}&end=${endISOString}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch today events', error);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
+    fetchEvents();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -101,7 +124,7 @@ export default function TodayView() {
   };
 
   const todayStr = getCalendarDateStr(new Date());
-  
+
   const overdueTasks = tasks.filter(t => {
       if (!t.due_date) return false;
       const dueStr = getCalendarDateStr(t.due_date);
@@ -112,6 +135,27 @@ export default function TodayView() {
       if (!t.due_date) return false;
       const dueStr = getCalendarDateStr(t.due_date);
       return dueStr === todayStr;
+  });
+
+  // Filter for today's events (used for displaying) 
+  const isTrulyAllDay = (event: any) => {
+    if (event.is_all_day) return true;
+    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
+        const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+        if (dur === 24 * 60 * 60 * 1000) return true;
+    }
+    return false;
+  };
+
+  const todayEvents = events.filter(event => {
+    // Check if event is on today based on start_time
+    const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDay = new Date(eventDate);
+    eventDay.setHours(0, 0, 0, 0);
+    
+    return eventDay.getTime() === today.getTime();
   });
 
   return (
@@ -177,27 +221,53 @@ export default function TodayView() {
                       </div>
                   )}
                   
-                  {todayTasks.length === 0 && overdueTasks.length === 0 ? (
+                  {todayTasks.length === 0 && overdueTasks.length === 0 && todayEvents.length === 0 ? (
                        <div className="text-center py-8">
                            <div className="inline-block p-4 rounded-full bg-green-50 dark:bg-green-900/20 text-green-500 mb-3">
                                <InboxIcon size={32} />
                            </div>
                            <h3 className="text-text-primary font-medium">All caught up!</h3>
-                           <p className="text-text-muted">No tasks due today.</p>
+                           <p className="text-text-muted">No tasks or events due today.</p>
                        </div>
                   ) : (
-                      todayTasks.map(task => (
-                          <TaskItem 
-                            key={task.id} 
-                            task={task} 
-                            onToggle={handleToggle} 
-                            onUpdate={(updates) => handleUpdate(task.id, updates)}
-                          />
-                      ))
+                      <>
+                        {/* Tasks */}
+                        {todayTasks.length > 0 && todayTasks.map(task => (
+                            <TaskItem 
+                              key={task.id} 
+                              task={task} 
+                              onToggle={handleToggle} 
+                              onUpdate={(updates) => handleUpdate(task.id, updates)}
+                            />
+                        ))}
+                        
+                        {/* Events */}
+                        {todayEvents.length > 0 && (
+                          <div className="space-y-3 mt-4">
+                            <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
+                              <Calendar size={14} /> Events
+                            </div>
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-100 dark:border-purple-800/30">
+                              {todayEvents.map(event => (
+                                <div 
+                                  key={`event-${event.id}`}
+                                  className="p-2 px-3 rounded text-sm bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs opacity-75 whitespace-nowrap">
+                                      {!isTrulyAllDay(event) && new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span className="font-medium truncate">{event.title}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                   )}
               </div>
           </div>
-
       )}
 
       {/* Daily Journal Section */}
