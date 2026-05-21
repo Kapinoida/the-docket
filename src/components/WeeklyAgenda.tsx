@@ -178,15 +178,7 @@ export default function WeeklyAgenda({ onTaskSelect, onTaskComplete }: WeeklyAge
                     }`}>
                       {isOverdue ? 'Overdue' : formatDate(item.due_date!)}
                     </span>
-                    {item.context ? (
-                      <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 max-w-[150px] truncate" title={`From: ${item.context.title}`}>
-                        {item.context.title}
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        Inbox
-                      </span>
-                    )}
+
                   </div>
                 </div>
               </div>

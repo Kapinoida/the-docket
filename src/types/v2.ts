@@ -29,10 +29,6 @@ export interface Task {
   status: TaskStatus;
   due_date: Date | null;
   recurrence_rule?: RecurrenceRule;
-  context?: {
-    page_id: number;
-    title: string;
-  } | null;
   created_at: Date;
   updated_at: Date;
 }
