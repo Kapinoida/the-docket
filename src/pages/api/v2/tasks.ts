@@ -33,31 +33,23 @@ export default async function handler(
         } else {
           const { due, context } = req.query;
           
-          let query = `
-            SELECT t.*, p.id as context_page_id, p.title as context_page_title 
-            FROM tasks t
-            LEFT JOIN page_items pi ON t.id = pi.child_task_id
-            LEFT JOIN pages p ON pi.page_id = p.id
-          `;
+          let query = `SELECT t.*, (SELECT p.title FROM page_items pi JOIN pages p ON p.id = pi.page_id WHERE pi.child_task_id = t.id LIMIT 1) as page_name`;
           let params: any[] = [];
           
           if (due === 'today') {
               // Tasks due on or before today that are not done
-              query += ` WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
+              query += ` FROM tasks t WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
               query += ` ORDER BY t.due_date ASC, t.created_at ASC`;
           } else if (context === 'none') {
-              // Contextless Inbox: Not done, no page context
-              query += ` 
-                WHERE t.content != '' 
-                AND (t.status IS NULL OR t.status != 'done')
-                AND pi.child_task_id IS NULL
-                ORDER BY t.created_at DESC
-              `;
+              // Contextless Inbox: Not done, no page links
+              query += ` FROM tasks t WHERE t.content != '' AND (t.status IS NULL OR t.status != 'done')`;
+              query += ` AND NOT EXISTS (SELECT 1 FROM page_items WHERE child_task_id = t.id)`;
+              query += ` ORDER BY t.created_at DESC`;
           } else {
               // General Listing with Filters
               const { status, sort } = req.query;
 
-              query += " WHERE t.content != ''";
+              query += " FROM tasks t WHERE t.content != ''";
               
               // Status Filter
               if (status === 'todo') {
@@ -81,17 +73,7 @@ export default async function handler(
           
           const result = await pool.query(query, params);
           
-          const tasks = result.rows.map((row: any) => {
-            const task = {
-                ...row,
-                context: row.context_page_id ? { page_id: row.context_page_id, title: row.context_page_title } : null,
-            };
-            delete task.context_page_id;
-            delete task.context_page_title;
-            return task;
-          });
-          
-          return res.status(200).json(tasks);
+          return res.status(200).json(result.rows);
         }
 
       case 'POST':
