@@ -505,7 +505,7 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
                     const isNoPage = groupKey === '__no_page__';
                     const displayName = isNoPage ? 'No Page' : groupKey;
                     const collapseKey = `unsched_${groupKey}`;
-                    const isCollapsed = collapsedGroups[collapseKey];
+                    const isCollapsed = collapsedGroups[collapseKey] ?? true;
                     const tasksInGroup = grouped[groupKey];
                     return (
                       <div key={groupKey}>
@@ -666,7 +666,7 @@ export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarV
                         const isNoPage = groupKey === '__no_page__';
                         const displayName = isNoPage ? 'No Page' : groupKey;
                         const collapseKey = `${dateKey}_${groupKey}`;
-                        const isCollapsed = collapsedGroups[collapseKey];
+                        const isCollapsed = collapsedGroups[collapseKey] ?? true;
                         const tasksInGroup = grouped[groupKey];
                         return (
                           <div key={groupKey} className="mb-1">
