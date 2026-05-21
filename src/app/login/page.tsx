@@ -43,8 +43,8 @@ function LoginForm() {
         return;
       }
 
-      // Use hardcoded '/' instead of search param for redirect to avoid potential TS warnings
-      router.replace('/');
+      // Redirect to home — force full page load so middleware sees the cookie
+      window.location.href = '/';
     } catch {
       setError('Connection error. Please try again.');
     } finally {
