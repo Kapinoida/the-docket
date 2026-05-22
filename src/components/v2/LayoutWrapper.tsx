@@ -89,9 +89,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Right Sidebar Container */}
-      {/* Mobile: Fixed, slide-in from right. Desktop: Static (flex item) */}
+      {/* Fixed overlay at all sizes — floats over content like mobile */}
       <div className={`
-        fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0
+        fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out
         ${isRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>
         <RightSidebar />

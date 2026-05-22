@@ -17,8 +17,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: the_docket
-      DOCKET_PASSWORD: ${DOCKET_PASSWORD:-changeme}
-      JWT_SECRET: ${JWT_SECRET:-docket-jwt-secret-change-in-production}
     depends_on:
       postgres:
         condition: service_healthy
