@@ -8,6 +8,7 @@ import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, 
 import { Page } from '../../types/v2';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
+import { usePersistedState } from '../../lib/usePersistedState';
 
 import CreatePageModal from './CreatePageModal';
 import { SettingsModal } from '../SettingsModal';
@@ -44,11 +45,11 @@ export default function Sidebar() {
   const [createTargetFolderName, setCreateTargetFolderName] = useState<string | undefined>(undefined);
   
   // Collapsible state
-  const [isFavoritesOpen, setIsFavoritesOpen] = useState(true);
-  const [isRecentOpen, setIsRecentOpen] = useState(true);
-  const [isFoldersOpen, setIsFoldersOpen] = useState(true);
-  const [isAllPagesOpen, setIsAllPagesOpen] = useState(false);
-  const [isTagsOpen, setIsTagsOpen] = useState(true);
+  const [isFavoritesOpen, setIsFavoritesOpen] = usePersistedState('sidebar_favorites_open', true);
+  const [isRecentOpen, setIsRecentOpen] = usePersistedState('sidebar_recent_open', true);
+  const [isFoldersOpen, setIsFoldersOpen] = usePersistedState('sidebar_folders_open', true);
+  const [isAllPagesOpen, setIsAllPagesOpen] = usePersistedState('sidebar_allpages_open', false);
+  const [isTagsOpen, setIsTagsOpen] = usePersistedState('sidebar_tags_open', true);
 
   // Resize state
   const [width, setWidth] = useState(DEFAULT_WIDTH);

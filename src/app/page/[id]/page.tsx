@@ -9,6 +9,7 @@ import { Page, Task } from '../../../types/v2';
 
 import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
 import { MovePageModal } from '../../../components/modals/MovePageModal';
+import { PageSkeleton } from '../../../components/v2/Skeleton';
 
 interface Tag {
     id: number;
@@ -236,7 +237,7 @@ export default function PageView() {
       }
   };
 
-  if (loading) return <div className="p-8">Loading Page...</div>;
+  if (loading) return <PageSkeleton />;
   if (!page) return <div className="p-8">Page not found</div>;
 
   return (

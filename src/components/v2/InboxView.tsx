@@ -6,6 +6,7 @@ import { Task } from '../../types/v2';
 import { TaskItem } from './TaskItem';
 import { Plus, Inbox as InboxIcon, ArrowRight } from 'lucide-react';
 import MoveToPageModal from './MoveToPageModal';
+import { TaskListSkeleton } from './Skeleton';
 
 export default function InboxView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -143,7 +144,7 @@ export default function InboxView() {
       {/* Task List */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <TaskListSkeleton />
         ) : tasks.length === 0 ? (
           <div className="text-center py-16 bg-bg-secondary rounded-2xl border border-dashed border-border-default">
             <div className="inline-block p-4 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 mb-3">

@@ -8,14 +8,16 @@ import { ListTodo, Plus, Filter, SortAsc, SortDesc, CheckCircle2, Circle } from 
 import { useTaskEdit } from '../../contexts/TaskEditContext';
 
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { usePersistedState } from '../../lib/usePersistedState';
+import { TaskListSkeleton } from './Skeleton';
 
 type StatusFilter = 'all' | 'todo' | 'done';
 type SortOption = 'created' | 'dueDate' | 'oldest';
 
 export default function AllTasksView() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('todo');
-  const [sortOption, setSortOption] = useState<SortOption>('created');
+  const [statusFilter, setStatusFilter] = usePersistedState<StatusFilter>('tasks_status_filter', 'todo');
+  const [sortOption, setSortOption] = usePersistedState<SortOption>('tasks_sort_option', 'created');
   const [isLoading, setIsLoading] = useState(true);
   const { createTask } = useTaskEdit(); // Use context for creating tasks if needed, or simple inline
   
@@ -297,7 +299,7 @@ export default function AllTasksView() {
       {/* Task List */}
       <div className="space-y-2">
         {isLoading ? (
-          <div className="text-center py-12 text-gray-400">Loading tasks...</div>
+          <TaskListSkeleton />
         ) : tasks.length === 0 ? (
           <div className="text-center py-16 bg-bg-secondary rounded-2xl border border-dashed border-border-default">
             <div className="inline-block p-4 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500 mb-3">
