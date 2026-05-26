@@ -271,6 +271,7 @@ export default function PageView() {
             </div>
 
             {/* Actions */}
+            <div className="flex items-center gap-1">
             <button 
                 onClick={() => setShowMoveModal(true)}
                 className="p-2 text-text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -296,6 +297,7 @@ export default function PageView() {
             >
                 <Star size={18} fill={page.is_favorite ? "currentColor" : "none"} />
             </button>
+            </div>
         </div>
 
         <h1 
