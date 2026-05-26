@@ -7,6 +7,7 @@ import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
 import { parseLocalDateNode } from '@/lib/dateUtils';
+import { TaskListSkeleton } from './Skeleton';
 
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -190,7 +191,7 @@ export default function TodayView() {
       </form>
 
       {isLoading ? (
-          <div className="text-center py-12 text-gray-400">Loading your day...</div>
+          <TaskListSkeleton />
       ) : (
           <div className="space-y-8">
               {/* Overdue Section */}

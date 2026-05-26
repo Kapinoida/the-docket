@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { usePersistedState } from '../lib/usePersistedState';
 
 type SidebarView = 'inbox' | 'today' | 'calendar' | null;
 
@@ -17,7 +18,7 @@ const RightSidebarContext = createContext<RightSidebarContextType | undefined>(u
 
 export function RightSidebarProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setViewAction] = useState<SidebarView>('today');
+  const [view, setViewAction] = usePersistedState<SidebarView>('rightsidebar_view', 'today');
 
   const openSidebar = (newView?: SidebarView) => {
     if (newView) {
