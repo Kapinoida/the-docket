@@ -117,7 +117,10 @@ export default function DashboardView() {
         
         {/* Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm">
+          <div 
+            onClick={() => router.push('/')}
+            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          >
             <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
@@ -127,7 +130,10 @@ export default function DashboardView() {
             </div>
             <div className="text-sm font-medium text-text-muted">Total Notes</div>
           </div>
-          <div className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm">
+          <div 
+            onClick={() => router.push('/tasks')}
+            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          >
             <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
@@ -137,7 +143,10 @@ export default function DashboardView() {
             </div>
             <div className="text-sm font-medium text-text-muted">Active Tasks</div>
           </div>
-          <div className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm">
+          <div 
+            onClick={() => router.push('/tasks')}
+            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          >
             <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
@@ -147,7 +156,10 @@ export default function DashboardView() {
             </div>
             <div className="text-sm font-medium text-text-muted">Overdue</div>
           </div>
-          <div className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm">
+          <div 
+            onClick={() => router.push('/today')}
+            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          >
             <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>

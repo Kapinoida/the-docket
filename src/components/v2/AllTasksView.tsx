@@ -300,6 +300,9 @@ export default function AllTasksView() {
           <div className="text-center py-12 text-gray-400">Loading tasks...</div>
         ) : tasks.length === 0 ? (
           <div className="text-center py-16 bg-bg-secondary rounded-2xl border border-dashed border-border-default">
+            <div className="inline-block p-4 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500 mb-3">
+                <ListTodo size={32} />
+            </div>
             <div className="text-text-muted mb-2">No tasks found</div>
             <div className="text-sm text-text-muted opacity-70">
                 {statusFilter === 'done' ? "Get to work!" : "You're all caught up."}
