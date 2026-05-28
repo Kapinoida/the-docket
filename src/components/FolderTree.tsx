@@ -200,7 +200,7 @@ const FolderNode = memo(function FolderNode({
           )}
         </div>
         
-        <div className="flex items-center gap-0.5">
+        <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
           {!isRenaming && (
             <>
                   <button
@@ -208,7 +208,7 @@ const FolderNode = memo(function FolderNode({
                       e.stopPropagation();
                       setIsRenaming(true);
                     }}
-                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
+                    className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
                     title="Rename"
                   >
                     <Pencil className="w-3 h-3" />
@@ -221,7 +221,7 @@ const FolderNode = memo(function FolderNode({
                       e.stopPropagation();
                       onCreatePage(folder.id, folder.name);
                     }}
-                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
+                    className="p-0.5 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
                     title="New page in this folder"
                   >
                     <Plus className="w-3 h-3" />
@@ -268,7 +268,7 @@ const FolderNode = memo(function FolderNode({
                         alert('Failed to export folder');
                     }
                   }}
-                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400"
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400"
                   title="Export folder to ZIP"
                 >
                   <Download className="w-3 h-3" />
@@ -282,7 +282,7 @@ const FolderNode = memo(function FolderNode({
               e.stopPropagation();
               onCreateSubfolder(folder.id);
             }}
-            className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
             title="New subfolder"
           >
             <FolderIcon className="w-3 h-3" />
@@ -295,7 +295,7 @@ const FolderNode = memo(function FolderNode({
                 e.stopPropagation();
                 onDeleteFolder(folder);
               }}
-              className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400"
+              className="p-0.5 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400"
               title="Delete folder"
             >
               <Trash2 className="w-3 h-3" />
@@ -418,7 +418,7 @@ const FolderContents = memo(function FolderContents({
                     e.stopPropagation();
                     setDeletingPage(page);
                   }}
-                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
+                  className="p-0.5 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
                   title="Delete page"
                 >
                   <X className="w-3 h-3" />
@@ -735,7 +735,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
         </button>
       </div>
 
-      <div className="group">
+      <div>
         {rootFolders.map((folder) => (
           <FolderNode
             key={folder.id}
@@ -790,7 +790,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
                     e.stopPropagation();
                     onDeletePage(page.id);
                   }}
-                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
+                  className="p-0.5 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
                   title="Delete page"
                 >
                   <X className="w-3 h-3" />
