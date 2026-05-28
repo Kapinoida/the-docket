@@ -132,6 +132,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
              )}
       </div>
 
+      {/* Page Context Badge */}
+      {task.page_name && task.status !== "done" && (
+        <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 truncate max-w-[100px]" title={task.page_name}>
+          {task.page_name}
+        </span>
+      )}
+
       {/* Content Area (Simple Input/Div for Dashboard) */}
       <div className="flex-1 min-w-0 py-0.5">
           {onUpdate ? (

@@ -83,6 +83,30 @@ export default async function handler(
                                 const newTask = await createTask(currentTask.content, nextDate, rule);
                                 console.log(`[Recurrence] Created next instance for task ${taskId} due on ${nextDate}`);
 
+                                // Preserve page context: copy page relationships from completed task
+                                const pageItemsRes = await pool.query('SELECT page_id FROM page_items WHERE child_task_id = $1', [taskId]);
+                                for (const pi of pageItemsRes.rows) {
+                                    try {
+                                        await addItemToPage(pi.page_id, newTask.id, "task");
+                                        // Also append a v2Task node to the page content
+                                        const pageRes = await pool.query("SELECT content FROM pages WHERE id = $1", [pi.page_id]);
+                                        if (pageRes.rows.length > 0) {
+                                            let pageContent = pageRes.rows[0].content;
+                                            if (!pageContent || typeof pageContent !== "object" || pageContent.type !== "doc") {
+                                                pageContent = { type: "doc", content: [] };
+                                            }
+                                            pageContent.content.push({
+                                                type: "v2Task",
+                                                attrs: { taskId: newTask.id, pageId: pi.page_id, status: "todo", autoFocus: false, due_date: nextDate ? nextDate.toISOString() : null },
+                                                content: [{ type: "text", text: currentTask.content }]
+                                            });
+                                            await pool.query("UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2", [JSON.stringify(pageContent), pi.page_id]);
+                                        }
+                                    } catch (e) {
+                                        console.error(`[Recurrence] Failed to copy page ${pi.page_id} relationship for new task ${newTask.id}:`, e);
+                                    }
+                                }
+
                                 // Strip the recurrence rule from the COMPLETED task
                                 // so it doesn't try to regenerate again if toggled, and history is clear.
                                 updates.push(`recurrence_rule = NULL`); 
