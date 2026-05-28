@@ -34,7 +34,6 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [favorites, setFavorites] = useState<Page[]>([]);
   const [recent, setRecent] = useState<Page[]>([]);
-  const [allPages, setAllPages] = useState<Page[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [pageToDelete, setPageToDelete] = useState<Page | null>(null);
   
@@ -48,7 +47,6 @@ export default function Sidebar() {
   const [isFavoritesOpen, setIsFavoritesOpen] = usePersistedState('sidebar_favorites_open', true);
   const [isRecentOpen, setIsRecentOpen] = usePersistedState('sidebar_recent_open', true);
   const [isFoldersOpen, setIsFoldersOpen] = usePersistedState('sidebar_folders_open', true);
-  const [isAllPagesOpen, setIsAllPagesOpen] = usePersistedState('sidebar_allpages_open', false);
   const [isTagsOpen, setIsTagsOpen] = usePersistedState('sidebar_tags_open', true);
 
   // Resize state
@@ -114,16 +112,14 @@ export default function Sidebar() {
 
   const fetchData = async () => {
     try {
-        const [favRes, recentRes, allRes, tagsRes] = await Promise.all([
+        const [favRes, recentRes, tagsRes] = await Promise.all([
             fetch('/api/v2/pages?view=favorites'),
             fetch('/api/v2/pages?view=recent'),
-            fetch('/api/v2/pages?view=all'),
             fetch('/api/v2/tags')
         ]);
         
         if (favRes.ok) setFavorites(await favRes.json());
         if (recentRes.ok) setRecent(await recentRes.json());
-        if (allRes.ok) setAllPages(await allRes.json());
         if (tagsRes.ok) setTags(await tagsRes.json());
     } catch (e) {
         console.error('Failed to load sidebar data', e);
@@ -357,9 +353,9 @@ export default function Sidebar() {
             )}
         </div>
 
-        {/* Folders */}
+        {/* Files */}
         <div className="mt-2">
-            <SectionHeader label="Folders" isOpen={isFoldersOpen} onToggle={() => setIsFoldersOpen(!isFoldersOpen)} />
+            <SectionHeader label="Files" isOpen={isFoldersOpen} onToggle={() => setIsFoldersOpen(!isFoldersOpen)} />
             {isFoldersOpen && (
                 <div className="px-2">
                     <FolderTree 
@@ -369,14 +365,9 @@ export default function Sidebar() {
                         onCreatePage={openCreateModal}
                         refreshTrigger={refreshTrigger}
                         onDeletePage={(pageId) => {
-                            // Find page object for title? FolderTree passes ID. 
-                            // We need to fetch or just use a placeholder if we don't have it.
-                            // Better yet, let FolderTree handle its own deletion UI? 
-                            // FolderTree HAS its own UI. Sidebar uses handleDeletePage for its lists.
-                            // The lists (Recent/Favorites) use handleDeletePage.
-                            const page = allPages.find(p => p.id === pageId) || recent.find(p => p.id === pageId) || favorites.find(p => p.id === pageId);
+                            const page = recent.find(p => p.id === pageId) || favorites.find(p => p.id === pageId);
                             if (page) setPageToDelete(page);
-                            else handleDeletePage(pageId); // Fallback if we can't find object for modal
+                            else handleDeletePage(pageId);
                         }}
                         onMovePage={async (pageId, newFolderId) => {
                             try {
@@ -394,25 +385,6 @@ export default function Sidebar() {
                             }
                         }}
                     />
-                </div>
-            )}
-        </div>
-
-        {/* All Pages */}
-        <div className="mt-2">
-            <SectionHeader label="All Pages" isOpen={isAllPagesOpen} onToggle={() => setIsAllPagesOpen(!isAllPagesOpen)} onAdd={() => openCreateModal()} />
-            {isAllPagesOpen && (
-                <div className="px-2 space-y-0.5">
-                     {allPages.map(page => (
-                        <NavItem 
-                            key={page.id} 
-                            href={`/page/${page.id}`} 
-                            icon={FileText} 
-                            label={page.title} 
-                            active={pathname === `/page/${page.id}`}
-                            onDelete={() => setPageToDelete(page)}
-                        />
-                    ))}
                 </div>
             )}
         </div>
