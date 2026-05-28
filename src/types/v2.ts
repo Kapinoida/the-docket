@@ -31,6 +31,7 @@ export interface Task {
   recurrence_rule?: RecurrenceRule;
   created_at: Date;
   updated_at: Date;
+  page_name?: string;
 }
 
 export type PageItemType = 'page' | 'task';
