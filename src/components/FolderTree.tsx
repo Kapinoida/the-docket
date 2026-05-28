@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
+import { Folder as FolderIcon, FileText, ChevronRight, ChevronDown, Plus, Trash2, Pencil, X, Download, ListTodo } from 'lucide-react';
 import { Folder } from '@/types';
 import { Page } from '@/types/v2';
 
@@ -159,19 +160,11 @@ const FolderNode = memo(function FolderNode({
             onClick={() => onToggle(folder.id)}
             className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex-shrink-0"
           >
-            <svg
-              className={`w-3 h-3 transform transition-transform text-gray-500 dark:text-gray-400 ${
-                isExpanded ? 'rotate-90' : ''
-              }`}
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+            )}
           </button>
         ) : (
           <div className="w-4 mr-1 flex-shrink-0"></div>
@@ -181,13 +174,7 @@ const FolderNode = memo(function FolderNode({
           className="flex items-center flex-1 min-w-0"
           onClick={() => !isRenaming && onSelect(folder)}
         >
-          <svg
-            className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-blue-500"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-          </svg>
+          <FolderIcon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-blue-500" />
           
            {isRenaming ? (
               <input
@@ -216,82 +203,76 @@ const FolderNode = memo(function FolderNode({
         <div className="flex items-center gap-0.5">
           {!isRenaming && (
             <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsRenaming(true);
-                  }}
-                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
-                  title="Rename"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsRenaming(true);
+                    }}
+                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
+                    title="Rename"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
 
               {/* New Page button on hover */}
               {onCreatePage && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreatePage(folder.id, folder.name);
-                  }}
-                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
-                  title="New page in this folder"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreatePage(folder.id, folder.name);
+                    }}
+                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-blue-200 dark:hover:bg-blue-600 rounded text-blue-600 dark:text-blue-400"
+                    title="New page in this folder"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
               )}
               {/* Export Folder button on hover */}
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  // Trigger export
-                  try {
-                      // We need JSZip to create the zip client-side
-                      const JSZip = (await import('jszip')).default;
-                      const zip = new JSZip();
-                      
-                      const res = await fetch(`/api/v2/folders/${folder.id}/export`);
-                      if (!res.ok) throw new Error('Failed to fetch folder pages');
-                      const data = await res.json();
-                      
-                      // Import our markdown converter
-                      const { jsonToMarkdown } = await import('@/lib/jsonToMarkdown');
-                      
-                      const pages = data.pages as Page[];
-                      if (pages.length === 0) {
-                          alert('Folder is empty.');
-                          return;
-                      }
-                      
-                      // Convert and add each page to the zip
-                      for (const page of pages) {
-                          const markdown = jsonToMarkdown(page.content);
-                          // Sanitize filename
-                          const filename = `${page.title.replace(/[\/\\?%*:|"<>]/g, '-')}.md`;
-                          zip.file(filename, markdown);
-                      }
-                      
-                      // Generate and download
-                      const content = await zip.generateAsync({ type: 'blob' });
-                      const saveAs = (await import('file-saver')).saveAs;
-                      saveAs(content, `${data.folderName}.zip`);
-                      
-                  } catch (e) {
-                      console.error('Export failed:', e);
-                      alert('Failed to export folder');
-                  }
-                }}
-                className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400"
-                title="Export folder to ZIP"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    // Trigger export
+                    try {
+                        // We need JSZip to create the zip client-side
+                        const JSZip = (await import('jszip')).default;
+                        const zip = new JSZip();
+                        
+                        const res = await fetch(`/api/v2/folders/${folder.id}/export`);
+                        if (!res.ok) throw new Error('Failed to fetch folder pages');
+                        const data = await res.json();
+                        
+                        // Import our markdown converter
+                        const { jsonToMarkdown } = await import('@/lib/jsonToMarkdown');
+                        
+                        const pages = data.pages as Page[];
+                        if (pages.length === 0) {
+                            alert('Folder is empty.');
+                            return;
+                        }
+                        
+                        // Convert and add each page to the zip
+                        for (const page of pages) {
+                            const markdown = jsonToMarkdown(page.content);
+                            // Sanitize filename
+                            const filename = `${page.title.replace(/[\/\\?%*:|"<>]/g, '-')}.md`;
+                            zip.file(filename, markdown);
+                        }
+                        
+                        // Generate and download
+                        const content = await zip.generateAsync({ type: 'blob' });
+                        const saveAs = (await import('file-saver')).saveAs;
+                        saveAs(content, `${data.folderName}.zip`);
+                        
+                    } catch (e) {
+                        console.error('Export failed:', e);
+                        alert('Failed to export folder');
+                    }
+                  }}
+                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400"
+                  title="Export folder to ZIP"
+                >
+                  <Download className="w-3 h-3" />
+                </button>
             </>
           )}
           
@@ -304,9 +285,7 @@ const FolderNode = memo(function FolderNode({
             className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
             title="New subfolder"
           >
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-            </svg>
+            <FolderIcon className="w-3 h-3" />
           </button>
           
           {/* Delete folder button (only for non-Home folders) */}
@@ -319,18 +298,7 @@ const FolderNode = memo(function FolderNode({
               className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400"
               title="Delete folder"
             >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"
-                  clipRule="evenodd"
-                />
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <Trash2 className="w-3 h-3" />
             </button>
           )}
         </div>
@@ -417,7 +385,7 @@ const FolderContents = memo(function FolderContents({
   );
 
   return (
-    <div>
+    <div className={(pages.length > 0 || children.length > 0) ? 'border-l-2 border-gray-200 dark:border-gray-700 ml-1' : ''}>
       {/* Show pages first */}
       {pages.length > 0 && (
         <div className="space-y-1">
@@ -435,17 +403,7 @@ const FolderContents = memo(function FolderContents({
               }`}
               style={{ paddingLeft: `${(level + 1) * 8 + 12}px` }}
             >
-              <svg
-                className="w-3 h-3 mr-1.5 flex-shrink-0 text-gray-400"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <FileText className="w-3 h-3 mr-1.5 flex-shrink-0 text-gray-400" />
               <span 
                 className="text-xs text-text-secondary truncate flex-1"
                 onClick={() => onPageSelect?.(page)}
@@ -463,13 +421,7 @@ const FolderContents = memo(function FolderContents({
                   className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
                   title="Delete page"
                 >
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <X className="w-3 h-3" />
                 </button>
               )}
             </div>
@@ -559,6 +511,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
   const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
   const [mounted, setMounted] = useState(false);
   const [storageLoaded, setStorageLoaded] = useState(false);
+  const [unfiledPages, setUnfiledPages] = useState<Page[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -577,8 +530,16 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
       }
       setStorageLoaded(true);
       fetchFolders();
+      fetchUnfiledPages();
     }
   }, [mounted]);
+
+  // Refresh unfiled pages when trigger changes
+  useEffect(() => {
+    if (mounted) {
+      fetchUnfiledPages();
+    }
+  }, [refreshTrigger, mounted]);
 
   // Persist expanded state
   useEffect(() => {
@@ -602,6 +563,18 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
     } catch (error) {
       console.error('Error fetching folders:', error);
       setFolders([]);
+    }
+  };
+
+  const fetchUnfiledPages = async () => {
+    try {
+      const response = await fetch(`/api/v2/pages?view=all&t=${Date.now()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUnfiledPages(data.filter((p: Page) => p.folder_id === null));
+      }
+    } catch (error) {
+      console.error('Error fetching unfiled pages:', error);
     }
   };
 
@@ -738,37 +711,28 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center justify-between mb-1.5 bg-bg-secondary rounded px-2 py-1">
-        <span className="text-xs font-medium text-text-secondary">Folders</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => handleCreateSubfolder(undefined)}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-            title="New root folder"
-          >
-            <svg className="w-3 h-3 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => onCreatePage?.(getHomeFolderId())}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-            title="New page (in Home)"
-          >
-            <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button
-            onClick={() => onCreateTask?.()}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-            title="New standalone task"
-          >
-            <svg className="w-3 h-3 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          </button>
-        </div>
+      <div className="flex items-center gap-1 mb-1">
+        <button
+          onClick={() => handleCreateSubfolder(undefined)}
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          title="New root folder"
+        >
+          <FolderIcon className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+        </button>
+        <button
+          onClick={() => onCreatePage?.(getHomeFolderId())}
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          title="New page (in Home)"
+        >
+          <FileText className="w-3 h-3 text-green-600 dark:text-green-400" />
+        </button>
+        <button
+          onClick={() => onCreateTask?.()}
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          title="New standalone task"
+        >
+          <ListTodo className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+        </button>
       </div>
 
       <div className="group">
@@ -795,6 +759,47 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
           />
         ))}
       </div>
+
+      {/* Unfiled pages */}
+      {unfiledPages.length > 0 && (
+        <div className="px-2 space-y-0.5">
+          {unfiledPages.map((page) => (
+            <div
+              key={page.id}
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                e.dataTransfer.setData('pageId', page.id.toString());
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              className={`flex items-center py-0.5 rounded cursor-pointer hover:bg-bg-tertiary group ${
+                selectedPageId === page.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''
+              }`}
+            >
+              <FileText className="w-3 h-3 mr-1.5 flex-shrink-0 text-gray-400" />
+              <span 
+                className="text-xs text-text-secondary truncate flex-1"
+                onClick={() => onPageSelect?.(page)}
+              >
+                {page.title.length > 25 ? page.title.slice(0, 25) + '...' : page.title}
+              </span>
+              
+              {onDeletePage && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeletePage(page.id);
+                  }}
+                  className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-200 dark:hover:bg-red-600 rounded text-red-600 dark:text-red-400 ml-1"
+                  title="Delete page"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {isCreatingFolder && (
         <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
