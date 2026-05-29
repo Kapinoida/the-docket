@@ -705,6 +705,7 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
          console.log('[Sync] Standard fetch returned 0 items. Attempting Raw PROPFIND fallback...');
          try {
             const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
+            console.log('[Sync Fallback] PROPFIND to:', calendar.url);
             const rawRes = await fetch(calendar.url, {
                 method: 'PROPFIND',
                 headers: {
@@ -721,15 +722,19 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
                        </d:propfind>`
             });
 
+            console.log('[Sync Fallback] PROPFIND status:', rawRes.status, rawRes.statusText);
             if (rawRes.ok) {
                 const xmlText = await rawRes.text();
-                const responseBlocks = xmlText.split('</d:response>');
+                const responseBlocks = xmlText.split(/(?=<response)/);
+                console.log('[Sync Fallback] Response blocks:', responseBlocks.length);
+                let icsBlocks = 0, fetchOk = 0, fetchFail = 0;
                 
                 for (const block of responseBlocks) {
                     if (!block.includes('.ics')) continue;
+                    icsBlocks++;
 
-                    const hrefMatch = block.match(/<d:href>([^<]+)<\/d:href>/);
-                    const etagMatch = block.match(/<[^>]*getetag[^>]*>([^<]*)<\/[^>]*getetag>/);
+                    const hrefMatch = block.match(/<href>([^<]+)<\/href>/);
+                    const etagMatch = block.match(/<getetag>([^<]+)<\/getetag>/);
                     
                     if (hrefMatch) {
                         const href = hrefMatch[1].trim();
@@ -753,9 +758,15 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
                                 etag: etag,
                                 url: fetchUrl
                             } as any);
+                            fetchOk++;
+                        } else {
+                            fetchFail++;
                         }
                     }
                 }
+                console.log(`[Sync Fallback] ICS blocks: ${icsBlocks}, Fetched OK: ${fetchOk}, Failed: ${fetchFail}`);
+            } else {
+                console.error('[Sync Fallback] PROPFIND failed:', rawRes.status, await rawRes.text().catch(() => 'no body'));
             }
         } catch (fallbackErr) {
             console.error('[Sync] Fallback failed:', fallbackErr);

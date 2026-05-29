@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-
 echo "Starting deployment update..."
+
+# Run tests first — fail fast if something's broken
+echo "Running test suite..."
+npm test
 
 # Pull latest changes
 echo "Pulling latest code..."
