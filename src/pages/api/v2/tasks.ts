@@ -2,19 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createTask, getTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../lib/db';
 import pool from '../../../lib/db';
-
-const normalizeDateToNoon = (dateVal: any): Date | null => {
-    if (!dateVal) return null;
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return null;
-    // If the time is midnight in local time (America/Chicago), it's a date-only value
-    // Store as UTC midnight so timestamptz is unambiguous
-    if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
-        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    }
-    // Has an explicit time — preserve as-is for timestamptz
-    return d;
-};
+import { normalizeDateToNoon } from '../../../lib/dateUtils';
 
 export default async function handler(
   req: NextApiRequest,

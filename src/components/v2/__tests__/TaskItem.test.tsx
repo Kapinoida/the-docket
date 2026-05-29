@@ -1,9 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskItem } from '../TaskItem';
 import { Task } from '../../../types/v2';
+import { TaskEditProvider } from '../../../contexts/TaskEditContext';
 
-// Mock Lucide icons to avoid any rendering issues (though usually fine)
-// We'll trust standard rendering for now.
+// Mock fetch for the provider (it may call API on save)
+global.fetch = jest.fn(() =>
+  Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+) as jest.Mock;
+
+// Wrapper component that provides required context
+const Wrapper = ({ children }: { children: React.ReactNode }) => (
+  <TaskEditProvider>{children}</TaskEditProvider>
+);
+
+const customRender = (ui: React.ReactElement) =>
+  render(ui, { wrapper: Wrapper });
 
 describe('TaskItem', () => {
   const mockTask: Task = {
@@ -13,7 +24,7 @@ describe('TaskItem', () => {
     created_at: new Date('2023-01-01'),
     updated_at: new Date('2023-01-01'),
     due_date: null,
-    recurrence_rule: null
+    recurrence_rule: undefined
   };
 
   const mockOnToggle = jest.fn();
@@ -23,74 +34,101 @@ describe('TaskItem', () => {
     jest.clearAllMocks();
   });
 
+  // ── Basic rendering ────────────────────────────────────
   it('renders task content correctly', () => {
-    render(
-      <TaskItem 
-        task={mockTask} 
-        onToggle={mockOnToggle} 
-        onUpdate={mockOnUpdate} 
-      />
+    customRender(
+      <TaskItem task={mockTask} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
     );
-    
-    // It renders as a div when not editing (unless using input mode which TaskItem seems to use unconditionally for "onUpdate" presence?)
-    // Let's check the code: if (onUpdate) -> input.
     expect(screen.getByDisplayValue('Test Task Content')).toBeInTheDocument();
   });
 
   it('calls onToggle when check circle is clicked', () => {
-    render(
-      <TaskItem 
-        task={mockTask} 
-        onToggle={mockOnToggle} 
-        onUpdate={mockOnUpdate} 
-      />
+    customRender(
+      <TaskItem task={mockTask} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
     );
-
-    // Find the button wrapping the circle (it has onClick=onToggle)
-    // We can find by role button. There might be multiple (date picker).
-    // The completion circle is the first one or distinct.
-    // Let's rely on the structure or class if needed, or better:
-    // The date picker button has text or calendar icon.
-    // The completion button just has the Circle/CheckCircle.
-    
-    // We can try getting by role 'button' and picking index, or adding aria-label in source would be better.
-    // For now, let's assume it's the first button in standard layout.
     const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[0]); // Checkbox is usually first
-    
+    fireEvent.click(buttons[0]);
     expect(mockOnToggle).toHaveBeenCalledWith(1);
   });
 
   it('updates content on blur after editing', () => {
-    render(
-        <TaskItem 
-          task={mockTask} 
-          onToggle={mockOnToggle} 
-          onUpdate={mockOnUpdate} 
-        />
+    customRender(
+      <TaskItem task={mockTask} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
     );
-
     const input = screen.getByDisplayValue('Test Task Content');
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Updated Content' } });
     fireEvent.blur(input);
-
     expect(mockOnUpdate).toHaveBeenCalledWith({ content: 'Updated Content' });
   });
 
+  // ── Completed state ────────────────────────────────────
   it('renders completed state correctly', () => {
-      const completedTask = { ...mockTask, status: 'done' as const };
-      render(
-        <TaskItem 
-          task={completedTask} 
-          onToggle={mockOnToggle} 
-        />
-      );
-      
-      // Check for line-through decoration or similar, but harder to check styles.
-      // We can check if the CheckCircle icon is present (rendered by lucide).
-      // RTL doesn't check internal Icon logic easily, but we can verify component structure or assumed class.
-      // Let's just verify it renders without error for now.
-      expect(screen.getByText('Test Task Content')).toHaveClass('line-through');
+    const completedTask = { ...mockTask, status: 'done' as const };
+    customRender(
+      <TaskItem task={completedTask} onToggle={mockOnToggle} />
+    );
+    expect(screen.getByText('Test Task Content')).toHaveClass('line-through');
+  });
+
+  // ── Date badge ─────────────────────────────────────────
+  it('renders due date in MMM d format', () => {
+    const taskWithDate: Task = {
+      ...mockTask,
+      due_date: new Date('2026-05-18T00:00:00.000Z')
+    };
+    customRender(
+      <TaskItem task={taskWithDate} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.getByText('May 18')).toBeInTheDocument();
+  });
+
+  it('renders time alongside date when time is not midnight', () => {
+    const taskWithTime: Task = {
+      ...mockTask,
+      due_date: new Date('2026-05-18T15:30:00.000Z')
+    };
+    customRender(
+      <TaskItem task={taskWithTime} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.getByText(/May 18/)).toBeInTheDocument();
+  });
+
+  it('shows recurrence clock icon when task has recurrence rule', () => {
+    const recurringTask: Task = {
+      ...mockTask,
+      due_date: new Date('2026-05-18T00:00:00.000Z'),
+      recurrence_rule: { type: 'weekly', interval: 1 }
+    };
+    customRender(
+      <TaskItem task={recurringTask} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    const buttons = screen.getAllByRole('button');
+    const dateBtn = buttons.find(b => b.textContent?.includes('May 18'));
+    expect(dateBtn).toBeTruthy();
+  });
+
+  // ── page_name pill ─────────────────────────────────────
+  it('renders page_name pill when task has page context', () => {
+    const taskWithPage: Task = {
+      ...mockTask,
+      page_name: 'Job Search 2026'
+    };
+    customRender(
+      <TaskItem task={taskWithPage} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.getByText('Job Search 2026')).toBeInTheDocument();
+  });
+
+  it('hides page_name pill when task is done', () => {
+    const doneTaskWithPage: Task = {
+      ...mockTask,
+      status: 'done',
+      page_name: 'Job Search 2026'
+    };
+    customRender(
+      <TaskItem task={doneTaskWithPage} onToggle={mockOnToggle} />
+    );
+    expect(screen.queryByText('Job Search 2026')).not.toBeInTheDocument();
   });
 });

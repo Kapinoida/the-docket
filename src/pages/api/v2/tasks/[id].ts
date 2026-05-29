@@ -1,19 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool, { createTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../../lib/db'; // Ensure createTask is exported
 import { calculateNextDueDate } from '../../../../lib/recurrence';
-
-const normalizeDateToNoon = (dateVal: any): Date | null => {
-    if (!dateVal) return null;
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return null;
-    // If the time is midnight in local time (America/Chicago), it's a date-only value
-    // Store as UTC midnight so timestamptz is unambiguous
-    if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
-        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    }
-    // Has an explicit time — preserve as-is for timestamptz
-    return d;
-};
+import { normalizeDateToNoon } from '../../../../lib/dateUtils';
 
 export default async function handler(
   req: NextApiRequest,
@@ -82,6 +70,15 @@ export default async function handler(
                                 // Create the next task (Active, with same recurrence rule)
                                 const newTask = await createTask(currentTask.content, nextDate, rule);
                                 console.log(`[Recurrence] Created next instance for task ${taskId} due on ${nextDate}`);
+
+                                // Sync: give the new instance a CalDAV UID so it gets pushed to Radicale
+                                const { v4: uuidv4 } = require('uuid');
+                                const newUid = uuidv4();
+                                await pool.query(
+                                  'INSERT INTO task_sync_meta (task_id, caldav_uid, last_synced_at) VALUES ($1, $2, NOW())',
+                                  [newTask.id, newUid]
+                                );
+                                console.log(`[Recurrence] Registered new instance ${newTask.id} for sync (uid: ${newUid})`);
 
                                 // Preserve page context: copy page relationships from completed task
                                 const pageItemsRes = await pool.query('SELECT page_id FROM page_items WHERE child_task_id = $1', [taskId]);
