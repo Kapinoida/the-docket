@@ -1,9 +1,13 @@
 
 const { Pool } = require('pg');
 
-// Use environment variables for connection
+// Use the same env vars as the app (src/lib/db.ts) for consistency
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:password@postgres:5432/the_docket',
+  host: process.env.DB_HOST || 'postgres',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'the_docket',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'password',
 });
 
 async function migrate() {
