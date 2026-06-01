@@ -9,15 +9,21 @@ import TodayView from './TodayView';
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 600;
 const DEFAULT_WIDTH = 280;
+const MOBILE_BREAKPOINT = 768;
 
 export default function RightSidebar() {
   const { isOpen, closeSidebar, view, setView } = useRightSidebar();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Load saved width on mount
+  // Detect mobile + load saved width
   useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     const savedWidth = localStorage.getItem('rightSidebarWidth');
     if (savedWidth) {
       const parsed = parseInt(savedWidth, 10);
@@ -25,6 +31,8 @@ export default function RightSidebar() {
         setWidth(parsed);
       }
     }
+
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -74,16 +82,18 @@ export default function RightSidebar() {
   return (
     <div 
       ref={sidebarRef}
-      className={`relative flex flex-col flex-shrink-0 h-full border-l border-border-default bg-bg-secondary shadow-xl z-30 transition-shadow duration-300 ease-in-out ${isResizing ? 'select-none' : ''}`}
-      style={{ width: `${width}px`, transition: isResizing ? 'none' : 'width 0.3s ease-in-out' }}
+      className={`relative flex flex-col flex-shrink-0 h-full border-l border-border-default bg-bg-secondary shadow-xl z-30 transition-shadow duration-300 ease-in-out ${isResizing ? 'select-none' : ''} ${isMobile ? 'w-full' : ''}`}
+      style={isMobile ? {} : { width: `${width}px`, transition: isResizing ? 'none' : 'width 0.3s ease-in-out' }}
     >
-      {/* Drag Handle */}
+      {/* Drag Handle - desktop only */}
+      {!isMobile && (
       <div
         className="absolute left-0 top-0 bottom-0 w-1 hover:w-2 cursor-col-resize z-40 group flex items-center justify-center -translate-x-1/2 hover:bg-primary/10 transition-all"
         onMouseDown={startResizing}
       >
         <div className="w-[1px] h-full bg-border-default group-hover:bg-primary/50 transition-colors" />
       </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between p-2 border-b border-border-default bg-bg-tertiary">
