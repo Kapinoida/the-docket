@@ -32,6 +32,10 @@ export const metadata: Metadata = {
   title: "The Docket",
   description: "Personal productivity application with seamless note-taking and task management",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
