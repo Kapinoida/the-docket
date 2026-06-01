@@ -113,7 +113,7 @@ export default function InboxView() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-8 font-sans">
+    <div className="mx-auto p-8 font-sans">
       
       {/* Header */}
       <div className="mb-8">
