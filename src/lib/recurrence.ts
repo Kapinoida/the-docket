@@ -11,6 +11,8 @@ import {
   isSameMonth
 } from 'date-fns';
 import { RecurrenceRule } from '@/types/v2';
+import pool, { createTask, addItemToPage } from './db';
+import { v4 as uuidv4 } from 'uuid';
 
 export function calculateNextDueDate(baseDate: Date, rule: RecurrenceRule): Date {
   const interval = rule.interval || 1;
@@ -84,4 +86,92 @@ function getNthDayOfMonth(date: Date, n: number, validDays: number[]): Date {
       const index = candidates.length + n;
       return candidates[index] || candidates[0]; // Fallback to first if underflow
   }
+}
+
+/**
+ * Spawn the next instance of a recurring task, copying page context.
+ * Called when a recurring task is marked 'done' — from both the API handler
+ * and the CalDAV sync path.
+ *
+ * Returns the new task ID, or null if the task has no recurrence rule
+ * or if next date calculation fails.
+ */
+export async function spawnNextRecurrence(completedTaskId: number): Promise<number | null> {
+  // Fetch the completed task
+  const currentTaskRes = await pool.query('SELECT * FROM tasks WHERE id = $1', [completedTaskId]);
+  if (currentTaskRes.rows.length === 0) return null;
+  
+  const currentTask = currentTaskRes.rows[0];
+  if (!currentTask.recurrence_rule) return null;
+
+  const rule = currentTask.recurrence_rule;
+  const baseDate = currentTask.due_date ? new Date(currentTask.due_date) : new Date();
+  
+  let nextDate: Date | null = null;
+  try {
+    nextDate = calculateNextDueDate(baseDate, rule);
+  } catch (e) {
+    console.error(`[Recurrence] Failed to calculate next date for task ${completedTaskId}:`, e);
+    return null;
+  }
+  
+  if (!nextDate) return null;
+
+  // Create the next instance
+  const newTask = await createTask(currentTask.content, nextDate, rule);
+  console.log(`[Recurrence] Created next instance for task ${completedTaskId} → ${newTask.id} due ${nextDate}`);
+
+  // Register for CalDAV sync
+  const newUid = uuidv4();
+  await pool.query(
+    'INSERT INTO task_sync_meta (task_id, caldav_uid, last_synced_at) VALUES ($1, $2, NOW())',
+    [newTask.id, newUid]
+  );
+  console.log(`[Recurrence] Registered new instance ${newTask.id} for sync (uid: ${newUid})`);
+
+  // Copy page context from the completed task
+  const pageItemsRes = await pool.query(
+    'SELECT page_id FROM page_items WHERE child_task_id = $1',
+    [completedTaskId]
+  );
+  
+  for (const pi of pageItemsRes.rows) {
+    try {
+      await addItemToPage(pi.page_id, newTask.id, "task");
+      
+      // Append a v2Task node to the page content
+      const pageRes = await pool.query('SELECT content FROM pages WHERE id = $1', [pi.page_id]);
+      if (pageRes.rows.length > 0) {
+        let pageContent = pageRes.rows[0].content;
+        if (!pageContent || typeof pageContent !== 'object' || pageContent.type !== 'doc') {
+          pageContent = { type: 'doc', content: [] };
+        }
+        pageContent.content.push({
+          type: 'v2Task',
+          attrs: {
+            taskId: newTask.id,
+            pageId: pi.page_id,
+            status: 'todo',
+            autoFocus: false,
+            due_date: nextDate.toISOString(),
+          },
+          content: [{ type: 'text', text: currentTask.content }],
+        });
+        await pool.query(
+          'UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(pageContent), pi.page_id]
+        );
+      }
+    } catch (e) {
+      console.error(
+        `[Recurrence] Failed to copy page ${pi.page_id} context for new task ${newTask.id}:`,
+        e
+      );
+    }
+  }
+
+  // Strip recurrence rule from the completed task so it doesn't re-fire
+  await pool.query('UPDATE tasks SET recurrence_rule = NULL WHERE id = $1', [completedTaskId]);
+
+  return newTask.id;
 }

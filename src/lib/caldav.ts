@@ -1,7 +1,8 @@
 import { DAVAccount, DAVClient, DAVCalendar, DAVCalendarObject } from 'tsdav';
-import pool from './db';
+import pool, { createTask, addItemToPage } from './db';
 import { v4 as uuidv4 } from 'uuid';
 import ICAL from 'ical.js';
+import { spawnNextRecurrence } from './recurrence';
 
 // Types
 export interface CalDAVConfig {
@@ -240,6 +241,19 @@ async function updateLocalFromRemote(localId: number, parsed: any, newEtag: stri
       'UPDATE task_sync_meta SET caldav_etag = $1, last_synced_at = NOW() WHERE task_id = $2',
       [newEtag, localId]
     );
+
+    // Handle recurrence: if this remote completion is for a recurring task,
+    // spawn the next instance locally (same as the Docket UI path).
+    if (newStatus === 'done') {
+      try {
+        const spawnedId = await spawnNextRecurrence(localId);
+        if (spawnedId) {
+          console.log(`[Sync] Spawned next recurrence instance ${spawnedId} for task ${localId}`);
+        }
+      } catch (e) {
+        console.error(`[Sync] Failed to spawn recurrence for task ${localId}:`, e);
+      }
+    }
 }
 
 /**
