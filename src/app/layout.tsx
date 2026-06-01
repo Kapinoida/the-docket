@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -31,6 +31,16 @@ const jetbrainsMono = {
 export const metadata: Metadata = {
   title: "The Docket",
   description: "Personal productivity application with seamless note-taking and task management",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Docket",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 import { ThemeProvider } from "../components/ThemeProvider";
@@ -41,6 +51,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import LayoutWrapper from "../components/v2/LayoutWrapper";
 
 import { SearchDialog } from '@/components/v2/SearchDialog';
+import PwaRegister from '@/components/PwaRegister';
 
 export default function RootLayout({
   children,
@@ -59,6 +70,7 @@ export default function RootLayout({
             disableTransitionOnChange
         >
             <TaskEditProvider>
+              <PwaRegister />
               <CommandPalette />
               <LayoutWrapper>
                   {children}
