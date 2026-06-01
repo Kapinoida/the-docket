@@ -160,7 +160,7 @@ export default function TodayView() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto p-8 font-sans">
+    <div className="mx-auto p-8 font-sans">
       
       {/* Header */}
       <div className="mb-8">
