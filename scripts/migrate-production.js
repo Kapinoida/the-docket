@@ -72,6 +72,31 @@ async function migrate() {
     `);
     console.log("Checked/Created 'calendar_events' table.");
 
+    // 7. Create push_notifications table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_notifications (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+        sent_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_push_notifications_task ON push_notifications(task_id, sent_at);
+    `);
+    console.log("Checked/Created 'push_notifications' table.");
+
+    // 8. Create push_subscriptions table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log("Checked/Created 'push_subscriptions' table.");
+
     console.log('Migration check completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);

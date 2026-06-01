@@ -5,7 +5,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'docket-dev-secret-change-in-production'
 );
 
-const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/api/auth/me', '/api/caldav/sync'];
+const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/api/auth/me', '/api/caldav/sync', '/api/push/send'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { CalDAVSettings } from './CalDAVSettings';
+import NotificationToggle from './NotificationToggle';
 
 interface Props {
   isOpen: boolean;
@@ -70,6 +71,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
               Prevent background synchronization tasks from running. Manual sync can still be triggered.
             </p>
           </div>
+
+          <NotificationToggle />
 
           <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
             <h2 className="text-lg font-semibold mb-4">Sync Settings</h2>

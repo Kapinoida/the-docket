@@ -59,3 +59,50 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push notification handler
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  const payload = event.data.json();
+  const { title, body, data, tag } = payload;
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag: tag || 'docket-task',
+      data: data || {},
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'open', title: 'Open' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
+      requireInteraction: true,
+    })
+  );
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'dismiss') return;
+
+  const urlToOpen = event.notification.data?.url || '/inbox';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      // If a window is already open, focus it
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin)) {
+          client.postMessage({ type: 'navigate', url: urlToOpen });
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(urlToOpen);
+    })
+  );
+});
