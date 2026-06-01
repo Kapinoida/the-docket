@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import pool, { createTask, addItemToPage, createTombstone, deleteTaskReferences } from '../../../../lib/db'; // Ensure createTask is exported
-import { calculateNextDueDate } from '../../../../lib/recurrence';
+import pool, { createTombstone, deleteTaskReferences } from '../../../../lib/db';
+import { spawnNextRecurrence } from '../../../../lib/recurrence';
 import { normalizeDateToNoon } from '../../../../lib/dateUtils';
 
 export default async function handler(
@@ -54,66 +54,7 @@ export default async function handler(
 
             // RECURRENCE LOGIC: If completing a recurring task, spawn the next one.
             if (status === 'done') {
-                // Fetch current task to check for recurrence
-                const currentTaskRes = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
-                if (currentTaskRes.rows.length > 0) {
-                    const currentTask = currentTaskRes.rows[0];
-                    if (currentTask.recurrence_rule) {
-                        const rule = currentTask.recurrence_rule;
-                        let nextDate: Date | null = null;
-                        const baseDate = currentTask.due_date ? new Date(currentTask.due_date) : new Date();
-
-                        try {
-                            nextDate = calculateNextDueDate(baseDate, rule);
-
-                            if (nextDate) {
-                                // Create the next task (Active, with same recurrence rule)
-                                const newTask = await createTask(currentTask.content, nextDate, rule);
-                                console.log(`[Recurrence] Created next instance for task ${taskId} due on ${nextDate}`);
-
-                                // Sync: give the new instance a CalDAV UID so it gets pushed to Radicale
-                                const { v4: uuidv4 } = require('uuid');
-                                const newUid = uuidv4();
-                                await pool.query(
-                                  'INSERT INTO task_sync_meta (task_id, caldav_uid, last_synced_at) VALUES ($1, $2, NOW())',
-                                  [newTask.id, newUid]
-                                );
-                                console.log(`[Recurrence] Registered new instance ${newTask.id} for sync (uid: ${newUid})`);
-
-                                // Preserve page context: copy page relationships from completed task
-                                const pageItemsRes = await pool.query('SELECT page_id FROM page_items WHERE child_task_id = $1', [taskId]);
-                                for (const pi of pageItemsRes.rows) {
-                                    try {
-                                        await addItemToPage(pi.page_id, newTask.id, "task");
-                                        // Also append a v2Task node to the page content
-                                        const pageRes = await pool.query("SELECT content FROM pages WHERE id = $1", [pi.page_id]);
-                                        if (pageRes.rows.length > 0) {
-                                            let pageContent = pageRes.rows[0].content;
-                                            if (!pageContent || typeof pageContent !== "object" || pageContent.type !== "doc") {
-                                                pageContent = { type: "doc", content: [] };
-                                            }
-                                            pageContent.content.push({
-                                                type: "v2Task",
-                                                attrs: { taskId: newTask.id, pageId: pi.page_id, status: "todo", autoFocus: false, due_date: nextDate ? nextDate.toISOString() : null },
-                                                content: [{ type: "text", text: currentTask.content }]
-                                            });
-                                            await pool.query("UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2", [JSON.stringify(pageContent), pi.page_id]);
-                                        }
-                                    } catch (e) {
-                                        console.error(`[Recurrence] Failed to copy page ${pi.page_id} relationship for new task ${newTask.id}:`, e);
-                                    }
-                                }
-
-                                // Strip the recurrence rule from the COMPLETED task
-                                // so it doesn't try to regenerate again if toggled, and history is clear.
-                                updates.push(`recurrence_rule = NULL`); 
-                                // Note: We don't increment paramIndex here because NULL is literal
-                            }
-                        } catch (e) {
-                            console.error('Error generating recurring task:', e);
-                        }
-                    }
-                }
+                await spawnNextRecurrence(taskId);
             }
         }
         if (due_date !== undefined) {
