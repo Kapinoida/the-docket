@@ -122,7 +122,7 @@ export default function RightSidebar() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 [scrollbar-gutter:stable]">
         {renderContent()}
       </div>
     </div>
