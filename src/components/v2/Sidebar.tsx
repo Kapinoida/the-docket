@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, Sun, Moon, ListTodo, Timer, Settings, Hash } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, ListTodo, Timer, Settings, Hash } from 'lucide-react';
 import { Page } from '../../types/v2';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -27,7 +26,6 @@ const MAX_WIDTH = 600;
 const DEFAULT_WIDTH = 224;
 
 export default function Sidebar() {
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -394,20 +392,13 @@ export default function Sidebar() {
       <div className="p-4 border-t border-border-subtle mt-auto bg-bg-secondary space-y-2">
           {mounted && (
             <div className="flex items-center gap-2">
-                <button
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className="flex-1 flex items-center gap-2 p-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
-                >
-                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                    <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
-                </button>
-                
                 <button 
                   onClick={() => setIsSettingsOpen(true)}
-                  className="p-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                  className="flex-1 flex items-center gap-2 p-2 rounded-lg text-sm font-medium text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
                   title="Settings"
                 >
                   <Settings size={16} />
+                  <span>Settings</span>
                 </button>
                 
                 <SyncButton />
