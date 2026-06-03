@@ -729,8 +729,18 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const progress = currentTimeLeft / currentTotalDuration;
       
-      const cx = canvas.width / 2;
-      const cy = canvas.height;
+      let cx = canvas.width / 2;
+      let cy = canvas.height;
+      let arcRadius = canvas.width < 640 ? 130 : 160;
+
+      const semicircleEl = document.getElementById('timer-controls-semicircle');
+      if (semicircleEl && containerRef.current) {
+        const rect = semicircleEl.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        cx = rect.left + rect.width / 2 - containerRect.left;
+        cy = rect.bottom - containerRect.top;
+        arcRadius = rect.width / 2;
+      }
       
       // Determine Color Params
       // ... (rest of render loop)
@@ -803,27 +813,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       if (currentMode === 'waves') {
           const now = Date.now();
           
-          // Arc geometry matching the controls semicircle:
-          //   Mobile: 260px div, arc center (130,150), radius 130
-          //   Desktop: 320px div, arc center (160,170), radius 160
-          // Arc center matches the semicircle's geometric center:
-          //   - semicircle: h=[130] sm:h-[160] rounded-t-[130] sm:rounded-t-[160]
-          //   - height = border-radius = width/2 → perfect half-circle, arc center at bottom edge
-          //   - positioned at -bottom-1 (4px below TimerControls wrapper)
-          //   - mobile: arc center Y = canvas.height - 60 + 4 = canvas.height - 56
-          //   - desktop: arc center Y = canvas.height (overflow clips the 4px)
-          //   - arc radius: 130 mobile, 160 desktop (matching SVG and CSS)
-          const isMobile = canvas.width < 640;
-          const arcCenterY = isMobile ? canvas.height - 56 : canvas.height;
-          const arcRadius = isMobile ? 130 : 160;
-          
           if (now - lastWaveTime > 4000) {
               waves.push(new Wave(arcRadius));
               lastWaveTime = now;
           }
-
-          const cx = canvas.width / 2;
-          const cy = arcCenterY;
 
           // Remove dead waves
           waves = waves.filter(w => !w.isDead());
@@ -1092,11 +1085,11 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
            ctx.fillRect(0, 0, canvas.width, canvas.height);
        }
 
-      // --- Common Elements (Progress Arc) ---
-      // cx, cy reused
-      const radius = 170; 
-      
-      const endAngle = Math.PI + (Math.PI * (1 - progress)); 
+        // --- Common Elements (Progress Arc) ---
+        // cx, cy reused
+        const radius = arcRadius + 10; 
+        
+        const endAngle = Math.PI + (Math.PI * (1 - progress)); 
       
       ctx.beginPath();
       ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
