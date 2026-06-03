@@ -188,12 +188,12 @@ export default function AllTasksView() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-8 font-sans">
+    <div className="max-w-4xl mx-auto px-4 py-6 md:p-8 font-sans">
       
       {/* Header */}
       <div className="flex items-end justify-between mb-8">
         <div>
-            <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-text-primary flex items-center gap-2 md:gap-3">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
                 <ListTodo size={24} />
             </div>

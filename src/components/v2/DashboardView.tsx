@@ -99,29 +99,29 @@ export default function DashboardView() {
   };
 
   return (
-    <div className="flex-1 p-8 bg-bg-primary">
+    <div className="flex-1 px-4 py-6 md:p-8 bg-bg-primary">
       <div className="w-full">
         
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-text-primary flex items-center gap-2 md:gap-3">
               <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                <Layout size={24} />
+                <Layout size={20} />
               </div>
               Dashboard
             </h1>
-            <p className="text-text-secondary mt-2 ml-14">Your productivity overview</p>
+            <p className="text-text-secondary mt-2 hidden sm:block ml-14">Your productivity overview</p>
           </div>
         </div>
         
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
           <div 
             onClick={() => router.push('/')}
-            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-bg-secondary p-4 md:p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
           >
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
               ) : (
@@ -132,9 +132,9 @@ export default function DashboardView() {
           </div>
           <div 
             onClick={() => router.push('/tasks')}
-            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-bg-secondary p-4 md:p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
           >
-            <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
               ) : (
@@ -145,9 +145,9 @@ export default function DashboardView() {
           </div>
           <div 
             onClick={() => router.push('/tasks')}
-            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-bg-secondary p-4 md:p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
           >
-            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
               ) : (
@@ -158,9 +158,9 @@ export default function DashboardView() {
           </div>
           <div 
             onClick={() => router.push('/today')}
-            className="bg-bg-secondary p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-bg-secondary p-4 md:p-6 rounded-2xl border border-border-subtle shadow-sm cursor-pointer hover:shadow-md transition-shadow"
           >
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
               {statsLoading ? (
                 <div className="animate-pulse bg-bg-tertiary h-8 w-12 rounded"></div>
               ) : (

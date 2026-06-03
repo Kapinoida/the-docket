@@ -134,9 +134,10 @@ export default async function handler(
                 return res.status(200).json({ count: 0 });
             }
 
-            // Create tombstones for sync
+            // Create tombstones for sync + clean up page references
             for (const taskId of completedIds) {
                 await createTombstone(taskId);
+                await deleteTaskReferences(taskId);
             }
 
             // Delete tasks

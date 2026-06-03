@@ -7,17 +7,18 @@ import { TaskItem } from './TaskItem';
 import { Plus, Inbox as InboxIcon, ArrowRight } from 'lucide-react';
 import MoveToPageModal from './MoveToPageModal';
 import { TaskListSkeleton } from './Skeleton';
+import { PullToRefresh } from './PullToRefresh';
 
 export default function InboxView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Move Logic
   const [movingTask, setMovingTask] = useState<Task | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
 
-  // Fetch tasks (Filtered: Context=none)
   const fetchTasks = async () => {
     try {
       const res = await fetch('/api/v2/tasks?context=none');
@@ -27,16 +28,23 @@ export default function InboxView() {
       }
     } catch (error) {
       console.error('Failed to fetch tasks', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    const init = async () => {
+      await fetchTasks();
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
-  // Create Task
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchTasks();
+    setIsRefreshing(false);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
@@ -50,28 +58,24 @@ export default function InboxView() {
 
       if (res.ok) {
         setInputValue('');
-        fetchTasks(); // Refresh list
+        fetchTasks();
       }
     } catch (error) {
       console.error('Failed to create task', error);
     }
   };
 
-  // Toggle Task
   const handleToggle = (id: number) => {
-      // Optimistic
       setTasks(prev => prev.filter(t => t.id !== id));
       
-      // API
       fetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ status: 'done' }) // Assuming inbox tasks are todo
+          body: JSON.stringify({ status: 'done' })
       }).catch(() => fetchTasks());
   };
 
   const handleUpdate = async (id: number, updates: Partial<Task>) => {
-      // Optimistic update
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
       try {
@@ -82,7 +86,17 @@ export default function InboxView() {
           });
       } catch (error) {
           console.error('Failed to update task', error);
-          fetchTasks(); // Revert
+          fetchTasks();
+      }
+  };
+
+  const handleDelete = async (id: number) => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+      try {
+          await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+      } catch (error) {
+          console.error('Failed to delete task', error);
+          fetchTasks();
       }
   };
   
@@ -95,7 +109,6 @@ export default function InboxView() {
       if (!movingTask) return;
       
       try {
-          // Link task to page (which removes it from "context=none" Inbox view)
           const res = await fetch(`/api/v2/tasks/${movingTask.id}`, {
               method: 'PUT',
               headers: {'Content-Type': 'application/json'},
@@ -105,7 +118,7 @@ export default function InboxView() {
           if (res.ok) {
               setMovingTask(null);
               setIsMoveModalOpen(false);
-              fetchTasks(); // Refresh to remove moved task
+              fetchTasks();
           }
       } catch (e) {
           console.error("Failed to move task", e);
@@ -117,7 +130,7 @@ export default function InboxView() {
       
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-text-primary flex items-center gap-2 md:gap-3">
           <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-lg">
             <InboxIcon size={24} />
           </div>
@@ -141,38 +154,42 @@ export default function InboxView() {
         />
       </form>
 
-      {/* Task List */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <TaskListSkeleton />
-        ) : tasks.length === 0 ? (
-          <div className="text-center py-16 bg-bg-secondary rounded-2xl border border-dashed border-border-default">
-            <div className="inline-block p-4 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 mb-3">
-                <InboxIcon size={32} />
+      {/* Pull-to-refresh task list */}
+      <PullToRefresh onRefresh={handleRefresh} className="max-h-[50vh] md:max-h-none">
+        <div className="space-y-3">
+          {isLoading ? (
+            <TaskListSkeleton />
+          ) : tasks.length === 0 ? (
+            <div className="text-center py-16 bg-bg-secondary rounded-2xl border border-dashed border-border-default">
+              <div className="inline-block p-4 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 mb-3">
+                  <InboxIcon size={32} />
+              </div>
+              <div className="text-text-muted mb-2">No tasks in Inbox</div>
+              <div className="text-sm text-text-muted opacity-70">Enjoy your free time!</div>
             </div>
-            <div className="text-text-muted mb-2">No tasks in Inbox</div>
-            <div className="text-sm text-text-muted opacity-70">Enjoy your free time!</div>
-          </div>
-        ) : (
-          tasks.map(task => (
-            <TaskItem 
-                key={task.id} 
-                task={task} 
-                onToggle={handleToggle} 
-                onUpdate={(updates) => handleUpdate(task.id, updates)}
-                extraActions={
-                    <button 
-                        onClick={() => openMoveModal(task)}
-                        className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors ml-2 opacity-0 group-hover:opacity-100"
-                        title="Move to Page"
-                    >
-                        <ArrowRight size={16} />
-                    </button>
-                }
-            />
-          ))
-        )}
-      </div>
+          ) : (
+            tasks.map(task => (
+              <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  onToggle={handleToggle} 
+                  onUpdate={(updates) => handleUpdate(task.id, updates)}
+                  onMoveToPage={() => openMoveModal(task)}
+                  onDelete={() => handleDelete(task.id)}
+                  extraActions={
+                      <button 
+                          onClick={() => openMoveModal(task)}
+                          className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors ml-2 md:opacity-0 md:group-hover:opacity-100"
+                          title="Move to Page"
+                      >
+                          <ArrowRight size={16} />
+                      </button>
+                  }
+              />
+            ))
+          )}
+        </div>
+      </PullToRefresh>
       
       <MoveToPageModal 
         isOpen={isMoveModalOpen}
