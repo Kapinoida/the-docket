@@ -57,9 +57,9 @@ export default function FocusTaskSidebar({ isOpen, onClose, onSelectTask, active
         onClick={onClose}
       />
 
-      {/* Sidebar Panel - Floating Card Style */}
+      {/* Sidebar Panel - Floating Card (desktop) / Full Screen (mobile) */}
       <div 
-        className={`fixed top-24 right-8 bottom-8 w-[340px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col overflow-hidden ${isOpen ? 'translate-x-0' : 'translate-x-[120%]'}`}
+        className={`fixed top-0 right-0 bottom-0 left-0 md:top-24 md:left-auto md:right-8 md:bottom-8 md:w-[340px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 md:rounded-3xl shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col overflow-hidden ${isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-[120%]'}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
@@ -98,7 +98,7 @@ export default function FocusTaskSidebar({ isOpen, onClose, onSelectTask, active
         </div>
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto p-3 styled-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 pb-safe styled-scrollbar">
           {loading ? (
              <div className="flex flex-col items-center justify-center h-full gap-3 text-text-muted">
                  <div className="w-5 h-5 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin"></div>

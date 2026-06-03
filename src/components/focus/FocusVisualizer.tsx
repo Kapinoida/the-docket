@@ -121,10 +121,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       alpha: number;
       speed: number;
       
-      constructor() {
-        this.radius = 170; // Start matching the semicircle radius
+      constructor(startRadius: number) {
+        this.radius = startRadius;
         this.alpha = 0.8;
-        this.speed = 1.0; // Slightly faster to cover distance
+        this.speed = 1.0;
       }
 
       update() {
@@ -802,13 +802,28 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       // --- Mode: WAVES ---
       if (currentMode === 'waves') {
           const now = Date.now();
+          
+          // Arc geometry matching the controls semicircle:
+          //   Mobile: 260px div, arc center (130,150), radius 130
+          //   Desktop: 320px div, arc center (160,170), radius 160
+          // Arc center matches the semicircle's geometric center:
+          //   - semicircle: h=[130] sm:h-[160] rounded-t-[130] sm:rounded-t-[160]
+          //   - height = border-radius = width/2 → perfect half-circle, arc center at bottom edge
+          //   - positioned at -bottom-1 (4px below TimerControls wrapper)
+          //   - mobile: arc center Y = canvas.height - 60 + 4 = canvas.height - 56
+          //   - desktop: arc center Y = canvas.height (overflow clips the 4px)
+          //   - arc radius: 130 mobile, 160 desktop (matching SVG and CSS)
+          const isMobile = canvas.width < 640;
+          const arcCenterY = isMobile ? canvas.height - 56 : canvas.height;
+          const arcRadius = isMobile ? 130 : 160;
+          
           if (now - lastWaveTime > 4000) {
-              waves.push(new Wave());
+              waves.push(new Wave(arcRadius));
               lastWaveTime = now;
           }
 
           const cx = canvas.width / 2;
-          const cy = canvas.height;
+          const cy = arcCenterY;
 
           // Remove dead waves
           waves = waves.filter(w => !w.isDead());

@@ -8,12 +8,14 @@ import { Clock, Plus, Calendar } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { TaskListSkeleton } from './Skeleton';
+import { PullToRefresh } from './PullToRefresh';
 
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchTasks = async () => {
     try {
@@ -24,14 +26,11 @@ export default function TodayView() {
       }
     } catch (error) {
       console.error('Failed to fetch today tasks', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const fetchEvents = async () => {
     try {
-      // Get today's date in ISO format
       const today = new Date();
       const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
@@ -49,10 +48,20 @@ export default function TodayView() {
     }
   };
 
+  const fetchAll = async () => {
+    await Promise.all([fetchTasks(), fetchEvents()]);
+    setIsLoading(false);
+    setIsRefreshing(false);
+  };
+
   useEffect(() => {
-    fetchTasks();
-    fetchEvents();
+    fetchAll();
   }, []);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAll();
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +69,7 @@ export default function TodayView() {
 
     try {
       const dueDate = new Date();
-      dueDate.setHours(12, 0, 0, 0); // explicitly set to local noon to avoid timezone shifts
+      dueDate.setHours(12, 0, 0, 0);
 
       const res = await fetch('/api/v2/tasks', {
         method: 'POST',
@@ -81,22 +90,19 @@ export default function TodayView() {
   };
 
   const handleToggle = (id: number) => {
-      // Optimistic update
       setTasks(prev => prev.filter(t => t.id !== id));
       
-      // Actual API call
       fetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'done' })
       }).catch(err => {
           console.error("Failed to mark done", err);
-          fetchTasks(); // Revert on error
+          fetchTasks();
       });
   };
 
   const handleUpdate = async (id: number, updates: Partial<Task>) => {
-      // Optimistic update
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
       try {
@@ -111,11 +117,19 @@ export default function TodayView() {
       }
   };
 
-  // Grouping Logic
-  // Fix: Extract YYYY-MM-DD reliably without timezone shifting
+  const handleDelete = async (id: number) => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+      try {
+          await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+      } catch (error) {
+          console.error('Failed to delete task', error);
+          fetchTasks();
+      }
+  };
+
   const getCalendarDateStr = (dateVal: Date | string) => {
       if (typeof dateVal === 'string') {
-          return dateVal.split('T')[0]; // Extract YYYY-MM-DD directly from ISO string
+          return dateVal.split('T')[0];
       }
       const d = new Date(dateVal);
       const year = d.getFullYear();
@@ -138,7 +152,6 @@ export default function TodayView() {
       return dueStr === todayStr;
   });
 
-  // Filter for today's events (used for displaying) 
   const isTrulyAllDay = (event: any) => {
     if (event.is_all_day) return true;
     if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
@@ -149,27 +162,25 @@ export default function TodayView() {
   };
 
   const todayEvents = events.filter(event => {
-    // Check if event is on today based on start_time
     const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const eventDay = new Date(eventDate);
     eventDay.setHours(0, 0, 0, 0);
-    
     return eventDay.getTime() === today.getTime();
   });
 
   return (
-    <div className="mx-auto p-8 font-sans">
+    <div className="mx-auto px-4 py-6 md:p-8 font-sans">
       
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-text-primary flex items-center gap-2 md:gap-3">
           <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
-            <Clock size={24} />
+            <Clock size={20} />
           </div>
           Today
-          <span className="text-lg font-normal text-text-muted ml-auto">
+          <span className="text-base md:text-lg font-normal text-text-muted ml-auto">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>
         </h1>
@@ -190,86 +201,88 @@ export default function TodayView() {
         />
       </form>
 
-      {isLoading ? (
-          <TaskListSkeleton />
-      ) : (
-          <div className="space-y-8">
-              {/* Overdue Section */}
-              {overdueTasks.length > 0 && (
-                  <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-bold text-red-500 uppercase tracking-wide px-2">
-                          <Calendar size={14} /> Overdue
-                      </div>
-                      <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-1 border border-red-100 dark:border-red-800">
-                        {overdueTasks.map(task => (
-                            <TaskItem 
+      {/* Pull-to-refresh wrapper for task list */}
+      <PullToRefresh onRefresh={handleRefresh} className="max-h-[50vh] md:max-h-none">
+        {isLoading ? (
+            <TaskListSkeleton />
+        ) : (
+            <div className="space-y-8">
+                {/* Overdue Section */}
+                {overdueTasks.length > 0 && (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-bold text-red-500 uppercase tracking-wide px-2">
+                            <Calendar size={14} /> Overdue
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-1 border border-red-100 dark:border-red-800">
+                          {overdueTasks.map(task => (
+                              <TaskItem 
+                                  key={task.id} 
+                                  task={task} 
+                                  onToggle={handleToggle} 
+                                  onUpdate={(updates) => handleUpdate(task.id, updates)}
+                                  onDelete={() => handleDelete(task.id)}
+                              />
+                          ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Today Section */}
+                <div className="space-y-3">
+                    {overdueTasks.length > 0 && (
+                        <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
+                            <Calendar size={14} /> Today
+                        </div>
+                    )}
+                    
+                    {todayTasks.length === 0 && overdueTasks.length === 0 && todayEvents.length === 0 ? (
+                         <div className="text-center py-8">
+                             <div className="inline-block p-4 rounded-full bg-green-50 dark:bg-green-900/20 text-green-500 mb-3">
+                                 <InboxIcon size={32} />
+                             </div>
+                             <h3 className="text-text-primary font-medium">All caught up!</h3>
+                             <p className="text-text-muted">No tasks or events due today.</p>
+                         </div>
+                    ) : (
+                        <>
+                          {todayTasks.length > 0 && todayTasks.map(task => (
+                              <TaskItem 
                                 key={task.id} 
                                 task={task} 
                                 onToggle={handleToggle} 
                                 onUpdate={(updates) => handleUpdate(task.id, updates)}
-                            />
-                        ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* Today Section */}
-              <div className="space-y-3">
-                   {/* Only show header if we have overdue tasks to distinguish, otherwise it's just The List */}
-                  {overdueTasks.length > 0 && (
-                      <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
-                          <Calendar size={14} /> Today
-                      </div>
-                  )}
-                  
-                  {todayTasks.length === 0 && overdueTasks.length === 0 && todayEvents.length === 0 ? (
-                       <div className="text-center py-8">
-                           <div className="inline-block p-4 rounded-full bg-green-50 dark:bg-green-900/20 text-green-500 mb-3">
-                               <InboxIcon size={32} />
-                           </div>
-                           <h3 className="text-text-primary font-medium">All caught up!</h3>
-                           <p className="text-text-muted">No tasks or events due today.</p>
-                       </div>
-                  ) : (
-                      <>
-                        {/* Tasks */}
-                        {todayTasks.length > 0 && todayTasks.map(task => (
-                            <TaskItem 
-                              key={task.id} 
-                              task={task} 
-                              onToggle={handleToggle} 
-                              onUpdate={(updates) => handleUpdate(task.id, updates)}
-                            />
-                        ))}
-                        
-                        {/* Events */}
-                        {todayEvents.length > 0 && (
-                          <div className="space-y-3 mt-4">
-                            <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
-                              <Calendar size={14} /> Events
-                            </div>
-                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-100 dark:border-purple-800/30">
-                              {todayEvents.map(event => (
-                                <div 
-                                  key={`event-${event.id}`}
-                                  className="p-2 px-3 rounded text-sm bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-2"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs opacity-75 whitespace-nowrap">
-                                      {!isTrulyAllDay(event) && new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <span className="font-medium truncate">{event.title}</span>
+                                onDelete={() => handleDelete(task.id)}
+                              />
+                          ))}
+                          
+                          {todayEvents.length > 0 && (
+                            <div className="space-y-3 mt-4">
+                              <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
+                                <Calendar size={14} /> Events
+                              </div>
+                              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-100 dark:border-purple-800/30">
+                                {todayEvents.map(event => (
+                                  <div 
+                                    key={`event-${event.id}`}
+                                    className="p-2 px-3 rounded text-sm bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-2"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs opacity-75 whitespace-nowrap">
+                                        {!isTrulyAllDay(event) && new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      <span className="font-medium truncate">{event.title}</span>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </>
-                  )}
-              </div>
-          </div>
-      )}
+                          )}
+                        </>
+                    )}
+                </div>
+            </div>
+        )}
+      </PullToRefresh>
 
       {/* Daily Journal Section */}
       <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
@@ -280,6 +293,5 @@ export default function TodayView() {
 }
 
 function InboxIcon({ size }: any) {
-    // Reusing the icon from lucide but renaming for local component usage if simpler
     return <Clock size={size} />; 
 }

@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { TaskInstance } from '@/types';
-import { isTaskOverdue, formatTaskDate } from '@/lib/taskParser';
-import { ChevronLeft, ChevronRight, Calendar, Plus, CheckCircle2, Circle, Clock } from 'lucide-react';
-import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Task } from '@/types/v2';
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, Clock, Calendar, AlertCircle } from 'lucide-react';
+import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isSameMonth, startOfMonth, endOfMonth, getDay } from 'date-fns';
+import { parseLocalDateNode } from '@/lib/dateUtils';
+import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
 
-interface CalendarViewProps {
-  onTaskSelect?: (task: TaskInstance) => void;
-  onTaskComplete?: (taskId: string) => void;
-}
+type ViewType = 'week' | 'month';
 
 interface CalendarEvent {
   id: number;
@@ -24,735 +22,452 @@ interface CalendarEvent {
   calendar_name: string;
 }
 
-type ViewType = 'week' | 'month';
-
-export default function CalendarView({ onTaskSelect, onTaskComplete }: CalendarViewProps) {
-  const { openTaskEdit } = useTaskEdit();
-  const [tasks, setTasks] = useState<TaskInstance[]>([]);
+export default function CalendarViewV2() {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('calendar_current_date');
+      const saved = localStorage.getItem('cal_current_date');
       return saved ? new Date(saved) : new Date();
     }
     return new Date();
   });
   const [viewType, setViewType] = useState<ViewType>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('calendar_view_type');
+      const saved = localStorage.getItem('cal_view_type');
       return (saved as ViewType) || 'week';
     }
     return 'week';
   });
-  
-  // Persist state
-  useEffect(() => {
-    localStorage.setItem('calendar_current_date', currentDate.toISOString());
-  }, [currentDate]);
-
-  useEffect(() => {
-    localStorage.setItem('calendar_view_type', viewType);
-  }, [viewType]);
-  const [draggedTask, setDraggedTask] = useState<TaskInstance | null>(null);
-  const [draggedOverDate, setDraggedOverDate] = useState<string | null>(null);
-  const [draggedOverUnscheduled, setDraggedOverUnscheduled] = useState(false);
-  
-  // Modal States
+  const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [isAddCalendarOpen, setIsAddCalendarOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [collapsedGroups, setCollapsedGroups] = useState<{[key: string]: boolean}>({});
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  // Persist state
+  useEffect(() => { localStorage.setItem('cal_current_date', currentDate.toISOString()); }, [currentDate]);
+  useEffect(() => { localStorage.setItem('cal_view_type', viewType); }, [viewType]);
 
-
-
-  useEffect(() => {
-    fetchEvents();
-  }, [currentDate, viewType]);
-
-  // ... (Existing useEffects)
-  
-  // ... (Existing handlers: fetchTasks, fetchEvents, handleTaskComplete, Drags)
-  
-  // Re-fetch events after adding calendar
-  const handleCalendarAdded = () => {
-    fetchEvents();
-    // Maybe trigger a full sync?
-    fetch('/api/caldav/sync', { method: 'POST' }).catch(console.error);
-  };
-
-  useEffect(() => {
-    const handleTaskUpdate = () => fetchTasks();
-    const handleTaskCreate = () => fetchTasks();
-    const handleTaskDelete = () => fetchTasks();
-
-    window.addEventListener('taskUpdated', handleTaskUpdate);
-    window.addEventListener('taskCreated', handleTaskCreate);
-    window.addEventListener('taskDeleted', handleTaskDelete);
-
-    return () => {
-      window.removeEventListener('taskUpdated', handleTaskUpdate);
-      window.removeEventListener('taskCreated', handleTaskCreate);
-      window.removeEventListener('taskDeleted', handleTaskDelete);
-    };
-  }, []);
-
-  const fetchTasks = async () => {
+  const fetchData = useCallback(async () => {
+    if (loading && tasks.length > 0) return; // Skip if already loaded and not a refresh
     try {
-      const response = await fetch('/api/v2/tasks');
-      if (response.ok) {
-        const allTasks = await response.json();
-        const mappedTasks = allTasks.map((t: any) => ({
-             ...t,
-             id: t.id.toString(),
-             completed: t.status === 'done',
-             dueDate: t.due_date ? new Date(t.due_date) : null,
-             recurrenceRule: t.recurrence_rule
-        }));
-        setTasks(mappedTasks);
+      let start: Date, end: Date;
+      if (viewType === 'week') {
+        start = startOfWeek(currentDate, { weekStartsOn: 0 });
+        end = addDays(start, 13); // 2 weeks for padding
+      } else {
+        start = startOfMonth(currentDate);
+        const eom = endOfMonth(currentDate);
+        // Pad to full weeks
+        const startPad = getDay(start);
+        start.setDate(start.getDate() - startPad);
+        const endPad = 6 - getDay(eom);
+        end = new Date(eom);
+        end.setDate(end.getDate() + endPad + 7); // extra week padding
       }
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
+
+      const [tasksRes, eventsRes] = await Promise.all([
+        fetch('/api/v2/tasks'),
+        fetch(`/api/v2/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`)
+      ]);
+      if (tasksRes.ok) setTasks(await tasksRes.json());
+      if (eventsRes.ok) setEvents(await eventsRes.json());
+    } catch (e) {
+      console.error('Calendar fetch error:', e);
     } finally {
       setLoading(false);
     }
+  }, [currentDate, viewType, loading, tasks.length]);
+
+  useEffect(() => { fetchData(); }, [currentDate, viewType]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await fetchData();
   };
 
-  const fetchEvents = async () => {
-    const start = new Date(currentDate);
-    const end = new Date(currentDate);
-    
+  const navigate = (dir: 'prev' | 'next') => {
+    const d = new Date(currentDate);
+    if (viewType === 'week') d.setDate(d.getDate() + (dir === 'next' ? 7 : -7));
+    else d.setMonth(d.getMonth() + (dir === 'next' ? 1 : -1));
+    setCurrentDate(d);
+  };
+
+  const resetToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDay(startOfDay(today));
+  };
+
+  const handleTaskToggle = async (taskId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const newStatus = task.status === 'done' ? 'todo' : 'done';
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    try {
+      await fetch(`/api/v2/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch { fetchData(); }
+  };
+
+  const isTrulyAllDay = (event: CalendarEvent) => {
+    if (event.is_all_day) return true;
+    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
+      const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+      if (dur === 24 * 60 * 60 * 1000) return true;
+    }
+    return false;
+  };
+
+  const getItemsForDay = (date: Date) => {
+    const dayTasks = tasks.filter(t =>
+      t.status !== 'done' && t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, date)
+    );
+    const dayEvents = events.filter(e => {
+      const eventDate = isTrulyAllDay(e) ? (parseLocalDateNode(e.start_time) as Date) : new Date(e.start_time);
+      return isSameDay(eventDate, date);
+    });
+    return { tasks: dayTasks, events: dayEvents };
+  };
+
+  // --- Calendar Grid Data ---
+  const gridDays = useMemo(() => {
     if (viewType === 'week') {
-       start.setDate(start.getDate() - start.getDay()); 
-       end.setDate(end.getDate() + (6 - end.getDay()));
+      const start = startOfWeek(currentDate, { weekStartsOn: 0 });
+      return Array.from({ length: 7 }, (_, i) => addDays(start, i));
     } else {
-       start.setDate(1); 
-       end.setMonth(end.getMonth() + 1);
-       end.setDate(0); 
-    }
-    
-    start.setDate(start.getDate() - 7);
-    end.setDate(end.getDate() + 7);
-
-    try {
-      const res = await fetch(`/api/v2/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleTaskComplete = async (taskId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    const currentTask = tasks.find(task => task.id === taskId);
-    if (!currentTask) return;
-    const newCompletedStatus = !currentTask.completed;
-    
-    try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newCompletedStatus ? 'done' : 'todo' })
-      });
-      if (response.ok) {
-        setTasks(prev => prev.map(task => 
-          task.id === taskId 
-            ? { ...task, completed: newCompletedStatus, completedAt: newCompletedStatus ? new Date() : undefined } 
-            : task
-        ));
-        onTaskComplete?.(taskId);
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error toggling task completion:', error);
-    }
-  };
-
-  const handleTaskDragStart = (e: React.DragEvent, task: TaskInstance) => {
-    setDraggedTask(task);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', task.id);
-  };
-
-  const handleTaskDragEnd = () => {
-    setDraggedTask(null);
-    setDraggedOverDate(null);
-    setDraggedOverUnscheduled(false);
-  };
-
-  const handleDayDragOver = (e: React.DragEvent, dateKey: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDraggedOverDate(dateKey);
-  };
-
-  const handleDayDragLeave = () => {
-    setDraggedOverDate(null);
-  };
-
-  const handleUnscheduledDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDraggedOverUnscheduled(true);
-  };
-
-  const handleUnscheduledDragLeave = () => {
-    setDraggedOverUnscheduled(false);
-  };
-
-  const handleDayDrop = async (e: React.DragEvent, dateKey: string) => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData('text/plain');
-    if (!taskId || !draggedTask) return;
-    const dropDate = new Date(dateKey);
-    try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ due_date: dropDate.toISOString() })
-      });
-      if (response.ok) {
-        setTasks(prev => prev.map(task => 
-          task.id === taskId ? { ...task, dueDate: dropDate } : task
-        ));
-      }
-    } catch (error) {
-      console.error('Error rescheduling task:', error);
-    }
-    setDraggedTask(null);
-    setDraggedOverDate(null);
-    setDraggedOverUnscheduled(false);
-  };
-
-  const handleUnscheduleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData('text/plain');
-    if (!taskId || !draggedTask) return;
-    try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ due_date: null })
-      });
-      if (response.ok) {
-        setTasks(prev => prev.map(task => 
-          task.id === taskId ? { ...task, dueDate: null } : task
-        ));
-      }
-    } catch (error) {
-      console.error('Error unscheduling task:', error);
-    }
-    setDraggedTask(null);
-    setDraggedOverDate(null);
-    setDraggedOverUnscheduled(false);
-  };
-
-  const calendarData = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    if (viewType === 'week') {
-      const startOfWeek = new Date(currentDate);
-      const day = startOfWeek.getDay();
-      startOfWeek.setDate(startOfWeek.getDate() - day);
-      
-      const days = [];
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + i);
-        days.push(date);
-      }
-      return days;
-    } else {
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const startDate = new Date(firstDay);
-      startDate.setDate(startDate.getDate() - firstDay.getDay());
-      
-      const days = [];
-      const endDate = new Date(lastDay);
-      endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-      
-      let current = new Date(startDate);
-      while (current <= endDate) {
-        days.push(new Date(current));
-        current.setDate(current.getDate() + 1);
+      const start = startOfMonth(currentDate);
+      const eom = endOfMonth(currentDate);
+      const startPad = getDay(start);
+      const endPad = 6 - getDay(eom);
+      const firstDay = new Date(start);
+      firstDay.setDate(firstDay.getDate() - startPad);
+      const lastDay = new Date(eom);
+      lastDay.setDate(lastDay.getDate() + endPad);
+      const days: Date[] = [];
+      let cur = new Date(firstDay);
+      while (cur <= lastDay) {
+        days.push(new Date(cur));
+        cur.setDate(cur.getDate() + 1);
       }
       return days;
     }
   }, [currentDate, viewType]);
 
-  const { tasksByDate, unscheduledTasks } = useMemo(() => {
-    const grouped: { [key: string]: TaskInstance[] } = {};
-    const unscheduled: TaskInstance[] = [];
-    
-    tasks.forEach(task => {
-      if (task.dueDate) {
-        const dateKey = new Date(task.dueDate).toDateString();
-        if (!grouped[dateKey]) {
-          grouped[dateKey] = [];
-        }
-        grouped[dateKey].push(task);
-      } else if (!task.completed) {
-        unscheduled.push(task);
-      }
-    });
-    
-    return { tasksByDate: grouped, unscheduledTasks: unscheduled };
-  }, [tasks]);
+  const today = startOfDay(new Date());
+  const overdueTasks = tasks.filter(t =>
+    t.status !== 'done' && t.due_date && isBefore(parseLocalDateNode(t.due_date) as Date, today)
+  );
 
-  const eventsByDate = useMemo(() => {
-      const grouped: { [key: string]: CalendarEvent[] } = {};
-      events.forEach(event => {
-          const startDate = new Date(event.start_time).toDateString();
-          if (!grouped[startDate]) grouped[startDate] = [];
-          grouped[startDate].push(event);
-      });
-      return grouped;
-  }, [events]);
-
-  const navigateCalendar = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (viewType === 'week') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-    } else {
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-    }
-    setCurrentDate(newDate);
-  };
-
-  const formatDateHeader = (date: Date) => {
-    if (viewType === 'week') {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    } else {
-      return date.getDate().toString();
-    }
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  };
-
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === currentDate.getMonth();
-  };
-
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
+  // --- Shared: Day chip (used in mobile strips) ---
+  const DayChip = ({ day, onSelect, selected }: { day: Date; onSelect?: (d: Date) => void; selected?: boolean }) => {
+    const { tasks: dTasks, events: dEvents } = getItemsForDay(day);
+    const total = dTasks.length + dEvents.length;
+    const isTodayDate = isToday(day);
     return (
-      <div className="flex-1 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
-        </div>
-      </div>
+      <button
+        onClick={() => onSelect?.(day)}
+        className={`flex-shrink-0 flex flex-col items-center justify-center w-12 h-16 rounded-xl transition-colors min-h-[44px] ${
+          selected ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500' :
+          isTodayDate ? 'bg-blue-50 dark:bg-blue-900/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+        }`}
+      >
+        <span className={`text-[11px] font-semibold uppercase ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>{format(day, 'EEE')}</span>
+        <span className={`text-base font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</span>
+        {total > 0 && (
+          <span className={`text-[10px] font-medium px-1 rounded-full min-w-[16px] text-center ${selected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+            {total}
+          </span>
+        )}
+      </button>
     );
-  }
+  };
 
-  if (loading) {
-    return (
-      <div className="flex-1 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
-        </div>
+  // --- Event card ---
+  const EventCard = ({ event }: { event: CalendarEvent }) => (
+    <div className="p-1.5 px-2.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-1">
+      <div className="flex items-center gap-1.5">
+        {!isTrulyAllDay(event) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(event.start_time), 'h:mm a')}</span>}
+        <span className="font-medium truncate">{event.title}</span>
       </div>
-    );
-  }
+    </div>
+  );
+
+  // --- Task card ---
+  const TaskCard = ({ task, isOverdue = false }: { task: Task; isOverdue?: boolean }) => (
+    <div className={`p-2.5 rounded-md border text-sm cursor-pointer transition-all hover:shadow-sm ${
+      isOverdue ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30' :
+      task.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 line-through' :
+      'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800'
+    }`}>
+      <div className="flex items-start gap-2">
+        <button onClick={(e) => handleTaskToggle(task.id, e)} className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-300 hover:text-green-500 transition-colors">
+          {task.status === 'done' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} />}
+        </button>
+        <span className="line-clamp-2 text-gray-700 dark:text-gray-200">{task.content || 'Untitled Task'}</span>
+      </div>
+    </div>
+  );
+
+  const selectedItems = getItemsForDay(selectedDay);
 
   return (
-    <div className="flex-1 p-6">
-      <div className="w-full">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-text-primary mb-2">
-              Calendar
-            </h2>
-            <p className="text-text-secondary">
-              Tasks and Events
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-4">
-             {/* Add Calendar Button */}
-             <button
-                onClick={() => setIsAddCalendarOpen(true)}
-                className="px-3 py-1 flex items-center gap-2 text-sm bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-subtle rounded-lg transition-colors"
-                title="Add Calendar Subscription"
-             >
-                <Plus className="w-4 h-4" />
-                <span>Add Calendar</span>
-             </button>
-
-            {/* View Toggle */}
-            <div className="flex bg-bg-tertiary rounded-lg p-1">
-            {/* ... (Existing View Toggle) ... */}
-              <button
-                onClick={() => setViewType('week')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  viewType === 'week'
-                    ? 'bg-bg-primary text-text-primary shadow-sm'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewType('month')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  viewType === 'month'
-                    ? 'bg-bg-primary text-text-primary shadow-sm'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                Month
-              </button>
+    <div className="mx-auto px-4 py-6 md:p-8 font-sans">
+      {/* Header */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-text-primary flex items-center gap-2">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+              <Calendar size={20} />
             </div>
-            
-            {/* Navigation */}
-            <div className="flex items-center gap-2">
-               {/* ... (Existing Nav) ... */}
-              <button
-                onClick={() => navigateCalendar('prev')}
-                className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              <div className="text-lg font-semibold text-text-primary min-w-[200px] text-center">
-                {currentDate.toLocaleDateString('en-US', { 
-                  month: 'long', 
-                  year: 'numeric',
-                  ...(viewType === 'week' ? { day: 'numeric' } : {})
-                })}
-              </div>
-              
-              <button
-                onClick={() => navigateCalendar('next')}
-                className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Today
-            </button>
-          </div>
+            Calendar
+          </h2>
         </div>
 
-        {/* ... (Unscheduled Tasks Section) ... */}
-        {(unscheduledTasks.length > 0 || draggedTask?.dueDate) && (
-           // ...
-           <div 
-            className={`mb-6 rounded-lg border p-4 transition-colors ${
-              draggedOverUnscheduled 
-                ? 'border-accent-blue bg-blue-50 dark:bg-blue-900/20' 
-                : 'bg-bg-secondary border-border-default'
-            }`}
-            onDragOver={handleUnscheduledDragOver}
-            onDragLeave={handleUnscheduledDragLeave}
-            onDrop={handleUnscheduleDrop}
-          >
-             {/* ... content ... */}
-             <div className="flex items-center gap-2 mb-3">
-               {/* ... */}
-               <h3 className="text-lg font-semibold text-text-primary">
-                Unscheduled Tasks
-              </h3>
-              <span className="px-2 py-1 bg-bg-tertiary text-text-secondary text-xs rounded-full">
-                {unscheduledTasks.length}
-              </span>
-             </div>
-             {/* ... */}
-             <p className="text-sm text-text-muted mb-3">
-               {draggedOverUnscheduled && draggedTask?.dueDate
-                 ? 'Drop here to unschedule this task'
-                 : 'Drag these tasks to calendar days to schedule them, or drag scheduled tasks here to unschedule them'
-               }
-             </p>
-             
-             <div className="space-y-1">
-                {(() => {
-                  // Group unscheduled tasks by page_name
-                  const grouped = unscheduledTasks.reduce((acc: Record<string, any[]>, task: any) => {
-                    const key = task.page_name || '__no_page__';
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(task);
-                    return acc;
-                  }, {});
-                  const groupKeys = Object.keys(grouped).sort((a, b) => {
-                    if (a === '__no_page__') return 1;
-                    if (b === '__no_page__') return -1;
-                    return a.localeCompare(b);
-                  });
-                  return groupKeys.map(groupKey => {
-                    const isNoPage = groupKey === '__no_page__';
-                    const displayName = isNoPage ? 'No Page' : groupKey;
-                    const collapseKey = `unsched_${groupKey}`;
-                    const isCollapsed = collapsedGroups[collapseKey] ?? true;
-                    const tasksInGroup = grouped[groupKey];
-                    return (
-                      <div key={groupKey}>
-                        {/* Group Header */}
-                        <button
-                          onClick={() => setCollapsedGroups((prev: Record<string, boolean>) => ({
-                            ...prev,
-                            [collapseKey]: !prev[collapseKey]
-                          }))}
-                          className="flex items-center gap-1.5 w-full text-left py-1 group/header"
-                        >
-                          <span className="text-xs text-text-muted transition-transform duration-150"
-                                style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
-                            ▾
-                          </span>
-                          <span className={`text-xs font-semibold uppercase tracking-wider ${isNoPage ? 'text-gray-400' : 'text-blue-500 dark:text-blue-400'}`}>
-                            {displayName}
-                          </span>
-                          <span className="text-xs text-text-muted">({tasksInGroup.length})</span>
-                        </button>
-                        {/* Tasks */}
-                        {!isCollapsed && (
-                          <div className="flex flex-wrap gap-2">
-                            {tasksInGroup.map((task: any) => {
-                              const isOverdue = isTaskOverdue(task);
-                              const isDragging = draggedTask?.id === task.id;
-                              return (
-                                <div
-                                  key={task.id}
-                                  draggable={!task.completed}
-                                  onDragStart={(e) => handleTaskDragStart(e, task)}
-                                  onDragEnd={handleTaskDragEnd}
-                                  className={`p-2 rounded text-sm cursor-pointer transition-all inline-block ${
-                                    isDragging
-                                      ? 'opacity-50 transform rotate-1 scale-95'
-                                      : task.completed
-                                        ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 line-through'
-                                        : 'bg-bg-primary text-text-primary hover:bg-bg-tertiary border border-border-subtle'
-                                  }`}
-                                  onClick={() => !isDragging && openTaskEdit(task as any)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={(e) => handleTaskComplete(task.id, e)}
-                                      className="text-text-muted hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                                    >
-                                         {task.completed ? <CheckCircle2 size={16} className="text-green-600" /> : <Circle size={16} />}
-                                    </button>
-                                    <span className="leading-tight">
-                                      {task.content}
-                                    </span>
-                                    {task.sourceNote && (
-                                      <span className="text-xs text-text-muted">
-                                        📝
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-               {/* ... */}
-               {/* Drop zone indicator when dragging scheduled task over empty unscheduled section */}
-               {draggedOverUnscheduled && draggedTask?.dueDate && unscheduledTasks.length === 0 && (
-                 <div className="p-4 border-2 border-dashed border-blue-400 rounded text-sm text-blue-600 dark:text-blue-400 text-center flex-1">
-                   Drop here to unschedule task
-                 </div>
-               )}
-             </div>
-           </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button onClick={() => setViewType('week')} className={`px-3 py-1.5 text-sm rounded-md transition-colors min-h-[36px] ${viewType === 'week' ? 'bg-white dark:bg-gray-700 text-text-primary shadow-sm' : 'text-text-muted'}`}>Week</button>
+            <button onClick={() => setViewType('month')} className={`px-3 py-1.5 text-sm rounded-md transition-colors min-h-[36px] ${viewType === 'month' ? 'bg-white dark:bg-gray-700 text-text-primary shadow-sm' : 'text-text-muted'}`}>Month</button>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button onClick={() => navigate('prev')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronLeft size={16} /></button>
+            <div className="text-sm font-semibold text-text-primary min-w-[140px] text-center">
+              {viewType === 'week' ? format(currentDate, "'Week of' MMM d") : format(currentDate, 'MMMM yyyy')}
+            </div>
+            <button onClick={() => navigate('next')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronRight size={16} /></button>
+          </div>
+
+          <button onClick={resetToToday} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm min-h-[36px]">Today</button>
+          <button onClick={() => setIsAddCalendarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Add Calendar Subscription">
+            <Plus size={14} /> Add Calendar
+          </button>
+        </div>
+      </div>
+
+      {/* Pull-to-refresh wrapper */}
+      <PullToRefresh onRefresh={handleRefresh} className="max-h-[60vh] md:max-h-none">
+        {/* Overdue Section */}
+        {overdueTasks.length > 0 && (
+          <div className="mb-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl p-3 md:p-4">
+            <h3 className="text-red-700 dark:text-red-300 font-medium text-sm flex items-center gap-2 mb-3">
+              <AlertCircle size={16} /> Overdue <span className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full text-xs font-bold">{overdueTasks.length}</span>
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {overdueTasks.map(t => <TaskCard key={t.id} task={t} isOverdue />)}
+            </div>
+          </div>
         )}
 
-        {/* Calendar Grid */}
-        <div className="overflow-x-auto pb-4">
-          <div className={`grid gap-4 min-w-[800px] md:min-w-0 ${
-            viewType === 'week' 
-              ? 'grid-cols-7' 
-              : 'grid-cols-7'
-          }`}>
-            {calendarData.map((date, index) => {
-              const dateKey = date.toDateString();
-              const dayTasks = tasksByDate[dateKey] || [];
-              const dayEvents = eventsByDate[dateKey] || [];
-              
-              const isDragOver = draggedOverDate === dateKey;
-              const today = isToday(date);
-              const currentMonth = isCurrentMonth(date);
-              
-              return (
-                <div
-                  key={dateKey}
-                  className={`min-h-32 p-3 border rounded-lg transition-colors ${
-                    isDragOver
-                      ? 'border-accent-blue bg-blue-50 dark:bg-blue-900/20'
-                      : today
-                        ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/10'
-                        : currentMonth || viewType === 'week'
-                          ? 'border-border-default bg-bg-primary'
-                          : 'border-border-subtle bg-bg-secondary'
-                  } ${
-                    viewType === 'month' && !currentMonth ? 'opacity-50' : ''
-                  }`}
-                  onDragOver={(e) => handleDayDragOver(e, dateKey)}
-                  onDragLeave={handleDayDragLeave}
-                  onDrop={(e) => handleDayDrop(e, dateKey)}
-                >
-                  {/* Date Header */}
-                  {/* ... */}
-                   <div className={`text-sm font-medium mb-2 ${
-                    today 
-                      ? 'text-accent-blue' 
-                      : currentMonth || viewType === 'week'
-                        ? 'text-text-primary'
-                        : 'text-text-muted'
-                  }`}>
-                    {formatDateHeader(date)}
-                  </div>
-                  
-                  <div className="space-y-1">
-                    {/* Events */}
-                    {dayEvents.map(event => (
-                        <div 
-                            key={`evt-${event.id}`}
-                            onClick={() => setSelectedEvent(event)}
-                            className="p-1 px-2 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800/50 cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
-                        >
-                            <div className="flex items-center gap-1">
-                                {!event.is_all_day && (
-                                    <span className="text-[10px] opacity-75 whitespace-nowrap">
-                                        {new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </span>
-                                )}
-                                <span className="font-medium truncate">{event.title}</span>
-                            </div>
+        {/* ===== MOBILE: Week = day strip + detail, Month = compact grid ===== */}
+        <div className="md:hidden space-y-4">
+          {viewType === 'week' ? (
+            <>
+              {/* Week: Horizontal day strip */}
+              <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+                {gridDays.map(day => (
+                  <DayChip key={day.toISOString()} day={day} selected={isSameDay(day, selectedDay)} onSelect={setSelectedDay} />
+                ))}
+              </div>
+              {/* Selected day detail */}
+              <DayDetailPanel day={selectedDay} items={selectedItems} />
+            </>
+          ) : (
+            <>
+              {/* Month: compact 7-column calendar grid */}
+              <div className="mb-2 text-center text-sm font-semibold text-text-primary">
+                {format(currentDate, 'MMMM yyyy')}
+              </div>
+              {/* Day-of-week headers */}
+              <div className="grid grid-cols-7 mb-1">
+                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                  <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-muted py-1">{d}</div>
+                ))}
+              </div>
+              {/* Calendar cells */}
+              <div className="grid grid-cols-7 gap-1">
+                {gridDays.map(day => {
+                  const { tasks: dTasks, events: dEvents } = getItemsForDay(day);
+                  const total = dTasks.length + dEvents.length;
+                  const isTodayDate = isToday(day);
+                  const inMonth = day.getMonth() === currentDate.getMonth();
+                  const isSelected = isSameDay(day, selectedDay);
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      onClick={() => setSelectedDay(day)}
+                      className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-colors min-h-[40px] ${
+                        isSelected ? 'bg-blue-500 text-white ring-2 ring-blue-300' :
+                        isTodayDate ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold' :
+                        inMonth ? 'hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary' :
+                        'text-text-muted opacity-40'
+                      }`}
+                    >
+                      <span className="text-sm leading-tight">{format(day, 'd')}</span>
+                      {total > 0 && (
+                        <div className="flex gap-0.5 mt-0.5">
+                          {dEvents.length > 0 && <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-purple-400'}`} />}
+                          {dTasks.length > 0 && <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-400'}`} />}
                         </div>
-                    ))}
-                  
-                    {/* Tasks - Grouped by Page */}
-                    {(() => {
-                      // Group tasks by page_name
-                      const grouped = dayTasks.reduce((acc: Record<string, any[]>, task: any) => {
-                        const key = task.page_name || '__no_page__';
-                        if (!acc[key]) acc[key] = [];
-                        acc[key].push(task);
-                        return acc;
-                      }, {});
-                      const groupKeys = Object.keys(grouped).sort((a, b) => {
-                        if (a === '__no_page__') return 1;
-                        if (b === '__no_page__') return -1;
-                        return a.localeCompare(b);
-                      });
-                      return groupKeys.map(groupKey => {
-                        const isNoPage = groupKey === '__no_page__';
-                        const displayName = isNoPage ? 'No Page' : groupKey;
-                        const collapseKey = `${dateKey}_${groupKey}`;
-                        const isCollapsed = collapsedGroups[collapseKey] ?? true;
-                        const tasksInGroup = grouped[groupKey];
-                        return (
-                          <div key={groupKey} className="mb-1">
-                            {/* Group Header */}
-                            <button
-                              onClick={() => setCollapsedGroups((prev: Record<string, boolean>) => ({
-                                ...prev,
-                                [collapseKey]: !prev[collapseKey]
-                              }))}
-                              className="flex items-center gap-1 w-full text-left mb-0.5 group/header"
-                            >
-                              <span className="text-[10px] text-text-muted transition-transform duration-150"
-                                    style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
-                                ▾
-                              </span>
-                              <span className={`text-[10px] font-semibold uppercase tracking-wider ${isNoPage ? 'text-gray-400' : 'text-blue-500 dark:text-blue-400'}`}>
-                                {displayName}
-                              </span>
-                              <span className="text-[10px] text-text-muted ml-1">({tasksInGroup.length})</span>
-                            </button>
-                            {/* Tasks */}
-                            {!isCollapsed && tasksInGroup.map((task: any) => {
-                              const isOverdue = isTaskOverdue(task);
-                              const isDragging = draggedTask?.id === task.id;
-                              return (
-                                <div
-                                  key={task.id}
-                                  draggable={!task.completed}
-                                  onDragStart={(e) => handleTaskDragStart(e, task)}
-                                  onDragEnd={handleTaskDragEnd}
-                                  className={`p-2 rounded text-xs cursor-pointer transition-all ${
-                                    isDragging
-                                      ? 'opacity-50 transform rotate-1 scale-95'
-                                      : task.completed
-                                        ? 'bg-green-100 dark:bg-green-800/30 text-green-800 dark:text-green-200 line-through'
-                                        : isOverdue
-                                          ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                                          : 'bg-bg-tertiary text-text-primary hover:bg-bg-accent'
-                                  } ${isNoPage ? 'ml-0' : 'ml-3'}`}
-                                  onClick={() => !isDragging && openTaskEdit(task as any)}
-                                >
-                                  <div className="flex items-start gap-1">
-                                    <button
-                                      onClick={(e) => handleTaskComplete(task.id, e)}
-                                      className="mt-0.5 text-text-muted hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                                    >
-                                      {task.completed ? <CheckCircle2 size={16} className="text-green-600" /> : <Circle size={16} />}
-                                    </button>
-                                    <span className="flex-1 leading-tight">
-                                      {task.content}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      });
-                    })()}
-                    
-                    {/* Drop zone */}
-                     {isDragOver && dayTasks.length === 0 && (
-                      <div className="p-2 border-2 border-dashed border-blue-400 rounded text-xs text-blue-600 dark:text-blue-400 text-center">
-                        Drop task here
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Selected day detail below grid */}
+              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} />
+            </>
+          )}
         </div>
 
-        {/* Modals */}
-        <AddCalendarModal 
-            isOpen={isAddCalendarOpen}
-            onClose={() => setIsAddCalendarOpen(false)}
-            onSuccess={handleCalendarAdded}
-        />
-        
-        <EventDetailModal
-            isOpen={!!selectedEvent}
-            onClose={() => setSelectedEvent(null)}
-            event={selectedEvent}
-        />
+        {/* ===== DESKTOP & TABLET: Grid View ===== */}
+        <div className="hidden md:block pb-4">
+          {viewType === 'week' ? (
+            <div className="grid grid-cols-7 gap-3 min-w-[800px]">
+              {gridDays.map(day => (
+                <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} />
+              ))}
+            </div>
+          ) : (
+            /* Month: responsive 7-column calendar grid */
+            <div>
+              {/* Day-of-week headers */}
+              <div className="grid grid-cols-7 mb-2">
+                {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d => (
+                  <div key={d} className="text-center text-xs font-semibold uppercase tracking-wider text-text-muted py-2">{d.slice(0,3)}</div>
+                ))}
+              </div>
+              {/* Month cells */}
+              <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                {gridDays.map(day => (
+                  <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </PullToRefresh>
 
+      {loading && <div className="text-center py-4 text-text-muted text-sm">Loading calendar...</div>}
+
+      {/* Modals */}
+      <AddCalendarModal
+        isOpen={isAddCalendarOpen}
+        onClose={() => setIsAddCalendarOpen(false)}
+        onSuccess={() => { fetchData(); fetch('/api/caldav/sync', { method: 'POST' }).catch(console.error); }}
+      />
+      <EventDetailModal
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        event={selectedEvent as any}
+      />
+    </div>
+  );
+}
+
+// --- Shared: Day detail panel (mobile) ---
+function DayDetailPanel({ day, items }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] } }) {
+  return (
+    <div className={`rounded-xl p-4 ${isToday(day) ? 'bg-blue-50/50 dark:bg-blue-900/5 ring-1 ring-blue-100 dark:ring-blue-900/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{format(day, 'EEEE')}</span>
+          <span className="ml-2 text-lg font-bold text-gray-800 dark:text-gray-200">{format(day, 'MMMM d')}</span>
+        </div>
+        {isToday(day) && <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Today</span>}
+      </div>
+      {items.tasks.length === 0 && items.events.length === 0 ? (
+        <p className="text-sm text-gray-400 py-4 text-center">Nothing scheduled</p>
+      ) : (
+        <div className="space-y-2">
+          {items.events.map(e => (
+            <div key={`evt-${e.id}`} className="p-1.5 px-2.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30">
+              <div className="flex items-center gap-1.5">
+                {!(e.is_all_day) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(e.start_time), 'h:mm a')}</span>}
+                <span className="font-medium truncate">{e.title}</span>
+              </div>
+            </div>
+          ))}
+          {items.tasks.map(t => (
+            <div key={`task-${t.id}`} className={`p-2.5 rounded-md border text-sm ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
+              <div className="flex items-start gap-2">
+                <span className={`line-clamp-2 ${t.status === 'done' ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-200'}`}>{t.content || 'Untitled Task'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Desktop Week Day Cell ---
+function DesktopWeekDay({ day, items, onToggle }: { day: Date; items: ReturnType<typeof useMemo> extends (fn: any) => any ? any : { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void }) {
+  const isTodayDate = isToday(day);
+  return (
+    <div className={`flex flex-col gap-2 min-h-[200px] ${isTodayDate ? 'bg-blue-50/50 dark:bg-blue-900/5 rounded-xl -mx-2 px-2 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>
+      <div className="text-center mb-1">
+        <div className={`text-xs font-medium uppercase tracking-wider ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>{format(day, 'EEE')}</div>
+        <div className={`text-lg font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</div>
+      </div>
+      <div className="flex flex-col gap-1.5 flex-1">
+        {items.events.map((e: CalendarEvent) => (
+          <div key={`evt-${e.id}`} className="p-1.5 px-2 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30">
+            <span className="font-medium truncate block">{e.title}</span>
+          </div>
+        ))}
+        {items.tasks.map((t: Task) => (
+          <div key={`task-${t.id}`} className={`p-1.5 rounded text-xs border ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200'}`}>
+            <div className="flex items-start gap-1">
+              <button onClick={(e) => onToggle(t.id, e)} className="min-w-[24px] min-h-[24px] flex items-center justify-center text-gray-300 hover:text-green-500">
+                {t.status === 'done' ? <CheckCircle2 size={14} className="text-green-500" /> : <Circle size={14} />}
+              </button>
+              <span className="line-clamp-1 text-gray-700 dark:text-gray-200">{t.content}</span>
+            </div>
+          </div>
+        ))}
+        {items.tasks.length === 0 && items.events.length === 0 && <div className="h-full border-t border-transparent" />}
+      </div>
+    </div>
+  );
+}
+
+// --- Desktop Month Day Cell ---
+function DesktopMonthDay({ day, items, currentMonth, onToggle }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void }) {
+  const isTodayDate = isToday(day);
+  const inMonth = day.getMonth() === currentMonth;
+  const total = items.tasks.length + items.events.length;
+  const doneCount = items.tasks.filter(t => t.status === 'done').length;
+
+  return (
+    <div className={`min-h-[100px] p-2 bg-white dark:bg-gray-800 transition-colors ${
+      isTodayDate ? 'bg-blue-50 dark:bg-blue-900/20' :
+      inMonth ? '' : 'bg-gray-50 dark:bg-gray-850 opacity-50'
+    }`}>
+      <div className={`text-sm font-semibold mb-1 ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : inMonth ? 'text-text-primary' : 'text-text-muted'}`}>
+        {format(day, 'd')}
+        {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
+      </div>
+      <div className="space-y-0.5">
+        {items.events.slice(0, 3).map(e => (
+          <div key={`evt-${e.id}`} className="p-0.5 px-1.5 rounded text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-200 truncate">
+            {!e.is_all_day && <span className="opacity-60 mr-1">{format(new Date(e.start_time), 'h:mm')}</span>}
+            {e.title}
+          </div>
+        ))}
+        {items.tasks.slice(0, 3).map(t => (
+          <div key={`task-${t.id}`} className={`p-0.5 px-1.5 rounded text-[10px] truncate ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 line-through' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+            {t.content}
+          </div>
+        ))}
+        {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
+        {total === 0 && <div className="h-8" />}
       </div>
     </div>
   );

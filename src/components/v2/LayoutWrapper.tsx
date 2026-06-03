@@ -1,20 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import RightSidebar from './RightSidebar';
+import BottomTabBar from './BottomTabBar';
 import { Menu, PanelRight, ChevronLeft } from 'lucide-react';
 import { RightSidebarProvider, useRightSidebar } from '../../contexts/RightSidebarContext';
 
 import { usePeriodicSync } from '@/hooks/usePeriodicSync';
 
 
-
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, closeSidebar: closeRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
+
+  // Swipe-to-close for left sidebar
+  const touchStartX = useRef(0);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (diff > 80) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
 
   // Background Sync (Every 5 minutes)
   usePeriodicSync(300000);
@@ -23,6 +38,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
+
+  const isFocus = pathname.startsWith('/focus');
 
   return (
     <div className="flex w-full h-full overflow-hidden bg-bg-primary">
@@ -43,8 +60,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Sidebar Container */}
-      {/* Mobile: Fixed, slide-in. Desktop: Static (flex item) */}
-      <div className={`
+      <div
+        ref={sidebarRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={`
         fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -72,11 +92,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto w-full relative flex">
-          <div className="flex-1 overflow-y-auto w-full">
-            {children}
-          </div>
-           {!isRightSidebarOpen && (
+        <main className={`flex-1 overflow-hidden w-full relative ${isFocus ? 'flex flex-col' : 'flex overflow-y-auto pb-[60px] md:pb-0'}`}>
+          {isFocus ? (
+            children
+          ) : (
+            <div className="flex-1 overflow-y-auto w-full">
+              {children}
+            </div>
+          )}
+           {!isRightSidebarOpen && !isFocus && (
               <button
                 onClick={() => toggleRightSidebar()}
                 className="absolute top-1/2 right-0 transform -translate-y-1/2 p-1 rounded-l-md bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary shadow-sm z-50 hidden md:flex items-center justify-center border-y border-l border-border-subtle transition-all opacity-60 hover:opacity-100"
@@ -86,10 +110,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               </button>
            )}
         </main>
+
+        {/* Bottom Tab Bar (mobile only) */}
+        <BottomTabBar />
       </div>
 
       {/* Right Sidebar Container */}
-      {/* Fixed overlay at all sizes — floats over content like mobile */}
       <div className={`
         fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out
         ${isRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'}

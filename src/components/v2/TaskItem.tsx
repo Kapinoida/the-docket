@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CheckCircle2, Circle, Calendar, Clock, Edit2 } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, MoreVertical } from 'lucide-react';
 import { Task } from '../../types/v2';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
@@ -14,15 +14,61 @@ interface TaskItemProps {
   isSelected?: boolean;
   onSelect?: (id: number, selected: boolean) => void;
   extraActions?: React.ReactNode;
+  onMoveToPage?: () => void;
+  onDelete?: () => void;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ 
-    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect, extraActions
+    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect, extraActions, onMoveToPage, onDelete
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
+  const [showLongPressMenu, setShowLongPressMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const { openTaskEdit } = useTaskEdit();
+  
+  // Long-press state
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMoved = useRef(false);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+
+  // Close menu on scroll or resize
+  React.useEffect(() => {
+    if (!showLongPressMenu) return;
+    const close = () => setShowLongPressMenu(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [showLongPressMenu]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchMoved.current = false;
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    longPressTimer.current = setTimeout(() => {
+      if (!touchMoved.current) {
+        if (navigator.vibrate) navigator.vibrate(10);
+        setMenuPosition({ x: touchStartPos.current.x, y: touchStartPos.current.y });
+        setShowLongPressMenu(true);
+      }
+    }, 500);
+  };
+
+  const handleTouchMove = () => {
+    touchMoved.current = true;
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const closeMenu = () => setShowLongPressMenu(false);
 
   const handleDateSelect = (date: Date | null, recurrence?: any) => {
       onUpdate?.({ 
@@ -46,7 +92,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const handleEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Adapt V2 task to V1 expected by context
       openTaskEdit({
           ...task,
           id: task.id.toString(),
@@ -59,8 +104,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       } as any);
   };
 
+  const isDone = task.status === 'done';
+
   return (
-    <div className={`group flex items-start gap-1.5 py-0.5 transition-all duration-200 relative ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}>
+    <div 
+      className={`group flex items-start gap-1 sm:gap-1.5 py-1 transition-all duration-200 relative ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/10 rounded-lg -mx-2 px-2' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
       {/* Selection Checkbox */}
       {(onSelect || isSelectionEnabled) && (
@@ -77,24 +129,24 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       {/* Completion Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="mt-1 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none"
+        className="mt-0.5 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-2 -m-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
       >
-        {task.status === 'done' ? (
+        {isDone ? (
              <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />
         ) : (
              <Circle className="w-5 h-5" strokeWidth={2} />
         )}
       </button>
 
-      {/* Metadata / Date Badge - Now on Left */}
-      <div className="flex-shrink-0 flex items-center justify-center mt-1" style={{ width: task.due_date ? 'auto' : '24px' }}>
+      {/* Metadata / Date Badge */}
+      <div className="flex-shrink-0 flex items-center justify-center mt-0.5" style={{ width: task.due_date ? 'auto' : '28px' }}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
                         onClick={() => setShowDatePicker(!showDatePicker)}
                         className={`
-                            flex items-center justify-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors whitespace-nowrap
-                            ${task.status === 'done' ? 'text-text-muted border-transparent' : 'text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 border-transparent hover:border-rose-100 dark:hover:border-rose-800'}
+                            flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border transition-colors whitespace-nowrap min-h-[32px]
+                            ${isDone ? 'text-text-muted border-transparent' : 'text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 border-transparent hover:border-rose-100 dark:hover:border-rose-800'}
                             ${!task.due_date ? 'text-text-muted border-border-default border-dashed' : ''}
                         `}
                     >
@@ -105,7 +157,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                                )}
                              </span>
                         ) : (
-                             <Calendar size={12} />
+                             <Calendar size={14} />
                         )}
                         {task.recurrence_rule && <Clock size={10} className="ml-0.5" />}
                     </button>
@@ -121,10 +173,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                     )}
                 </div>
              ) : (
-                 /* Implicit Add Button */
                  <button 
                     onClick={() => setShowDatePicker(true)}
-                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
+                    className="md:opacity-0 md:group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
                     title="Add Due Date"
                  >
                      <Calendar size={14} />
@@ -133,13 +184,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       </div>
 
       {/* Page Context Badge */}
-      {task.page_name && task.status !== "done" && (
-        <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 truncate max-w-[100px]" title={task.page_name}>
+      {task.page_name && !isDone && (
+        <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 truncate max-w-[80px] sm:max-w-[100px] hidden sm:inline" title={task.page_name}>
           {task.page_name}
         </span>
       )}
 
-      {/* Content Area (Simple Input/Div for Dashboard) */}
+      {/* Content Area */}
       <div className="flex-1 min-w-0 py-0.5">
           {onUpdate ? (
               <input
@@ -150,21 +201,21 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   onKeyDown={handleKeyDown}
                   className={`
                       w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0
-                      ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
+                      ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}
                   `}
               />
           ) : (
-              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${task.status === 'done' ? 'line-through text-text-muted' : ''}`}>
+              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${isDone ? 'line-through text-text-muted' : ''}`}>
                   {task.content}
               </div>
           )}
       </div>
 
-      {/* Edit Trigger - Only visible on hover */}
-      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Edit Trigger — visible on mobile, hover-only on desktop */}
+      <div className="flex items-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         <button
             onClick={handleEdit}
-            className="p-1 text-text-muted hover:text-blue-500 transition-all"
+            className="p-1.5 text-text-muted hover:text-blue-500 transition-all min-w-[36px] min-h-[36px] flex items-center justify-center"
             title="Edit Task"
         >
             <Edit2 size={14} />
@@ -172,6 +223,61 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {extraActions}
       </div>
 
+      {/* Long-Press Context Menu */}
+      {showLongPressMenu && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={closeMenu} onTouchStart={closeMenu} />
+          {/* Menu */}
+          <div
+            className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-1.5 min-w-[160px] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              left: Math.min(menuPosition.x - 140, window.innerWidth - 176),
+              top: Math.min(menuPosition.y - 10, window.innerHeight - 200),
+            }}
+          >
+            <button
+              onClick={() => { closeMenu(); handleEdit({ stopPropagation: () => {} } as any); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-primary hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors min-h-[44px]"
+            >
+              <Edit2 size={16} className="text-text-muted" />
+              Edit
+            </button>
+            <button
+              onClick={() => { closeMenu(); onToggle(task.id); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-primary hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors min-h-[44px]"
+            >
+              {isDone ? (
+                <Circle size={16} className="text-text-muted" />
+              ) : (
+                <CheckCircle2 size={16} className="text-emerald-500" />
+              )}
+              {isDone ? 'Mark incomplete' : 'Mark complete'}
+            </button>
+            {onMoveToPage && (
+              <button
+                onClick={() => { closeMenu(); onMoveToPage(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-primary hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors min-h-[44px]"
+              >
+                <ArrowRight size={16} className="text-text-muted" />
+                Move to page
+              </button>
+            )}
+            {onDelete && (
+              <>
+                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                <button
+                  onClick={() => { closeMenu(); onDelete(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 transition-colors min-h-[44px]"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };

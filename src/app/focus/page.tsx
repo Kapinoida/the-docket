@@ -67,7 +67,7 @@ export default function FocusPage() {
   // or just accept smooth transition. Timer handles initial props gracefully.
 
   return (
-    <div className="flex flex-col items-center justify-between min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
+    <div className="flex flex-col items-center justify-between flex-1 min-h-0 bg-bg-primary text-text-primary overflow-hidden relative pb-[60px] md:pb-0">
       <FocusVisualizer 
         state={timer.state} 
         timeLeft={timer.timeLeft} 
@@ -75,43 +75,36 @@ export default function FocusPage() {
         mode={visualMode}
       />
 
-      <header className="w-full flex justify-between items-center z-30 p-6">
-        <h1 className="text-xl font-medium tracking-tight">Focus Mode</h1>
+      {/* Compact single-row header */}
+      <header className="w-full flex items-center justify-between z-30 p-3 sm:p-4 gap-2 shrink-0">
+        <h1 className="text-sm sm:text-lg font-medium tracking-tight shrink-0">Focus</h1>
         
-        <div className="flex items-center gap-4">
-            {/* Mode Toggle */}
-            <div className="flex bg-white/10 rounded-full p-1 border border-white/5">
+        <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Mode Toggle — icons only on mobile */}
+            <div className="flex bg-white/10 rounded-full p-0.5 sm:p-1 border border-white/5">
                 <button
-                    onClick={() => {
-                        if (activeMode !== 'normal') {
-                            playClick();
-                            setMode('normal');
-                        }
-                    }}
-                    className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all ${
+                    onClick={() => { if (activeMode !== 'normal') { playClick(); setMode('normal'); } }}
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium transition-all ${
                         activeMode === 'normal' 
                             ? 'bg-accent-blue text-white shadow-sm' 
                             : 'text-white/60 hover:text-white hover:bg-white/5'
                     }`}
+                    title="Normal Mode"
                 >
                     <Zap size={14} />
-                    Normal
+                    <span className="hidden sm:inline">Normal</span>
                 </button>
                 <button
-                    onClick={() => {
-                        if (activeMode !== 'deep') {
-                            playClick();
-                            setMode('deep');
-                        }
-                    }}
-                    className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all ${
+                    onClick={() => { if (activeMode !== 'deep') { playClick(); setMode('deep'); } }}
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium transition-all ${
                         activeMode === 'deep' 
                             ? 'bg-purple-500 text-white shadow-sm' 
                             : 'text-white/60 hover:text-white hover:bg-white/5'
                     }`}
+                    title="Deep Work Mode"
                 >
                     <Brain size={14} />
-                    Deep
+                    <span className="hidden sm:inline">Deep</span>
                 </button>
             </div>
 
@@ -120,110 +113,88 @@ export default function FocusPage() {
               onModeChange={handleModeChange}
             />
             
-            <div className="flex items-center gap-2 bg-white/10 rounded-full p-1 border border-white/5">
-                {/* Ambience Toggle */}
+            {/* Ambience & Music — compact */}
+            <div className="flex items-center gap-0.5 bg-white/10 rounded-full p-0.5 border border-white/5">
                 <button 
-                    onClick={() => {
-                        playClick();
-                        setIsAmbienceEnabled(!isAmbienceEnabled);
-                    }}
-                    className={`p-2 rounded-full transition-all ${
+                    onClick={() => { playClick(); setIsAmbienceEnabled(!isAmbienceEnabled); }}
+                    className={`p-1.5 sm:p-2 rounded-full transition-all ${
                         isAmbienceEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
                     }`}
-                    title="Toggle Ambience (Drone)"
+                    title="Toggle Ambience"
                 >
-                     {isAmbienceEnabled ? (
-                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-                     ) : (
-                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
-                     )}
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>{!isAmbienceEnabled && <line x1="2" y1="2" x2="22" y2="22"></line>}</svg>
                 </button>
-
-                {/* Music Toggle */}
                 <button 
-                    onClick={() => {
-                        playClick();
-                        setIsMusicEnabled(!isMusicEnabled);
-                    }}
-                    className={`p-2 rounded-full transition-all ${
+                    onClick={() => { playClick(); setIsMusicEnabled(!isMusicEnabled); }}
+                    className={`p-1.5 sm:p-2 rounded-full transition-all ${
                         isMusicEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
                     }`}
-                    title="Toggle Generative Music"
+                    title="Toggle Music"
                 >
-                     <Music size={20} className={!isMusicEnabled ? "opacity-50" : ""} />
+                     <Music size={16} className={`sm:w-5 sm:h-5 ${!isMusicEnabled ? "opacity-50" : ""}`} />
                 </button>
             </div>
             
-            {/* Settings Toggle */}
             <button 
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5"
+                className="p-1.5 sm:p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5"
                 title="Timer Settings"
             >
-                <Settings size={20} />
+                <Settings size={16} className="sm:w-5 sm:h-5" />
             </button>
 
-            {/* Task List Toggle (Header Shortcut) */}
             <button 
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5"
+                className="p-1.5 sm:p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5"
                 title="Open Task List"
             >
-                <ListTodo size={20} />
+                <ListTodo size={16} className="sm:w-5 sm:h-5" />
             </button>
         </div>
       </header>
       
-      <main className="flex-1 flex flex-col items-center justify-center w-full relative z-10 pointer-events-none"> 
-         {/* Note: increased z-index for controls interaction, but we need this layer to let clicks pass through to controls if needed, 
-             BUT we also want task selector to be interactive. 
-             Ideally UI elements are in a z-layer above canvas.
-             Let's make sure the specific interactive children have pointer-events-auto */}
-             
-        <div className="text-center mb-8 pointer-events-auto flex flex-col items-center">
+      <main className="flex-1 flex flex-col items-center justify-center w-full relative z-10 pointer-events-none min-h-0 py-4"> 
+        <div className="text-center pointer-events-auto flex flex-col items-center gap-3 sm:gap-4">
            
-           {/* Active Task Display - Moved to Top */}
-           <div className="flex flex-col items-center gap-3 mb-8 relative z-20">
+           {/* Active Task Display — compact pill */}
+           <div className="relative z-20 min-h-[28px] flex items-center">
                {activeTask ? (
                    <button 
                        onClick={() => setIsSidebarOpen(true)}
-                       className="flex items-center gap-3 bg-bg-secondary/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg animate-in fade-in slide-in-from-top-2 group hover:border-accent-blue/50 transition-all"
+                       className="flex items-center gap-2 bg-bg-secondary/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg group hover:border-accent-blue/50 transition-all"
                    >
-                       <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse"></span>
-                       <span className="text-sm font-medium max-w-[200px] truncate">{activeTask.content}</span>
+                       <span className="w-1.5 h-1.5 rounded-full bg-accent-blue animate-pulse"></span>
+                       <span className="text-xs sm:text-sm font-medium max-w-[160px] truncate">{activeTask.content}</span>
                        <div 
-                         onClick={(e) => {
-                             e.stopPropagation();
-                             setActiveTask(null);
-                         }}
-                         className="p-1 hover:bg-white/10 rounded-full transition-colors ml-1 opacity-50 group-hover:opacity-100"
+                         onClick={(e) => { e.stopPropagation(); setActiveTask(null); }}
+                         className="p-0.5 hover:bg-white/10 rounded-full transition-colors opacity-40 group-hover:opacity-100"
                          title="Clear Active Task"
                        >
-                           <X size={14} />
+                           <X size={12} />
                        </div>
                    </button>
                ) : (
                    <button
                      onClick={() => setIsSidebarOpen(true)}
-                     className="flex items-center gap-2 text-sm text-white/50 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all border border-transparent hover:border-white/10"
+                     className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 hover:bg-white/5 px-3 py-1 rounded-full transition-all"
                    >
-                       <Target size={16} />
+                       <Target size={12} />
                        <span>Set Focus Task</span>
                    </button>
                )}
            </div>
 
-           <h2 className="text-7xl font-light mb-4 font-mono tracking-tighter tabular-nums drop-shadow-2xl">
+           <h2 className="text-5xl sm:text-6xl md:text-7xl font-light font-mono tracking-tighter tabular-nums drop-shadow-2xl leading-none">
             {formatTime(timer.timeLeft)}
            </h2>
-           <p className="text-lg opacity-80 uppercase tracking-widest font-medium mb-8">
+           <p className="text-sm sm:text-lg opacity-80 uppercase tracking-widest font-medium">
             {timer.state === 'work' && activeMode === 'deep' ? 'Deep Work' : formatState(timer.state)}
            </p>
         </div>
       </main>
 
-      <div className="w-full max-w-md z-20 pb-0">
-        <TimerControls timer={timer} onInteraction={playClick} />
+      <div className="w-full max-w-md relative z-20 pb-safe shrink-0">
+        <TimerControls timer={timer} timeLeft={timer.timeLeft} totalDuration={timer.totalDuration} onInteraction={playClick} />
       </div>
       
       {/* Sidebar */}

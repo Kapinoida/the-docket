@@ -122,7 +122,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                  /* Implicit Add Button */
                  <button 
                     onClick={() => setShowDatePicker(true)}
-                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
+                    className="md:opacity-0 md:group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
                     title="Add Due Date"
                  >
                      <Calendar size={14} />
@@ -130,7 +130,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
              )}
       </div>
 
-      {/* Editor Content Area */}
+      {/* Page Context Badge */}
       <div className="flex-1 min-w-0">
           <NodeViewContent 
             className={`
@@ -142,7 +142,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       </div>
 
       {/* Edit Trigger - Only visible on hover */}
-      <div className="opacity-0 group-hover:opacity-100 absolute right-0 top-1" contentEditable={false}>
+      <div className="md:opacity-0 md:group-hover:opacity-100 absolute right-0 top-1" contentEditable={false}>
           <button
             onClick={handleEdit}
             className="p-1 text-text-muted hover:text-blue-500 transition-all bg-white dark:bg-gray-800 rounded shadow-sm border border-gray-200 dark:border-gray-700"
