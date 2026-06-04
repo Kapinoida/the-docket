@@ -26,6 +26,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const [editContent, setEditContent] = useState(task.content);
   const [showLongPressMenu, setShowLongPressMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
   const { openTaskEdit } = useTaskEdit();
   
   // Long-press state
@@ -143,6 +144,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
+                        ref={dateButtonRef}
                         onClick={() => setShowDatePicker(!showDatePicker)}
                         className={`
                             flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border transition-colors whitespace-nowrap min-h-[32px]
@@ -168,7 +170,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                             recurrenceRule={task.recurrence_rule}
                             onSelect={handleDateSelect}
                             onClose={() => setShowDatePicker(false)}
-                            position={{ top: 25, left: 0 }}
+                            triggerRef={dateButtonRef}
                         />
                     )}
                 </div>

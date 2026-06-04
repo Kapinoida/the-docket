@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TaskInstance, Note, RecurrenceRule } from '@/types';
 import { format } from 'date-fns';
 import { Calendar, X, Repeat } from 'lucide-react';
@@ -32,6 +32,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
   });
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrenceRule);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [completed, setCompleted] = useState(task?.completed || false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -155,6 +156,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <button 
+                  ref={dateButtonRef}
                   onClick={() => setShowDatePicker(!showDatePicker)}
                   className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
@@ -189,7 +191,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                       setShowDatePicker(false);
                     }}
                     onClose={() => setShowDatePicker(false)}
-                    position={{ top: 45, left: 0 }}
+                    triggerRef={dateButtonRef}
                   />
                 )}
               </div>
