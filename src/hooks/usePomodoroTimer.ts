@@ -95,7 +95,12 @@ export function usePomodoroTimer(initialSettings: Partial<PomodoroSettings> = {}
     }
   }, [settings.workDuration, state]);
 
-  const start = () => setIsActive(true);
+  const start = () => {
+    setIsActive(true);
+    if (state === 'idle') {
+      setState('work');
+    }
+  };
   const pause = () => setIsActive(false);
   
   const reset = () => {
