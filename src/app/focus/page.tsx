@@ -193,7 +193,7 @@ export default function FocusPage() {
         </div>
       </main>
 
-      <div className="w-full max-w-md relative z-20 pb-safe shrink-0">
+      <div className="w-full max-w-md relative z-20 shrink-0">
         <TimerControls timer={timer} timeLeft={timer.timeLeft} totalDuration={timer.totalDuration} onInteraction={playClick} />
       </div>
       

@@ -53,7 +53,7 @@ export default function TimerControls({ timer, timeLeft, totalDuration, onIntera
       />
 
       {/* Controls */}
-      <div className="flex flex-col items-center gap-3 sm:gap-4 pt-6 sm:pt-6 pb-4 sm:pb-6 z-10 w-[240px] sm:w-[300px]">
+      <div className="flex flex-col items-center gap-3 sm:gap-4 pt-6 sm:pt-6 pb-[calc(16px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(24px+env(safe-area-inset-bottom,0px))] z-10 w-[240px] sm:w-[300px]">
         <div className="flex gap-1">
            {Array.from({ length: 4 }).map((_, i) => (
              <div 
