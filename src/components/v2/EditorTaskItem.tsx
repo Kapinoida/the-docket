@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NodeViewContent, NodeViewWrapper, Editor } from '@tiptap/react';
 import { CheckCircle2, Circle, Calendar, Clock, Edit2 } from 'lucide-react';
 import { Task } from '../../types/v2';
@@ -27,6 +27,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
     task, onToggle, onUpdate
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
   const { openTaskEdit } = useTaskEdit();
 
   // Hook to handle @date parsing automatically
@@ -89,6 +90,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
+                        ref={dateButtonRef}
                         onClick={() => setShowDatePicker(!showDatePicker)}
                         className={`
                             flex items-center justify-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors whitespace-nowrap
@@ -114,7 +116,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                             recurrenceRule={task.recurrence_rule}
                             onSelect={handleDateSelect}
                             onClose={() => setShowDatePicker(false)}
-                            position={{ top: 25, left: 0 }}
+                            triggerRef={dateButtonRef}
                         />
                     )}
                 </div>

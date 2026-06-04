@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, addDays, nextMonday, nextFriday } from 'date-fns';
 import { Calendar, Repeat, X, ChevronRight, Check } from 'lucide-react';
 import { RecurrenceRule } from '@/types/v2';
+import { createPortal } from 'react-dom';
 import 'react-day-picker/dist/style.css'; 
 
 interface DatePickerPopoverProps {
@@ -11,12 +12,13 @@ interface DatePickerPopoverProps {
     onSelect: (date: Date | null, recurrence?: RecurrenceRule) => void;
     onClose: () => void;
     position?: { top?: number; left?: number; right?: number };
+    triggerRef?: React.RefObject<HTMLElement | null>;
     showTime?: boolean;
 }
 
 type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none';
 
-export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position, showTime = true }: DatePickerPopoverProps) {
+export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position, triggerRef, showTime = true }: DatePickerPopoverProps) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? new Date(date) : undefined);
     const [selectedTime, setSelectedTime] = useState<string>(() => {
         if (!date) return '';
@@ -120,16 +122,57 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
         return 'Custom...';
     };
 
+    // Calculate screen position from trigger ref if available
+    const popoverRef = useRef<HTMLDivElement>(null);
+    
     // Styling overrides for react-day-picker
     const css = `
         .rdp { --rdp-cell-size: 32px; --rdp-accent-color: #3b82f6; background-color: var(--rdp-background-color); margin: 0; }
         .rdp-button:hover:not([disabled]):not(.rdp-day_selected) { background-color: rgba(0,0,0,0.05); }
     `;
-
-    return (
+    
+    // Compute fixed positioning when triggerRef is provided
+    const [fixedStyle, setFixedStyle] = useState<React.CSSProperties>({});
+    useEffect(() => {
+        if (triggerRef?.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const viewportW = window.innerWidth;
+            const popoverW = 340; // w-[340px]
+            let left = rect.left;
+            // Prevent overflow off the right edge
+            if (left + popoverW > viewportW - 8) {
+                left = viewportW - popoverW - 8;
+            }
+            if (left < 8) left = 8;
+            
+            // Place below trigger if there's room, otherwise above
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            if (spaceBelow >= 380 || spaceBelow >= spaceAbove) {
+                // Show below
+                setFixedStyle({
+                    position: 'fixed',
+                    top: rect.bottom + 4,
+                    left,
+                    zIndex: 9999,
+                });
+            } else {
+                // Show above
+                setFixedStyle({
+                    position: 'fixed',
+                    bottom: window.innerHeight - rect.top + 4,
+                    left,
+                    zIndex: 9999,
+                });
+            }
+        }
+    }, [triggerRef]);
+    
+    const popoverContent = (
         <div 
+            ref={popoverRef}
             className="absolute z-50 bg-bg-primary border border-border-default rounded-xl shadow-2xl p-4 w-[340px] flex flex-col gap-3"
-            style={position ? { top: position.top, left: position.left, right: position.right } : {}}
+            style={triggerRef ? { ...fixedStyle, position: 'fixed' } : (position ? { top: position.top, left: position.left, right: position.right } : {})}
             onMouseDown={(e) => e.stopPropagation()}
         >
             <style>{css}</style>
@@ -289,4 +332,6 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             </div>
         </div>
     );
+    
+    return triggerRef ? createPortal(popoverContent, document.body) : popoverContent;
 }
