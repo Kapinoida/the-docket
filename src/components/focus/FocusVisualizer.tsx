@@ -700,11 +700,17 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
        stars = Array.from({ length: 80 }, () => new StarNode(w, h));
     };
 
-    const resize = () => {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      init(); 
-    };
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          canvas.width = width;
+          canvas.height = height;
+          init();
+        }
+      }
+    });
+    resizeObserver.observe(container);
     
     // Helper to convert hex to rgba
     const hexToRgba = (hex: string, alpha: number) => {
@@ -1106,12 +1112,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       animationFrameId = requestAnimationFrame(render);
     };
 
-    window.addEventListener('resize', resize);
-    resize();
     render();
 
     return () => {
-      window.removeEventListener('resize', resize);
+      resizeObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
