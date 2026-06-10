@@ -550,6 +550,8 @@ function DayView({ day, events, tasks, onEventClick }: {
   // Drag state
   const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
+  const lastTouchY = useRef(0);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Filter events for this day
   const dayEvents = events.filter(e => {
@@ -584,7 +586,7 @@ function DayView({ day, events, tasks, onEventClick }: {
       )}
 
       {/* Time grid */}
-      <div className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
+      <div ref={gridRef} className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
            style={{ height: totalHeight }}
            onDragOver={(e) => {
              e.preventDefault();
@@ -669,6 +671,48 @@ function DayView({ day, events, tasks, onEventClick }: {
                 e.dataTransfer.setData('text/plain', String(event.id));
               }}
               onDragEnd={() => {
+                setDragEvent(null);
+                setDragOffsetY(0);
+              }}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) {
+                  const touch = e.touches[0];
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDragEvent(event);
+                  setDragOffsetY(touch.clientY - rect.top);
+                  lastTouchY.current = touch.clientY;
+                }
+              }}
+              onTouchMove={(e) => {
+                if (dragEvent?.id === event.id && e.touches.length === 1) {
+                  e.preventDefault();
+                  lastTouchY.current = e.touches[0].clientY;
+                }
+              }}
+              onTouchEnd={() => {
+                if (dragEvent?.id !== event.id) return;
+                const gridRect = gridRef.current?.getBoundingClientRect();
+                if (!gridRect) { setDragEvent(null); return; }
+                
+                const dropY = lastTouchY.current - gridRect.top - dragOffsetY;
+                const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
+                const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
+
+                const durationMinutes = Math.max(
+                  (new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000,
+                  15
+                );
+
+                const newStart = new Date(day);
+                newStart.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+                const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+                fetch(`/api/v2/calendar/events/${event.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ start_time: newStart.toISOString(), end_time: newEnd.toISOString() }),
+                }).catch(err => console.error('Touch drag update failed:', err));
+
                 setDragEvent(null);
                 setDragOffsetY(0);
               }}
