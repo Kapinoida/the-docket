@@ -6,6 +6,12 @@ import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday,
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
 import { parseLocalDateNode } from '../../lib/dateUtils';
 
+// Shared helper: generate color from hex
+const eventColorStyle = (color?: string) => {
+  const c = color || '#7c3aed';
+  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
+};
+
 interface WeeklyCalendarProps {
   onTaskSelect?: (task: Task) => void;
   onTaskComplete?: (taskId: number) => void;
@@ -20,6 +26,12 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
 
   useEffect(() => {
     fetchData();
+  }, [currentStart]);
+
+  // Auto-poll every 30s for live updates
+  useEffect(() => {
+    const interval = setInterval(() => { fetchData(); }, 30000);
+    return () => clearInterval(interval);
   }, [currentStart]);
 
   const fetchData = async () => {
@@ -126,10 +138,13 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     </div>
   );
 
-  const renderEventCard = (event: any) => (
+  const renderEventCard = (event: any) => {
+    const colors = eventColorStyle(event.calendar_color);
+    return (
     <div
       key={`event-${event.id}`}
-      className="p-1.5 px-2.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-1"
+      className="p-1.5 px-2.5 rounded text-xs border mb-1"
+      style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
     >
       <div className="flex items-center gap-1.5">
         <span className="text-xs opacity-75 whitespace-nowrap">
@@ -138,7 +153,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
         <span className="font-medium truncate">{event.title}</span>
       </div>
     </div>
-  );
+  )};
 
   // --- Shared: Day chip used in both mobile strip and within day detail ---
   const DayChip = ({ day, onSelect, selected }: { day: Date; onSelect?: (d: Date) => void; selected?: boolean }) => {
