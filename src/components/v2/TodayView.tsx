@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Task } from '../../types/v2';
 import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
@@ -281,12 +282,12 @@ export default function TodayView() {
                                   <div
                                     key={`event-${event.id}`}
                                     onClick={() => setSelectedEvent(event)}
-                                    className="p-2 px-3 rounded text-sm border mb-2 last:mb-0 cursor-pointer hover:opacity-80"
+                                    className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
                                     style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
                                   >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5">
                                       <span className="text-xs opacity-75 whitespace-nowrap">
-                                        {!isTrulyAllDay(event) && new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {!isTrulyAllDay(event) && format(new Date(event.start_time), 'h:mm a')}
                                       </span>
                                       <span className="font-medium truncate">{event.title}</span>
                                     </div>

@@ -5,6 +5,7 @@ import { Task } from '@/types/v2';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isTomorrow, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
 import { parseLocalDateNode } from '../../lib/dateUtils';
+import EventDetailModal from '../modals/EventDetailModal';
 
 // Shared helper: generate color from hex
 const eventColorStyle = (color?: string) => {
@@ -23,6 +24,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
   const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -143,7 +145,8 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     return (
     <div
       key={`event-${event.id}`}
-      className="p-1.5 px-2.5 rounded text-xs border mb-1"
+      onClick={() => setSelectedEvent(event)}
+      className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
       style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
     >
       <div className="flex items-center gap-1.5">
@@ -312,6 +315,12 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
           );
         })}
       </div>
+
+      <EventDetailModal
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        event={selectedEvent}
+      />
     </div>
   );
 }

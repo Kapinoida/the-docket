@@ -206,7 +206,7 @@ export default function CalendarViewV2() {
     return (
     <div
       onClick={() => onClick?.(event)}
-      className={`p-1.5 px-2.5 rounded text-xs border mb-1 ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+      className={`p-1.5 px-2.5 rounded text-xs border ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
       style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
     >
       <div className="flex items-center gap-1.5">
@@ -450,10 +450,13 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; ite
           <div
             key={`evt-${e.id}`}
             onClick={() => onEventClick?.(e)}
-            className="p-1.5 px-2 rounded text-xs border cursor-pointer hover:opacity-80"
+            className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
             style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
           >
-            <span className="font-medium truncate block">{e.title}</span>
+            <div className="flex items-center gap-1.5">
+              {!isTrulyAllDay(e) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(e.start_time), 'h:mm a')}</span>}
+              <span className="font-medium truncate">{e.title}</span>
+            </div>
           </div>
         )})}
         {items.tasks.map((t: Task) => (
@@ -496,9 +499,9 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
             key={`evt-${e.id}`}
             onClick={() => onEventClick?.(e)}
             className="p-0.5 px-1.5 rounded text-[10px] truncate cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: colors.backgroundColor, color: colors.color }}
+            style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
           >
-            {!e.is_all_day && <span className="opacity-60 mr-1">{format(new Date(e.start_time), 'h:mm')}</span>}
+            {!isTrulyAllDay(e) && <span className="opacity-60 mr-1">{format(new Date(e.start_time), 'h:mm a')}</span>}
             {e.title}
           </div>
         )})}
