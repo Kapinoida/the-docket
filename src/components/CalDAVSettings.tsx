@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Calendar, CheckSquare, RefreshCw, X } from 'lucide-react';
 import { ConfirmationModal } from './modals/ConfirmationModal';
+import ColorPicker from './ui/ColorPicker';
 
 interface CalDAVConfig {
   id: number;
@@ -12,6 +13,7 @@ interface CalDAVConfig {
   name?: string;
   resource_type: 'task_list' | 'event_calendar';
   enabled: boolean;
+  color?: string;
 }
 
 interface DiscoveredCalendar {
@@ -34,6 +36,7 @@ export function CalDAVSettings() {
   const [selectedCalendarUrl, setSelectedCalendarUrl] = useState('');
   const [resourceType, setResourceType] = useState<'task_list' | 'event_calendar'>('task_list');
   const [accountName, setAccountName] = useState('');
+  const [selectedColor, setSelectedColor] = useState('#7c3aed');
   
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -123,7 +126,8 @@ export function CalDAVSettings() {
         ...formData,
         calendar_url: selectedCalendarUrl,
         name: accountName || 'My Calendar',
-        resource_type: resourceType
+        resource_type: resourceType,
+        color: selectedColor
     };
 
     try {
@@ -143,6 +147,7 @@ export function CalDAVSettings() {
       setDiscovered([]);
       setSelectedCalendarUrl('');
       setAccountName('');
+      setSelectedColor('#7c3aed');
       setShowAddForm(false);
       
       setMessage({ text: 'Account added successfully!', type: 'success' });
@@ -170,6 +175,10 @@ export function CalDAVSettings() {
                <div className={`p-2 rounded-full ${config.resource_type === 'task_list' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30'}`}>
                  {config.resource_type === 'task_list' ? <CheckSquare size={18} /> : <Calendar size={18} />}
                </div>
+               <span 
+                className="w-3 h-3 rounded-full flex-shrink-0" 
+                style={{ backgroundColor: config.color || '#7c3aed' }}
+              />
                <div>
                  <div className="font-medium text-sm">{config.name}</div>
                  <div className="text-xs text-text-muted">{config.username} • {new URL(config.server_url).hostname}</div>
@@ -285,6 +294,11 @@ export function CalDAVSettings() {
                                     className="w-full p-2 text-sm border rounded-md dark:bg-zinc-800 dark:border-zinc-700"
                                 />
                             </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium mb-1">Color</label>
+                          <ColorPicker value={selectedColor} onChange={setSelectedColor} />
                         </div>
                         
                         <button

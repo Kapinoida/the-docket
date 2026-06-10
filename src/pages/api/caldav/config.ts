@@ -7,7 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       const result = await pool.query(`
-        SELECT id, server_url, username, calendar_url, enabled, name, resource_type, created_at 
+        SELECT id, server_url, username, calendar_url, enabled, name, resource_type, color, created_at 
         FROM caldav_configs 
         WHERE enabled = TRUE 
         ORDER BY created_at ASC
@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   // POST: Create or Update a config
   else if (req.method === 'POST') {
-    const { id, server_url, username, password, calendar_url, name, resource_type } = req.body;
+    const { id, server_url, username, password, calendar_url, name, resource_type, color } = req.body;
     
     // Basic validation
     const looksLikeICal = (calendar_url && (calendar_url.includes('.ics') || calendar_url.includes('/ical/'))) || (server_url && server_url.includes('.ics'));
@@ -72,18 +72,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             calendar_url = $3, 
             name = $4, 
             resource_type = $5,
+            color = $6,
             updated_at = NOW()
         `;
-        const params = [server_url, username, calendar_url, name, resource_type || 'task_list'];
-        
-        let paramIdx = 6;
+        const params = [server_url, username, calendar_url, name, resource_type || 'task_list', color || '#7c3aed'];
+
+        let paramIdx = 7;
         if (password) {
           query += `, password = $${paramIdx}`;
           params.push(password);
           paramIdx++;
         }
         
-        query += ` WHERE id = $${paramIdx} RETURNING id, server_url, username, enabled, name, resource_type`;
+        query += ` WHERE id = $${paramIdx} RETURNING id, server_url, username, enabled, name, resource_type, color`;
         params.push(id);
         
         const result = await pool.query(query, params);
@@ -100,10 +101,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         const result = await pool.query(
-          `INSERT INTO caldav_configs (server_url, username, password, calendar_url, name, resource_type) 
-           VALUES ($1, $2, $3, $4, $5, $6) 
-           RETURNING id, server_url, username, enabled, name, resource_type`,
-          [server_url, finalUser, finalPass, calendar_url || server_url, name || 'New Account', resource_type || 'task_list']
+          `INSERT INTO caldav_configs (server_url, username, password, calendar_url, name, resource_type, color) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7) 
+           RETURNING id, server_url, username, enabled, name, resource_type, color`,
+          [server_url, finalUser, finalPass, calendar_url || server_url, name || 'New Account', resource_type || 'task_list', color || '#7c3aed']
         );
         
         return res.status(201).json(result.rows[0]);
