@@ -528,13 +528,26 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
   );
 }
 
-// --- Day View (stub — time grid coming in Task 3) ---
+// --- Day View ---
 function DayView({ day, events, tasks, onEventClick }: {
   day: Date;
   events: CalendarEvent[];
   tasks: Task[];
   onEventClick?: (e: CalendarEvent) => void;
 }) {
+  const HOUR_HEIGHT = 64; // px per hour
+  const HOUR_START = 0;
+  const HOUR_END = 24;
+  const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
+  const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => i + HOUR_START);
+
+  const now = new Date();
+  const isToday_ = isToday(day);
+  const currentMinuteOffset = isToday_
+    ? now.getHours() * 60 + now.getMinutes()
+    : -1;
+
+  // Filter events for this day
   const dayEvents = events.filter(e => {
     const eventDate = isTrulyAllDay(e)
       ? (parseLocalDateNode(e.start_time) as Date)
@@ -542,12 +555,64 @@ function DayView({ day, events, tasks, onEventClick }: {
     return isSameDay(eventDate, day);
   });
 
+  const allDayEvents = dayEvents.filter(e => isTrulyAllDay(e));
+  const timedEvents = dayEvents.filter(e => !isTrulyAllDay(e));
+
   return (
-    <div className="mt-2 p-4 border rounded-xl bg-bg-secondary">
-      <h3 className="text-lg font-semibold mb-2 text-text-primary">
-        {format(day, 'EEEE, MMMM d')}
-      </h3>
-      <p className="text-text-muted text-sm">{dayEvents.length} events, {tasks.filter(t => t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, day)).length} tasks</p>
+    <div className="mt-2">
+      {/* All-day events row */}
+      {allDayEvents.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3 px-1">
+          {allDayEvents.map(e => {
+            const colors = eventColorStyle(e.calendar_color);
+            return (
+              <div
+                key={`allday-${e.id}`}
+                onClick={() => onEventClick?.(e)}
+                className="px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80"
+                style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
+              >
+                {e.title}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Time grid */}
+      <div className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
+           style={{ height: totalHeight }}>
+        {/* Hour rows */}
+        {hours.map(hour => (
+          <div 
+            key={hour}
+            className="absolute left-0 right-0 border-t border-border-subtle"
+            style={{ top: (hour - HOUR_START) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+          >
+            <span className="absolute -top-3 left-2 text-xs text-text-muted bg-bg-primary px-1">
+              {format(new Date(2024, 0, 1, hour), 'h a')}
+            </span>
+          </div>
+        ))}
+
+        {/* Current time indicator */}
+        {currentMinuteOffset >= 0 && (
+          <div 
+            className="absolute left-0 right-0 z-10 pointer-events-none"
+            style={{ top: (currentMinuteOffset / 60) * HOUR_HEIGHT }}
+          >
+            <div className="absolute left-12 right-1 border-t-2 border-red-500" />
+            <div className="absolute left-[44px] -top-1.5 w-3 h-3 rounded-full bg-red-500" />
+          </div>
+        )}
+
+        {/* Event blocks (placeholder for Task 4) */}
+        {timedEvents.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm pointer-events-none">
+            No timed events
+          </div>
+        )}
+      </div>
     </div>
   );
 }
