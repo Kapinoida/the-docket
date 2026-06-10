@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@/types/v2';
 import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, Clock, Calendar, AlertCircle } from 'lucide-react';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isSameMonth, startOfMonth, endOfMonth, getDay } from 'date-fns';
@@ -295,7 +295,7 @@ export default function CalendarViewV2() {
         {/* ===== MOBILE: Week = day strip + detail, Month = compact grid, Day = time grid ===== */}
         <div className="md:hidden space-y-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} />
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => fetchData()} />
           ) : viewType === 'week' ? (
             <>
               {/* Week: Horizontal day strip */}
@@ -358,7 +358,7 @@ export default function CalendarViewV2() {
         {/* ===== DESKTOP & TABLET: Grid View ===== */}
         <div className="hidden md:block pb-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} />
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => fetchData()} />
           ) : viewType === 'week' ? (
             <div className="grid grid-cols-7 gap-3 min-w-[800px]">
               {gridDays.map(day => (
@@ -529,11 +529,12 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
 }
 
 // --- Day View ---
-function DayView({ day, events, tasks, onEventClick }: {
+function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
   day: Date;
   events: CalendarEvent[];
   tasks: Task[];
   onEventClick?: (e: CalendarEvent) => void;
+  onEventMoved?: () => void;
 }) {
   const HOUR_HEIGHT = 64;
   const HOUR_START = 0;
@@ -622,6 +623,7 @@ function DayView({ day, events, tasks, onEventClick }: {
 
              setDragEvent(null);
              setDragOffsetY(0);
+            setTimeout(() => onEventMoved?.(), 500); // brief delay for CalDAV to persist
            }}
         >
         {/* Hour rows */}
@@ -715,6 +717,7 @@ function DayView({ day, events, tasks, onEventClick }: {
 
                 setDragEvent(null);
                 setDragOffsetY(0);
+                setTimeout(() => onEventMoved?.(), 500);
               }}
               onClick={() => onEventClick?.(event)}
               className={`absolute left-12 right-1 z-10 rounded px-2 py-1 border cursor-pointer overflow-hidden ${
