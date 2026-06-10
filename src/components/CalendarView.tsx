@@ -9,7 +9,7 @@ import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
 
-type ViewType = 'week' | 'month';
+type ViewType = 'week' | 'month' | 'day';
 
 // Shared helper: generate color from hex
 const eventColorStyle = (color?: string) => {
@@ -71,6 +71,9 @@ export default function CalendarViewV2() {
       if (viewType === 'week') {
         start = startOfWeek(currentDate, { weekStartsOn: 0 });
         end = addDays(start, 13); // 2 weeks for padding
+      } else if (viewType === 'day') {
+        start = startOfDay(currentDate);
+        end = addDays(start, 2); // today + tomorrow for overnight events
       } else {
         start = startOfMonth(currentDate);
         const eom = endOfMonth(currentDate);
@@ -111,6 +114,7 @@ export default function CalendarViewV2() {
   const navigate = (dir: 'prev' | 'next') => {
     const d = new Date(currentDate);
     if (viewType === 'week') d.setDate(d.getDate() + (dir === 'next' ? 7 : -7));
+    else if (viewType === 'day') d.setDate(d.getDate() + (dir === 'next' ? 1 : -1));
     else d.setMonth(d.getMonth() + (dir === 'next' ? 1 : -1));
     setCurrentDate(d);
   };
@@ -152,6 +156,8 @@ export default function CalendarViewV2() {
     if (viewType === 'week') {
       const start = startOfWeek(currentDate, { weekStartsOn: 0 });
       return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    } else if (viewType === 'day') {
+      return [currentDate];
     } else {
       const start = startOfMonth(currentDate);
       const eom = endOfMonth(currentDate);
@@ -253,13 +259,14 @@ export default function CalendarViewV2() {
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             <button onClick={() => setViewType('week')} className={`px-3 py-1.5 text-sm rounded-md transition-colors min-h-[36px] ${viewType === 'week' ? 'bg-white dark:bg-gray-700 text-text-primary shadow-sm' : 'text-text-muted'}`}>Week</button>
             <button onClick={() => setViewType('month')} className={`px-3 py-1.5 text-sm rounded-md transition-colors min-h-[36px] ${viewType === 'month' ? 'bg-white dark:bg-gray-700 text-text-primary shadow-sm' : 'text-text-muted'}`}>Month</button>
+            <button onClick={() => { setViewType('day'); setSelectedDay(startOfDay(currentDate)); }} className={`px-3 py-1.5 text-sm rounded-md transition-colors min-h-[36px] ${viewType === 'day' ? 'bg-white dark:bg-gray-700 text-text-primary shadow-sm' : 'text-text-muted'}`}>Day</button>
           </div>
 
           {/* Navigation */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             <button onClick={() => navigate('prev')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronLeft size={16} /></button>
             <div className="text-sm font-semibold text-text-primary min-w-[140px] text-center">
-              {viewType === 'week' ? format(currentDate, "'Week of' MMM d") : format(currentDate, 'MMMM yyyy')}
+              {viewType === 'week' ? format(currentDate, "'Week of' MMM d") : viewType === 'day' ? format(currentDate, 'EEEE, MMMM d, yyyy') : format(currentDate, 'MMMM yyyy')}
             </div>
             <button onClick={() => navigate('next')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronRight size={16} /></button>
           </div>
@@ -285,9 +292,11 @@ export default function CalendarViewV2() {
           </div>
         )}
 
-        {/* ===== MOBILE: Week = day strip + detail, Month = compact grid ===== */}
+        {/* ===== MOBILE: Week = day strip + detail, Month = compact grid, Day = time grid ===== */}
         <div className="md:hidden space-y-4">
-          {viewType === 'week' ? (
+          {viewType === 'day' ? (
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} />
+          ) : viewType === 'week' ? (
             <>
               {/* Week: Horizontal day strip */}
               <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
@@ -348,7 +357,9 @@ export default function CalendarViewV2() {
 
         {/* ===== DESKTOP & TABLET: Grid View ===== */}
         <div className="hidden md:block pb-4">
-          {viewType === 'week' ? (
+          {viewType === 'day' ? (
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} />
+          ) : viewType === 'week' ? (
             <div className="grid grid-cols-7 gap-3 min-w-[800px]">
               {gridDays.map(day => (
                 <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} />
@@ -513,6 +524,30 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
         {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
         {total === 0 && <div className="h-8" />}
       </div>
+    </div>
+  );
+}
+
+// --- Day View (stub — time grid coming in Task 3) ---
+function DayView({ day, events, tasks, onEventClick }: {
+  day: Date;
+  events: CalendarEvent[];
+  tasks: Task[];
+  onEventClick?: (e: CalendarEvent) => void;
+}) {
+  const dayEvents = events.filter(e => {
+    const eventDate = isTrulyAllDay(e)
+      ? (parseLocalDateNode(e.start_time) as Date)
+      : new Date(e.start_time);
+    return isSameDay(eventDate, day);
+  });
+
+  return (
+    <div className="mt-2 p-4 border rounded-xl bg-bg-secondary">
+      <h3 className="text-lg font-semibold mb-2 text-text-primary">
+        {format(day, 'EEEE, MMMM d')}
+      </h3>
+      <p className="text-text-muted text-sm">{dayEvents.length} events, {tasks.filter(t => t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, day)).length} tasks</p>
     </div>
   );
 }
