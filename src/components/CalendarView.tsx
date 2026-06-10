@@ -535,7 +535,7 @@ function DayView({ day, events, tasks, onEventClick }: {
   tasks: Task[];
   onEventClick?: (e: CalendarEvent) => void;
 }) {
-  const HOUR_HEIGHT = 64; // px per hour
+  const HOUR_HEIGHT = 64;
   const HOUR_START = 0;
   const HOUR_END = 24;
   const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
@@ -546,6 +546,10 @@ function DayView({ day, events, tasks, onEventClick }: {
   const currentMinuteOffset = isToday_
     ? now.getHours() * 60 + now.getMinutes()
     : -1;
+
+  // Drag state
+  const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
 
   // Filter events for this day
   const dayEvents = events.filter(e => {
@@ -581,7 +585,43 @@ function DayView({ day, events, tasks, onEventClick }: {
 
       {/* Time grid */}
       <div className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
-           style={{ height: totalHeight }}>
+           style={{ height: totalHeight }}
+           onDragOver={(e) => {
+             e.preventDefault();
+             e.dataTransfer.dropEffect = 'move';
+           }}
+           onDrop={(e) => {
+             e.preventDefault();
+             if (!dragEvent) return;
+
+             const gridRect = e.currentTarget.getBoundingClientRect();
+             const dropY = e.clientY - gridRect.top - dragOffsetY;
+             const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
+             const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
+
+             const durationMinutes = Math.max(
+               (new Date(dragEvent.end_time).getTime() - new Date(dragEvent.start_time).getTime()) / 60000,
+               15
+             );
+
+             const newStart = new Date(day);
+             newStart.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+             const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+             // Optimistic: fire PATCH, parent will re-fetch on next poll
+             fetch(`/api/v2/calendar/events/${dragEvent.id}`, {
+               method: 'PATCH',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                 start_time: newStart.toISOString(),
+                 end_time: newEnd.toISOString(),
+               }),
+             }).catch(err => console.error('Drag update failed:', err));
+
+             setDragEvent(null);
+             setDragOffsetY(0);
+           }}
+        >
         {/* Hour rows */}
         {hours.map(hour => (
           <div 
@@ -620,8 +660,22 @@ function DayView({ day, events, tasks, onEventClick }: {
           return (
             <div
               key={`evt-${event.id}`}
+              draggable
+              onDragStart={(e) => {
+                setDragEvent(event);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDragOffsetY(e.clientY - rect.top);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(event.id));
+              }}
+              onDragEnd={() => {
+                setDragEvent(null);
+                setDragOffsetY(0);
+              }}
               onClick={() => onEventClick?.(event)}
-              className="absolute left-12 right-1 z-10 rounded px-2 py-1 border cursor-pointer hover:opacity-80 overflow-hidden"
+              className={`absolute left-12 right-1 z-10 rounded px-2 py-1 border cursor-pointer overflow-hidden ${
+                dragEvent?.id === event.id ? 'opacity-40' : 'hover:opacity-80'
+              }`}
               style={{
                 top,
                 height,
