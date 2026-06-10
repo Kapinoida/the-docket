@@ -606,12 +606,39 @@ function DayView({ day, events, tasks, onEventClick }: {
           </div>
         )}
 
-        {/* Event blocks (placeholder for Task 4) */}
-        {timedEvents.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm pointer-events-none">
-            No timed events
-          </div>
-        )}
+        {/* Event blocks */}
+        {timedEvents.map(event => {
+          const start = new Date(event.start_time);
+          const end = new Date(event.end_time);
+          const startMinutes = start.getHours() * 60 + start.getMinutes();
+          const endMinutes = end.getHours() * 60 + end.getMinutes();
+          const durationMinutes = Math.max(endMinutes - startMinutes, 15);
+          const top = (startMinutes / 60) * HOUR_HEIGHT;
+          const height = (durationMinutes / 60) * HOUR_HEIGHT;
+          const colors = eventColorStyle(event.calendar_color);
+
+          return (
+            <div
+              key={`evt-${event.id}`}
+              onClick={() => onEventClick?.(event)}
+              className="absolute left-12 right-1 z-10 rounded px-2 py-1 border cursor-pointer hover:opacity-80 overflow-hidden"
+              style={{
+                top,
+                height,
+                backgroundColor: colors.backgroundColor,
+                borderColor: colors.borderColor,
+                color: colors.color,
+              }}
+            >
+              <div className="text-xs font-medium truncate leading-tight">{event.title}</div>
+              {height > 40 && (
+                <div className="text-[10px] opacity-75 leading-tight mt-0.5">
+                  {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
