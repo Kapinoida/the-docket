@@ -29,6 +29,15 @@ interface CalendarEvent {
   calendar_color?: string;
 }
 
+const isTrulyAllDay = (event: CalendarEvent) => {
+  if (event.is_all_day) return true;
+  if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
+    const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+    if (dur === 24 * 60 * 60 * 1000) return true;
+  }
+  return false;
+};
+
 export default function CalendarViewV2() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -125,15 +134,6 @@ export default function CalendarViewV2() {
         body: JSON.stringify({ status: newStatus })
       });
     } catch { fetchData(); }
-  };
-
-  const isTrulyAllDay = (event: CalendarEvent) => {
-    if (event.is_all_day) return true;
-    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
-      const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
-      if (dur === 24 * 60 * 60 * 1000) return true;
-    }
-    return false;
   };
 
   const getItemsForDay = (date: Date) => {
