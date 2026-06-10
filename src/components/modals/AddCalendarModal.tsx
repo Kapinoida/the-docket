@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Calendar as CalendarIcon, Link as LinkIcon, User, Lock, Loader2 } from 'lucide-react';
+import ColorPicker from '../ui/ColorPicker';
 
 interface AddCalendarModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState('#7c3aed');
 
   if (!isOpen) return null;
 
@@ -31,14 +33,16 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
             name: name || 'Calendar Subscription',
             server_url: url,
             calendar_url: url,
-            resource_type: 'event_calendar'
+            resource_type: 'event_calendar',
+            color: selectedColor
           }
         : {
             name: name || 'CalDAV Account',
             server_url: url,
             username,
             password,
-            resource_type: 'event_calendar' // Default to events, or let user pick? Assuming events for now.
+            resource_type: 'event_calendar',
+            color: selectedColor
           };
 
       const res = await fetch('/api/caldav/config', {
@@ -59,6 +63,7 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
       setUrl('');
       setUsername('');
       setPassword('');
+      setSelectedColor('#7c3aed');
       
     } catch (err: any) {
       setError(err.message);
@@ -173,6 +178,11 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
               </div>
             </>
           )}
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">Color</label>
+            <ColorPicker value={selectedColor} onChange={setSelectedColor} />
+          </div>
           
           <div className="flex items-center justify-end gap-3 mt-6 pt-2">
             <button

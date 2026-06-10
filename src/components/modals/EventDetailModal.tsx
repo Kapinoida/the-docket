@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Calendar as CalendarIcon, MapPin, Clock, AlignLeft } from 'lucide-react';
+import { X, MapPin, Clock, AlignLeft } from 'lucide-react';
 
 interface EventDetailModalProps {
   isOpen: boolean;
@@ -68,8 +68,11 @@ export default function EventDetailModal({ isOpen, onClose, event }: EventDetail
           
           {/* Calendar Source */}
           <div className="flex items-center gap-2 mt-6 pt-4 border-t border-border-subtle text-xs text-text-muted">
-            <CalendarIcon className="w-3 h-3" />
-            <span>Calendar source from remote</span>
+            <span 
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+              style={{ backgroundColor: event.calendar_color || '#7c3aed' }}
+            />
+            <span>{event.calendar_name || 'External Calendar'}</span>
           </div>
         </div>
         
