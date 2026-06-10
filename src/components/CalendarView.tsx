@@ -11,6 +11,12 @@ import EventDetailModal from './modals/EventDetailModal';
 
 type ViewType = 'week' | 'month';
 
+// Shared helper: generate color from hex
+const eventColorStyle = (color?: string) => {
+  const c = color || '#7c3aed';
+  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
+};
+
 interface CalendarEvent {
   id: number;
   title: string;
@@ -20,6 +26,7 @@ interface CalendarEvent {
   is_all_day: boolean;
   location: string;
   calendar_name: string;
+  calendar_color?: string;
 }
 
 export default function CalendarViewV2() {
@@ -80,6 +87,12 @@ export default function CalendarViewV2() {
   }, [currentDate, viewType, loading, tasks.length]);
 
   useEffect(() => { fetchData(); }, [currentDate, viewType]);
+
+  // Auto-poll for live updates every 30s
+  useEffect(() => {
+    const interval = setInterval(() => { fetchData(); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -188,14 +201,20 @@ export default function CalendarViewV2() {
   };
 
   // --- Event card ---
-  const EventCard = ({ event }: { event: CalendarEvent }) => (
-    <div className="p-1.5 px-2.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-1">
+  const EventCard = ({ event, onClick }: { event: CalendarEvent; onClick?: (e: CalendarEvent) => void }) => {
+    const colors = eventColorStyle(event.calendar_color);
+    return (
+    <div
+      onClick={() => onClick?.(event)}
+      className={`p-1.5 px-2.5 rounded text-xs border mb-1 ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+      style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
+    >
       <div className="flex items-center gap-1.5">
         {!isTrulyAllDay(event) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(event.start_time), 'h:mm a')}</span>}
         <span className="font-medium truncate">{event.title}</span>
       </div>
     </div>
-  );
+  )};
 
   // --- Task card ---
   const TaskCard = ({ task, isOverdue = false }: { task: Task; isOverdue?: boolean }) => (
@@ -214,6 +233,7 @@ export default function CalendarViewV2() {
   );
 
   const selectedItems = getItemsForDay(selectedDay);
+  const handleEventClick = (event: CalendarEvent) => setSelectedEvent(event);
 
   return (
     <div className="mx-auto px-4 py-6 md:p-8 font-sans">
@@ -276,7 +296,7 @@ export default function CalendarViewV2() {
                 ))}
               </div>
               {/* Selected day detail */}
-              <DayDetailPanel day={selectedDay} items={selectedItems} />
+              <DayDetailPanel day={selectedDay} items={selectedItems} onEventClick={handleEventClick} />
             </>
           ) : (
             <>
@@ -321,7 +341,7 @@ export default function CalendarViewV2() {
                 })}
               </div>
               {/* Selected day detail below grid */}
-              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} />
+              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} onEventClick={handleEventClick} />
             </>
           )}
         </div>
@@ -331,7 +351,7 @@ export default function CalendarViewV2() {
           {viewType === 'week' ? (
             <div className="grid grid-cols-7 gap-3 min-w-[800px]">
               {gridDays.map(day => (
-                <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} />
+                <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} />
               ))}
             </div>
           ) : (
@@ -346,7 +366,7 @@ export default function CalendarViewV2() {
               {/* Month cells */}
               <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
                 {gridDays.map(day => (
-                  <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} />
+                  <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} />
                 ))}
               </div>
             </div>
@@ -372,7 +392,7 @@ export default function CalendarViewV2() {
 }
 
 // --- Shared: Day detail panel (mobile) ---
-function DayDetailPanel({ day, items }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] } }) {
+function DayDetailPanel({ day, items, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onEventClick?: (e: CalendarEvent) => void }) {
   return (
     <div className={`rounded-xl p-4 ${isToday(day) ? 'bg-blue-50/50 dark:bg-blue-900/5 ring-1 ring-blue-100 dark:ring-blue-900/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
       <div className="flex items-center justify-between mb-3">
@@ -386,14 +406,21 @@ function DayDetailPanel({ day, items }: { day: Date; items: { tasks: Task[]; eve
         <p className="text-sm text-gray-400 py-4 text-center">Nothing scheduled</p>
       ) : (
         <div className="space-y-2">
-          {items.events.map(e => (
-            <div key={`evt-${e.id}`} className="p-1.5 px-2.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30">
+          {items.events.map(e => {
+            const colors = eventColorStyle(e.calendar_color);
+            return (
+            <div
+              key={`evt-${e.id}`}
+              onClick={() => onEventClick?.(e)}
+              className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
+              style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
+            >
               <div className="flex items-center gap-1.5">
                 {!(e.is_all_day) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(e.start_time), 'h:mm a')}</span>}
                 <span className="font-medium truncate">{e.title}</span>
               </div>
             </div>
-          ))}
+          )})}
           {items.tasks.map(t => (
             <div key={`task-${t.id}`} className={`p-2.5 rounded-md border text-sm ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
               <div className="flex items-start gap-2">
@@ -408,7 +435,7 @@ function DayDetailPanel({ day, items }: { day: Date; items: { tasks: Task[]; eve
 }
 
 // --- Desktop Week Day Cell ---
-function DesktopWeekDay({ day, items, onToggle }: { day: Date; items: ReturnType<typeof useMemo> extends (fn: any) => any ? any : { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void }) {
+function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void }) {
   const isTodayDate = isToday(day);
   return (
     <div className={`flex flex-col gap-2 min-h-[200px] ${isTodayDate ? 'bg-blue-50/50 dark:bg-blue-900/5 rounded-xl -mx-2 px-2 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>
@@ -417,11 +444,18 @@ function DesktopWeekDay({ day, items, onToggle }: { day: Date; items: ReturnType
         <div className={`text-lg font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</div>
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
-        {items.events.map((e: CalendarEvent) => (
-          <div key={`evt-${e.id}`} className="p-1.5 px-2 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30">
+        {items.events.map((e: CalendarEvent) => {
+          const colors = eventColorStyle(e.calendar_color);
+          return (
+          <div
+            key={`evt-${e.id}`}
+            onClick={() => onEventClick?.(e)}
+            className="p-1.5 px-2 rounded text-xs border cursor-pointer hover:opacity-80"
+            style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
+          >
             <span className="font-medium truncate block">{e.title}</span>
           </div>
-        ))}
+        )})}
         {items.tasks.map((t: Task) => (
           <div key={`task-${t.id}`} className={`p-1.5 rounded text-xs border ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200'}`}>
             <div className="flex items-start gap-1">
@@ -439,7 +473,7 @@ function DesktopWeekDay({ day, items, onToggle }: { day: Date; items: ReturnType
 }
 
 // --- Desktop Month Day Cell ---
-function DesktopMonthDay({ day, items, currentMonth, onToggle }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void }) {
+function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void }) {
   const isTodayDate = isToday(day);
   const inMonth = day.getMonth() === currentMonth;
   const total = items.tasks.length + items.events.length;
@@ -455,12 +489,19 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle }: { day: Date; it
         {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
       </div>
       <div className="space-y-0.5">
-        {items.events.slice(0, 3).map(e => (
-          <div key={`evt-${e.id}`} className="p-0.5 px-1.5 rounded text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-200 truncate">
+        {items.events.slice(0, 3).map(e => {
+          const colors = eventColorStyle(e.calendar_color);
+          return (
+          <div
+            key={`evt-${e.id}`}
+            onClick={() => onEventClick?.(e)}
+            className="p-0.5 px-1.5 rounded text-[10px] truncate cursor-pointer hover:opacity-80"
+            style={{ backgroundColor: colors.backgroundColor, color: colors.color }}
+          >
             {!e.is_all_day && <span className="opacity-60 mr-1">{format(new Date(e.start_time), 'h:mm')}</span>}
             {e.title}
           </div>
-        ))}
+        )})}
         {items.tasks.slice(0, 3).map(t => (
           <div key={`task-${t.id}`} className={`p-0.5 px-1.5 rounded text-[10px] truncate ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 line-through' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
             {t.content}

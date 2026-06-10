@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 1. Fetch non-recurring events in range
     const regularEventsQuery = `
-      SELECT e.*, c.name as calendar_name, c.username 
+      SELECT e.*, c.name as calendar_name, c.username, c.color as calendar_color
       FROM calendar_events e
       JOIN caldav_configs c ON e.calendar_id = c.id
       WHERE c.enabled = TRUE
@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Fetch ALL recurring events that started before the end of the query window
     // We need to fetch them even if they started years ago, as they might recur into this window.
     const recurringEventsQuery = `
-      SELECT e.*, c.name as calendar_name, c.username 
+      SELECT e.*, c.name as calendar_name, c.username, c.color as calendar_color
       FROM calendar_events e
       JOIN caldav_configs c ON e.calendar_id = c.id
       WHERE c.enabled = TRUE

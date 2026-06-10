@@ -9,6 +9,13 @@ import DailyJournalEditor from './DailyJournalEditor';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { TaskListSkeleton } from './Skeleton';
 import { PullToRefresh } from './PullToRefresh';
+import EventDetailModal from '../modals/EventDetailModal';
+
+// Shared helper: generate color from hex
+const eventColorStyle = (color?: string) => {
+  const c = color || '#7c3aed';
+  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
+};
 
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -16,6 +23,7 @@ export default function TodayView() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const fetchTasks = async () => {
     try {
@@ -56,6 +64,12 @@ export default function TodayView() {
 
   useEffect(() => {
     fetchAll();
+  }, []);
+
+  // Auto-poll every 30s for live updates
+  useEffect(() => {
+    const interval = setInterval(() => { fetchAll(); }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = async () => {
@@ -260,11 +274,15 @@ export default function TodayView() {
                               <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
                                 <Calendar size={14} /> Events
                               </div>
-                              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-100 dark:border-purple-800/30">
-                                {todayEvents.map(event => (
-                                  <div 
+                              <div className="rounded-xl p-3 border border-gray-100 dark:border-gray-800">
+                                {todayEvents.map(event => {
+                                  const colors = eventColorStyle(event.calendar_color);
+                                  return (
+                                  <div
                                     key={`event-${event.id}`}
-                                    className="p-2 px-3 rounded text-sm bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/30 mb-2"
+                                    onClick={() => setSelectedEvent(event)}
+                                    className="p-2 px-3 rounded text-sm border mb-2 last:mb-0 cursor-pointer hover:opacity-80"
+                                    style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs opacity-75 whitespace-nowrap">
@@ -273,7 +291,7 @@ export default function TodayView() {
                                       <span className="font-medium truncate">{event.title}</span>
                                     </div>
                                   </div>
-                                ))}
+                                )})}
                               </div>
                             </div>
                           )}
@@ -288,6 +306,12 @@ export default function TodayView() {
       <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
         <DailyJournalEditor />
       </div>
+
+      <EventDetailModal
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        event={selectedEvent}
+      />
     </div>
   );
 }
