@@ -37,6 +37,21 @@ export const eventColorStyle = (color?: string) => {
   };
 };
 
+import type { Task as V2Task } from '@/types/v2';
+import type { Task as LegacyTask } from '@/types';
+import { parseLocalDateNode } from '@/lib/dateUtils';
+
+export const v2TaskToLegacy = (task: V2Task): LegacyTask => ({
+  ...task,
+  id: String(task.id),
+  dueDate: task.due_date ? parseLocalDateNode(task.due_date) as Date : null,
+  completed: task.status === 'done',
+  createdAt: new Date(task.created_at),
+  updatedAt: new Date(task.updated_at),
+  content: task.content,
+  recurrenceRule: task.recurrence_rule,
+});
+
 export const isTrulyAllDay = (event: CalendarEvent) => {
   if (event.is_all_day) return true;
   if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {

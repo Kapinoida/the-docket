@@ -5,13 +5,14 @@ import { Task } from '@/types/v2';
 import { ChevronLeft, ChevronRight, Plus, Clock, Calendar, AlertCircle, ListTodo, Pencil } from 'lucide-react';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/calendar';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb, v2TaskToLegacy } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarSources } from '@/hooks/useCalendarSources';
 import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
+import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
@@ -45,7 +46,12 @@ export default function CalendarViewV2() {
 
   const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(currentDate, viewType);
   const { calendars, refetch: refetchCalendars } = useCalendarSources();
+  const { openTaskEdit } = useTaskEdit();
   const loading = eventsLoading || tasksLoading;
+
+  const handleOpenTaskEdit = useCallback((task: Task) => {
+    openTaskEdit(v2TaskToLegacy(task));
+  }, [openTaskEdit]);
 
   // Persist state
   useEffect(() => { localStorage.setItem('cal_current_date', currentDate.toISOString()); }, [currentDate]);
@@ -275,7 +281,7 @@ export default function CalendarViewV2() {
               <AlertCircle size={16} /> Overdue <span className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full text-xs font-bold">{overdueTasks.length}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {overdueTasks.map(t => <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} variant="overdue" />)}
+              {overdueTasks.map(t => <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={handleOpenTaskEdit} variant="overdue" />)}
             </div>
           </div>
         )}
@@ -293,7 +299,7 @@ export default function CalendarViewV2() {
                 ))}
               </div>
               {/* Selected day detail */}
-              <DayDetailPanel day={selectedDay} items={selectedItems} onEventClick={handleEventClick} onTaskToggle={handleTaskToggle} />
+              <DayDetailPanel day={selectedDay} items={selectedItems} onEventClick={handleEventClick} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
             </>
           ) : (
             <>
@@ -338,7 +344,7 @@ export default function CalendarViewV2() {
                 })}
               </div>
               {/* Selected day detail below grid */}
-              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} onEventClick={handleEventClick} />
+              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} onEventClick={handleEventClick} onTaskClick={handleOpenTaskEdit} />
             </>
           )}
         </div>
@@ -347,11 +353,11 @@ export default function CalendarViewV2() {
         <div className="hidden md:flex gap-4 pb-4">
           <div className="flex-1 min-w-0">
             {viewType === 'day' ? (
-              <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
+<DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
             ) : viewType === 'week' ? (
               <div className="grid grid-cols-7 gap-3 min-w-[600px]">
                 {gridDays.map(day => (
-                  <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} />
+                  <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} onTaskClick={handleOpenTaskEdit} />
                 ))}
               </div>
             ) : (
@@ -366,7 +372,7 @@ export default function CalendarViewV2() {
                 {/* Month cells */}
                 <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
                   {gridDays.map(day => (
-                    <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} />
+                    <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} onTaskClick={handleOpenTaskEdit} />
                   ))}
                 </div>
               </div>
@@ -411,7 +417,7 @@ export default function CalendarViewV2() {
 }
 
 // --- Shared: Day detail panel (mobile) ---
-function DayDetailPanel({ day, items, onEventClick, onTaskToggle }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onEventClick?: (e: CalendarEvent) => void; onTaskToggle?: (id: number, e: React.MouseEvent) => void }) {
+function DayDetailPanel({ day, items, onEventClick, onTaskToggle, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onEventClick?: (e: CalendarEvent) => void; onTaskToggle?: (id: number, e: React.MouseEvent) => void; onTaskClick?: (task: Task) => void }) {
   return (
     <div className={`rounded-xl p-4 ${isToday(day) ? 'bg-blue-50/50 dark:bg-blue-900/5 ring-1 ring-blue-100 dark:ring-blue-900/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
       <div className="flex items-center justify-between mb-3">
@@ -429,7 +435,7 @@ function DayDetailPanel({ day, items, onEventClick, onTaskToggle }: { day: Date;
             <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
           ))}
           {items.tasks.map(t => (
-            <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={(id, e) => onTaskToggle?.(id, e)} />
+            <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={(id, e) => onTaskToggle?.(id, e)} onClick={onTaskClick} />
           ))}
         </div>
       )}
@@ -438,7 +444,7 @@ function DayDetailPanel({ day, items, onEventClick, onTaskToggle }: { day: Date;
 }
 
 // --- Desktop Week Day Cell ---
-function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void }) {
+function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
   const isTodayDate = isToday(day);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -471,7 +477,7 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask }: { da
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
         ))}
         {items.tasks.map((t: Task) => (
-          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="default" draggable />
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} onClick={onTaskClick} variant="default" draggable />
         ))}
         {items.tasks.length === 0 && items.events.length === 0 && <div className="h-full border-t border-transparent" />}
       </div>
@@ -480,7 +486,7 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask }: { da
 }
 
 // --- Desktop Month Day Cell ---
-function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onDropTask }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void }) {
+function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
   const isTodayDate = isToday(day);
   const inMonth = day.getMonth() === currentMonth;
   const total = items.tasks.length + items.events.length;
@@ -520,7 +526,7 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} variant="compact" />
         ))}
         {items.tasks.slice(0, 3).map(t => (
-          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="compact" draggable />
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} onClick={onTaskClick} variant="compact" draggable />
         ))}
         {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
         {total === 0 && <div className="h-8" />}
@@ -530,13 +536,14 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
 }
 
 // --- Day View ---
-function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle }: {
+function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle, onTaskClick }: {
   day: Date;
   events: CalendarEvent[];
   tasks: Task[];
   onEventClick?: (e: CalendarEvent) => void;
   onEventMoved?: () => void;
   onTaskToggle?: (taskId: number, e: React.MouseEvent) => void;
+  onTaskClick?: (task: Task) => void;
 }) {
   const HOUR_HEIGHT = 64;
   const HOUR_START = 0;
@@ -652,8 +659,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle 
                 e.dataTransfer.setData('text/plain', `task-${t.id}`);
               }}
               onDragEnd={() => setDragTask(null)}
-              onClick={(e) => onTaskToggle?.(t.id, e)}
-              className="px-2 py-1 rounded text-xs border border-dashed cursor-grab hover:opacity-80 bg-bg-secondary border-border-subtle text-text-primary"
+              onClick={() => onTaskClick?.(t)}
+              className="px-2 py-1 rounded text-xs border border-dashed cursor-pointer hover:opacity-80 bg-bg-secondary border-border-subtle text-text-primary"
             >
               {t.content}
             </div>
@@ -896,6 +903,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle 
               hourHeight={HOUR_HEIGHT}
               top={taskTop}
               onToggle={onTaskToggle}
+              onClick={onTaskClick}
               onDragStart={(task, e) => {
                 setDragTask(task);
                 setDragEvent(null);

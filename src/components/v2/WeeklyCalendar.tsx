@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '@/types/v2';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay, v2TaskToLegacy } from '@/lib/calendar';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
 import { useCalendarEventsRange } from '@/hooks/useCalendarEvents';
+import { useTaskEdit } from '@/contexts/TaskEditContext';
 import EventDetailModal from '../modals/EventDetailModal';
 
 interface WeeklyCalendarProps {
@@ -21,6 +22,11 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
   const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [tasksLoading, setTasksLoading] = useState(true);
+  const { openTaskEdit } = useTaskEdit();
+
+  const handleOpenTaskEdit = useCallback((task: Task) => {
+    openTaskEdit(v2TaskToLegacy(task));
+  }, [openTaskEdit]);
 
   const windowEnd = addDays(currentStart, 7);
   const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEventsRange(currentStart, windowEnd);
@@ -184,7 +190,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {overdueTasks.map(task => (
-              <CalendarTaskCard key={task.id} task={task} onToggle={handleTaskToggle} variant="overdue" onClick={() => onTaskSelect?.(task)} />
+              <CalendarTaskCard key={task.id} task={task} onToggle={handleTaskToggle} variant="overdue" onClick={handleOpenTaskEdit} />
             ))}
           </div>
         </div>
@@ -228,7 +234,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
                 <EventCard key={`evt-${e.id}`} event={e} onClick={() => setSelectedEvent(e)} />
               ))}
               {selectedItems.tasks.map(t => (
-                <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={() => onTaskSelect?.(t)} />
+                <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={handleOpenTaskEdit} />
               ))}
             </div>
           )}
@@ -260,7 +266,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
                   </div>
                 )}
                 {dayTasks.map(t => (
-                    <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={() => onTaskSelect?.(t)} />
+<CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={handleOpenTaskEdit} />
                   ))}
                 {dayTasks.length === 0 && dayEvents.length === 0 && (
                   <div className="h-full border-t border-transparent" />

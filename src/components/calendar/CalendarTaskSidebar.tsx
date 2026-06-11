@@ -5,6 +5,7 @@ import { Task } from '@/types/v2';
 import { X, Calendar, GripVertical, CheckCircle2, Circle, Plus } from 'lucide-react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
+import { v2TaskToLegacy } from '@/lib/calendar';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 
 interface CalendarTaskSidebarProps {
@@ -94,16 +95,7 @@ export default function CalendarTaskSidebar({ isOpen, onClose }: CalendarTaskSid
   };
 
   const handleTaskClick = (task: Task) => {
-    openTaskEdit({
-      ...task,
-      id: task.id.toString(),
-      dueDate: task.due_date ? parseLocalDateNode(task.due_date) as Date : null,
-      completed: task.status === 'done',
-      createdAt: new Date(task.created_at),
-      updatedAt: new Date(task.updated_at),
-      content: task.content,
-      recurrenceRule: task.recurrence_rule,
-    } as any);
+    openTaskEdit(v2TaskToLegacy(task));
   };
 
   const incompleteTasks = tasks.filter(t => t.status !== 'done');
