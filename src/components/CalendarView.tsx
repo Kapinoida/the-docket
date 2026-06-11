@@ -2,46 +2,23 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@/types/v2';
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, Clock, Calendar, AlertCircle } from 'lucide-react';
-import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isSameMonth, startOfMonth, endOfMonth, getDay } from 'date-fns';
+import { ChevronLeft, ChevronRight, Plus, Clock, Calendar, AlertCircle, ListTodo, Pencil } from 'lucide-react';
+import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/calendar';
+import { EventCard } from '@/components/calendar/EventCard';
+import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
+import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useCalendarSources } from '@/hooks/useCalendarSources';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
+import CalendarTaskSidebar from './calendar/CalendarTaskSidebar';
 
 type ViewType = 'week' | 'month' | 'day';
 
-// Shared helper: generate color from hex
-const eventColorStyle = (color?: string) => {
-  const c = color || '#7c3aed';
-  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
-};
-
-interface CalendarEvent {
-  id: number;
-  title: string;
-  description: string;
-  start_time: string;
-  end_time: string;
-  is_all_day: boolean;
-  location: string;
-  calendar_name: string;
-  calendar_color?: string;
-}
-
-const isTrulyAllDay = (event: CalendarEvent) => {
-  if (event.is_all_day) return true;
-  if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
-    const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
-    if (dur === 24 * 60 * 60 * 1000) return true;
-  }
-  return false;
-};
-
 export default function CalendarViewV2() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('cal_current_date');
@@ -56,59 +33,49 @@ export default function CalendarViewV2() {
     }
     return 'week';
   });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [isAddCalendarOpen, setIsAddCalendarOpen] = useState(false);
+  const [editingCalendar, setEditingCalendar] = useState<{ id: number; name: string; url: string; color: string; mode: 'ical' | 'caldav' } | null>(null);
+  const [isTaskSidebarOpen, setIsTaskSidebarOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+
+  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(currentDate, viewType);
+  const { calendars, refetch: refetchCalendars } = useCalendarSources();
+  const loading = eventsLoading || tasksLoading;
 
   // Persist state
   useEffect(() => { localStorage.setItem('cal_current_date', currentDate.toISOString()); }, [currentDate]);
   useEffect(() => { localStorage.setItem('cal_view_type', viewType); }, [viewType]);
 
-  const fetchData = useCallback(async () => {
-    if (loading && tasks.length > 0) return; // Skip if already loaded and not a refresh
+  // Fetch tasks
+  const fetchTasks = useCallback(async () => {
     try {
-      let start: Date, end: Date;
-      if (viewType === 'week') {
-        start = startOfWeek(currentDate, { weekStartsOn: 0 });
-        end = addDays(start, 13); // 2 weeks for padding
-      } else if (viewType === 'day') {
-        start = startOfDay(currentDate);
-        end = addDays(start, 2); // today + tomorrow for overnight events
-      } else {
-        start = startOfMonth(currentDate);
-        const eom = endOfMonth(currentDate);
-        // Pad to full weeks
-        const startPad = getDay(start);
-        start.setDate(start.getDate() - startPad);
-        const endPad = 6 - getDay(eom);
-        end = new Date(eom);
-        end.setDate(end.getDate() + endPad + 7); // extra week padding
-      }
-
-      const [tasksRes, eventsRes] = await Promise.all([
-        fetch('/api/v2/tasks'),
-        fetch(`/api/v2/calendar/events?start=${start.toISOString()}&end=${end.toISOString()}`)
-      ]);
-      if (tasksRes.ok) setTasks(await tasksRes.json());
-      if (eventsRes.ok) setEvents(await eventsRes.json());
+      const res = await fetch('/api/v2/tasks');
+      if (res.ok) setTasks(await res.json());
     } catch (e) {
-      console.error('Calendar fetch error:', e);
+      console.error('Tasks fetch error:', e);
     } finally {
-      setLoading(false);
+      setTasksLoading(false);
     }
-  }, [currentDate, viewType, loading, tasks.length]);
+  }, []);
 
-  useEffect(() => { fetchData(); }, [currentDate, viewType]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  // Auto-poll for live updates every 30s
   useEffect(() => {
-    const interval = setInterval(() => { fetchData(); }, 30000);
+    const interval = setInterval(() => { fetchTasks(); }, 30000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchTasks]);
 
   const handleRefresh = async () => {
-    setLoading(true);
-    await fetchData();
+    setTasksLoading(true);
+    await Promise.all([fetchTasks(), refetchEvents()]);
+  };
+
+  const handleDataChanged = () => {
+    refetchEvents();
+    fetchTasks();
   };
 
   const navigate = (dir: 'prev' | 'next') => {
@@ -137,7 +104,7 @@ export default function CalendarViewV2() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-    } catch { fetchData(); }
+    } catch { fetchTasks(); refetchEvents(); }
   };
 
   const getItemsForDay = (date: Date) => {
@@ -206,38 +173,6 @@ export default function CalendarViewV2() {
     );
   };
 
-  // --- Event card ---
-  const EventCard = ({ event, onClick }: { event: CalendarEvent; onClick?: (e: CalendarEvent) => void }) => {
-    const colors = eventColorStyle(event.calendar_color);
-    return (
-    <div
-      onClick={() => onClick?.(event)}
-      className={`p-1.5 px-2.5 rounded text-xs border ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
-      style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-    >
-      <div className="flex items-center gap-1.5">
-        {!isTrulyAllDay(event) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(event.start_time), 'h:mm a')}</span>}
-        <span className="font-medium truncate">{event.title}</span>
-      </div>
-    </div>
-  )};
-
-  // --- Task card ---
-  const TaskCard = ({ task, isOverdue = false }: { task: Task; isOverdue?: boolean }) => (
-    <div className={`p-2.5 rounded-md border text-sm cursor-pointer transition-all hover:shadow-sm ${
-      isOverdue ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30' :
-      task.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 line-through' :
-      'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800'
-    }`}>
-      <div className="flex items-start gap-2">
-        <button onClick={(e) => handleTaskToggle(task.id, e)} className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-300 hover:text-green-500 transition-colors">
-          {task.status === 'done' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} />}
-        </button>
-        <span className="line-clamp-2 text-gray-700 dark:text-gray-200">{task.content || 'Untitled Task'}</span>
-      </div>
-    </div>
-  );
-
   const selectedItems = getItemsForDay(selectedDay);
   const handleEventClick = (event: CalendarEvent) => setSelectedEvent(event);
 
@@ -272,11 +207,45 @@ export default function CalendarViewV2() {
           </div>
 
           <button onClick={resetToToday} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm min-h-[36px]">Today</button>
+          <button onClick={() => setIsTaskSidebarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Task List">
+            <ListTodo size={14} /> Tasks
+          </button>
           <button onClick={() => setIsAddCalendarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Add Calendar Subscription">
             <Plus size={14} /> Add Calendar
           </button>
         </div>
       </div>
+
+      {/* Calendar list pills */}
+      {calendars.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {calendars.map(cal => (
+            <div
+              key={cal.id}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+              style={{
+                backgroundColor: `rgba(${hexToRgb(cal.color || '#7c3aed').r}, ${hexToRgb(cal.color || '#7c3aed').g}, ${hexToRgb(cal.color || '#7c3aed').b}, 0.15)`,
+                borderColor: `rgba(${hexToRgb(cal.color || '#7c3aed').r}, ${hexToRgb(cal.color || '#7c3aed').g}, ${hexToRgb(cal.color || '#7c3aed').b}, 0.3)`,
+                color: cal.color || '#7c3aed',
+              }}
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cal.color || '#7c3aed' }} />
+              <span>{cal.name}</span>
+              <button
+                onClick={() => {
+                  const mode = cal.server_url?.includes('.ics') || cal.calendar_url?.includes('.ics') ? 'ical' as const : 'caldav' as const;
+                  setEditingCalendar({ id: cal.id, name: cal.name, url: cal.calendar_url || cal.server_url, color: cal.color || '#7c3aed', mode });
+                  setIsAddCalendarOpen(true);
+                }}
+                className="ml-0.5 p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors opacity-60 hover:opacity-100"
+                title="Edit calendar"
+              >
+                <Pencil size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Pull-to-refresh wrapper */}
       <PullToRefresh onRefresh={handleRefresh} className="max-h-[60vh] md:max-h-none">
@@ -287,7 +256,7 @@ export default function CalendarViewV2() {
               <AlertCircle size={16} /> Overdue <span className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full text-xs font-bold">{overdueTasks.length}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {overdueTasks.map(t => <TaskCard key={t.id} task={t} isOverdue />)}
+              {overdueTasks.map(t => <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} variant="overdue" />)}
             </div>
           </div>
         )}
@@ -295,7 +264,7 @@ export default function CalendarViewV2() {
         {/* ===== MOBILE: Week = day strip + detail, Month = compact grid, Day = time grid ===== */}
         <div className="md:hidden space-y-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => fetchData()} />
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
           ) : viewType === 'week' ? (
             <>
               {/* Week: Horizontal day strip */}
@@ -305,7 +274,7 @@ export default function CalendarViewV2() {
                 ))}
               </div>
               {/* Selected day detail */}
-              <DayDetailPanel day={selectedDay} items={selectedItems} onEventClick={handleEventClick} />
+              <DayDetailPanel day={selectedDay} items={selectedItems} onEventClick={handleEventClick} onTaskToggle={handleTaskToggle} />
             </>
           ) : (
             <>
@@ -358,7 +327,7 @@ export default function CalendarViewV2() {
         {/* ===== DESKTOP & TABLET: Grid View ===== */}
         <div className="hidden md:block pb-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => fetchData()} />
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
           ) : viewType === 'week' ? (
             <div className="grid grid-cols-7 gap-3 min-w-[800px]">
               {gridDays.map(day => (
@@ -389,21 +358,27 @@ export default function CalendarViewV2() {
 
       {/* Modals */}
       <AddCalendarModal
+        key={editingCalendar?.id || 'new'}
         isOpen={isAddCalendarOpen}
-        onClose={() => setIsAddCalendarOpen(false)}
-        onSuccess={() => { fetchData(); fetch('/api/caldav/sync', { method: 'POST' }).catch(console.error); }}
+        editCalendar={editingCalendar ?? undefined}
+        onClose={() => { setIsAddCalendarOpen(false); setEditingCalendar(null); }}
+        onSuccess={() => { handleDataChanged(); fetch('/api/caldav/sync', { method: 'POST' }).catch(console.error); }}
       />
       <EventDetailModal
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
         event={selectedEvent as any}
       />
+      <CalendarTaskSidebar
+        isOpen={isTaskSidebarOpen}
+        onClose={() => setIsTaskSidebarOpen(false)}
+      />
     </div>
   );
 }
 
 // --- Shared: Day detail panel (mobile) ---
-function DayDetailPanel({ day, items, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onEventClick?: (e: CalendarEvent) => void }) {
+function DayDetailPanel({ day, items, onEventClick, onTaskToggle }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onEventClick?: (e: CalendarEvent) => void; onTaskToggle?: (id: number, e: React.MouseEvent) => void }) {
   return (
     <div className={`rounded-xl p-4 ${isToday(day) ? 'bg-blue-50/50 dark:bg-blue-900/5 ring-1 ring-blue-100 dark:ring-blue-900/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
       <div className="flex items-center justify-between mb-3">
@@ -417,27 +392,11 @@ function DayDetailPanel({ day, items, onEventClick }: { day: Date; items: { task
         <p className="text-sm text-gray-400 py-4 text-center">Nothing scheduled</p>
       ) : (
         <div className="space-y-2">
-          {items.events.map(e => {
-            const colors = eventColorStyle(e.calendar_color);
-            return (
-            <div
-              key={`evt-${e.id}`}
-              onClick={() => onEventClick?.(e)}
-              className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
-              style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-            >
-              <div className="flex items-center gap-1.5">
-                {!(e.is_all_day) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(e.start_time), 'h:mm a')}</span>}
-                <span className="font-medium truncate">{e.title}</span>
-              </div>
-            </div>
-          )})}
+          {items.events.map(e => (
+            <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
+          ))}
           {items.tasks.map(t => (
-            <div key={`task-${t.id}`} className={`p-2.5 rounded-md border text-sm ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-              <div className="flex items-start gap-2">
-                <span className={`line-clamp-2 ${t.status === 'done' ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-200'}`}>{t.content || 'Untitled Task'}</span>
-              </div>
-            </div>
+            <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={(id, e) => onTaskToggle?.(id, e)} />
           ))}
         </div>
       )}
@@ -455,30 +414,11 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; ite
         <div className={`text-lg font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</div>
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
-        {items.events.map((e: CalendarEvent) => {
-          const colors = eventColorStyle(e.calendar_color);
-          return (
-          <div
-            key={`evt-${e.id}`}
-            onClick={() => onEventClick?.(e)}
-            className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-          >
-            <div className="flex items-center gap-1.5">
-              {!isTrulyAllDay(e) && <span className="text-xs opacity-75 whitespace-nowrap">{format(new Date(e.start_time), 'h:mm a')}</span>}
-              <span className="font-medium truncate">{e.title}</span>
-            </div>
-          </div>
-        )})}
+        {items.events.map((e: CalendarEvent) => (
+          <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
+        ))}
         {items.tasks.map((t: Task) => (
-          <div key={`task-${t.id}`} className={`p-1.5 rounded text-xs border ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30 line-through' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200'}`}>
-            <div className="flex items-start gap-1">
-              <button onClick={(e) => onToggle(t.id, e)} className="min-w-[24px] min-h-[24px] flex items-center justify-center text-gray-300 hover:text-green-500">
-                {t.status === 'done' ? <CheckCircle2 size={14} className="text-green-500" /> : <Circle size={14} />}
-              </button>
-              <span className="line-clamp-1 text-gray-700 dark:text-gray-200">{t.content}</span>
-            </div>
-          </div>
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="default" />
         ))}
         {items.tasks.length === 0 && items.events.length === 0 && <div className="h-full border-t border-transparent" />}
       </div>
@@ -503,23 +443,11 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
         {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
       </div>
       <div className="space-y-0.5">
-        {items.events.slice(0, 3).map(e => {
-          const colors = eventColorStyle(e.calendar_color);
-          return (
-          <div
-            key={`evt-${e.id}`}
-            onClick={() => onEventClick?.(e)}
-            className="p-0.5 px-1.5 rounded text-[10px] truncate cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-          >
-            {!isTrulyAllDay(e) && <span className="opacity-60 mr-1">{format(new Date(e.start_time), 'h:mm a')}</span>}
-            {e.title}
-          </div>
-        )})}
+        {items.events.slice(0, 3).map(e => (
+          <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} variant="compact" />
+        ))}
         {items.tasks.slice(0, 3).map(t => (
-          <div key={`task-${t.id}`} className={`p-0.5 px-1.5 rounded text-[10px] truncate ${t.status === 'done' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 line-through' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-            {t.content}
-          </div>
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="compact" />
         ))}
         {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
         {total === 0 && <div className="h-8" />}
@@ -529,12 +457,13 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
 }
 
 // --- Day View ---
-function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
+function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle }: {
   day: Date;
   events: CalendarEvent[];
   tasks: Task[];
   onEventClick?: (e: CalendarEvent) => void;
   onEventMoved?: () => void;
+  onTaskToggle?: (taskId: number, e: React.MouseEvent) => void;
 }) {
   const HOUR_HEIGHT = 64;
   const HOUR_START = 0;
@@ -548,8 +477,14 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
     ? now.getHours() * 60 + now.getMinutes()
     : -1;
 
+  // Task creation state
+  const [creatingAt, setCreatingAt] = useState<{ time: Date; y: number } | null>(null);
+  const [creatingValue, setCreatingValue] = useState('');
+  const createInputRef = useRef<HTMLInputElement>(null);
+
   // Drag state
   const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
+  const [dragTask, setDragTask] = useState<Task | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
   const lastTouchY = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -565,42 +500,167 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
   const allDayEvents = dayEvents.filter(e => isTrulyAllDay(e));
   const timedEvents = dayEvents.filter(e => !isTrulyAllDay(e));
 
+  // Filter tasks for this day
+  const dayTasks = tasks.filter(t => {
+    if (!t.due_date || t.status === 'done') return false;
+    const taskDate = parseLocalDateNode(t.due_date) as Date;
+    return isSameDay(taskDate, day);
+  });
+
+  const timedTasks = dayTasks.filter(t => {
+    if (!t.due_date) return false;
+    const d = new Date(t.due_date);
+    return d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0;
+  });
+
+  const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
+
+  // Compute column layout for overlapping timed events
+  const eventLayouts = useMemo(() => {
+    const sorted = [...timedEvents].sort((a, b) =>
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+    const colMap = new Map<number, number>();
+    for (let i = 0; i < sorted.length; i++) {
+      const e = sorted[i];
+      const eStart = new Date(e.start_time).getTime();
+      const eEnd = new Date(e.end_time).getTime();
+      const used = new Set<number>();
+      for (let j = 0; j < i; j++) {
+        const o = sorted[j];
+        const oStart = new Date(o.start_time).getTime();
+        const oEnd = new Date(o.end_time).getTime();
+        if (eStart < oEnd && eEnd > oStart) {
+          used.add(colMap.get(o.id)!);
+        }
+      }
+      let col = 0;
+      while (used.has(col)) col++;
+      colMap.set(e.id, col);
+    }
+    const result = new Map<number, { column: number; total: number }>();
+    for (const event of timedEvents) {
+      const eStart = new Date(event.start_time).getTime();
+      const eEnd = new Date(event.end_time).getTime();
+      let maxCol = 0;
+      for (const [otherId, col] of colMap) {
+        if (otherId === event.id) continue;
+        const other = timedEvents.find(ev => ev.id === otherId)!;
+        const oStart = new Date(other.start_time).getTime();
+        const oEnd = new Date(other.end_time).getTime();
+        if (eStart < oEnd && eEnd > oStart) {
+          maxCol = Math.max(maxCol, col);
+        }
+      }
+      result.set(event.id, {
+        column: colMap.get(event.id) ?? 0,
+        total: Math.max(maxCol + 1, (colMap.get(event.id) ?? 0) + 1),
+      });
+    }
+    return result;
+  }, [timedEvents]);
+
   return (
     <div className="mt-2">
-      {/* All-day events row */}
-      {allDayEvents.length > 0 && (
+      {/* All-day events + tasks row */}
+      {(allDayEvents.length > 0 || allDayTasks.length > 0) && (
         <div className="flex flex-wrap gap-1.5 mb-3 px-1">
-          {allDayEvents.map(e => {
-            const colors = eventColorStyle(e.calendar_color);
-            return (
-              <div
-                key={`allday-${e.id}`}
-                onClick={() => onEventClick?.(e)}
-                className="px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80"
-                style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-              >
-                {e.title}
-              </div>
-            );
-          })}
+          {allDayEvents.map(e => (
+            <EventCard key={`allday-${e.id}`} event={e} onClick={onEventClick} variant="allday" />
+          ))}
+          {allDayTasks.map(t => (
+            <div
+              key={`allday-task-${t.id}`}
+              draggable
+              onDragStart={(e) => {
+                setDragTask(t);
+                setDragEvent(null);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', `task-${t.id}`);
+              }}
+              onDragEnd={() => setDragTask(null)}
+              onClick={(e) => onTaskToggle?.(t.id, e)}
+              className="px-2 py-1 rounded text-xs border border-dashed cursor-grab hover:opacity-80 bg-bg-secondary border-border-subtle text-text-primary"
+            >
+              {t.content}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Time grid */}
       <div ref={gridRef} className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
            style={{ height: totalHeight }}
+           onClick={(e) => {
+             const target = e.target as HTMLElement;
+             if (target !== gridRef.current && !target.classList.contains('hour-row-bg')) return;
+             const rect = gridRef.current!.getBoundingClientRect();
+             const y = e.clientY - rect.top;
+             const minutes = Math.round((y / HOUR_HEIGHT) * 60 / 15) * 15;
+             const clampedMinutes = Math.max(0, Math.min(minutes, 24 * 60 - 15));
+             const newDate = new Date(day);
+             newDate.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+             setCreatingAt({ time: newDate, y: (clampedMinutes / 60) * HOUR_HEIGHT });
+             setCreatingValue('');
+             setTimeout(() => createInputRef.current?.focus(), 50);
+           }}
            onDragOver={(e) => {
              e.preventDefault();
              e.dataTransfer.dropEffect = 'move';
            }}
            onDrop={(e) => {
              e.preventDefault();
-             if (!dragEvent) return;
 
              const gridRect = e.currentTarget.getBoundingClientRect();
-             const dropY = e.clientY - gridRect.top - dragOffsetY;
+             const dropY = e.clientY - gridRect.top - (dragOffsetY || 0);
              const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
              const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
+
+             if (dragTask) {
+               // Dropping a task → set its due time
+               const newDue = new Date(day);
+               newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+
+               fetch(`/api/v2/tasks/${dragTask.id}`, {
+                 method: 'PUT',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ due_date: newDue.toISOString() }),
+               }).catch(err => console.error('Task drop failed:', err));
+
+               setDragTask(null);
+               setDragOffsetY(0);
+               setTimeout(() => onEventMoved?.(), 500);
+               return;
+             }
+
+              if (!dragEvent) {
+                // Handle external task drop from sidebar (no state set)
+                let taskId: number | null = null;
+                const dropData = e.dataTransfer.getData('text/plain');
+                const taskMatch = dropData.match(/^task-(\d+)$/);
+                if (taskMatch) {
+                  taskId = parseInt(taskMatch[1]);
+                } else {
+                  const appData = e.dataTransfer.getData('application/task-id');
+                  if (appData) {
+                    taskId = parseInt(appData);
+                  }
+                }
+                if (taskId !== null) {
+                  const task = tasks.find(t => t.id === taskId);
+                  if (task) {
+                    const newDue = new Date(day);
+                    newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+                    fetch(`/api/v2/tasks/${taskId}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ due_date: newDue.toISOString() }),
+                    }).catch(err => console.error('Task drop failed:', err));
+                    setTimeout(() => onEventMoved?.(), 500);
+                  }
+                }
+                return;
+              }
 
              const durationMinutes = Math.max(
                (new Date(dragEvent.end_time).getTime() - new Date(dragEvent.start_time).getTime()) / 60000,
@@ -630,10 +690,10 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
         {hours.map(hour => (
           <div 
             key={hour}
-            className="absolute left-0 right-0 border-t border-border-subtle"
-            style={{ top: (hour - HOUR_START) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+            className="absolute left-0 right-0 border-t border-border-subtle/30 hour-row-bg cursor-pointer"
+            style={{ top: (hour - HOUR_START) * HOUR_HEIGHT, height: HOUR_HEIGHT, zIndex: 0 }}
           >
-            <span className="absolute -top-3 left-2 text-xs text-text-muted bg-bg-primary px-1">
+            <span className="absolute -top-3 left-2 text-xs text-text-muted bg-bg-primary px-1 pointer-events-none">
               {format(new Date(2024, 0, 1, hour), 'h a')}
             </span>
           </div>
@@ -660,6 +720,11 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
           const top = (startMinutes / 60) * HOUR_HEIGHT;
           const height = (durationMinutes / 60) * HOUR_HEIGHT;
           const colors = eventColorStyle(event.calendar_color);
+          const layout = eventLayouts.get(event.id) ?? { column: 0, total: 1 };
+          const leftGutter = 48;
+          const gap = 1;
+          const leftOffset = `calc(${leftGutter}px + ${layout.column} * ((100% - ${leftGutter}px) / ${layout.total}))`;
+          const colWidth = `calc((100% - ${leftGutter}px - ${gap * (layout.total - 1)}px) / ${layout.total})`;
 
           return (
             <div
@@ -720,12 +785,14 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
                 setTimeout(() => onEventMoved?.(), 500);
               }}
               onClick={() => onEventClick?.(event)}
-              className={`absolute left-12 right-1 z-10 rounded px-2 py-1 border cursor-pointer overflow-hidden ${
+              className={`absolute z-20 rounded px-2 py-1 border cursor-pointer overflow-hidden ${
                 dragEvent?.id === event.id ? 'opacity-40' : 'hover:opacity-80'
               }`}
               style={{
                 top,
                 height,
+                left: leftOffset,
+                width: colWidth,
                 backgroundColor: colors.backgroundColor,
                 borderColor: colors.borderColor,
                 color: colors.color,
@@ -740,6 +807,86 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved }: {
             </div>
           );
         })}
+
+        {/* Timed tasks */}
+        {timedTasks.map(t => {
+          if (!t.due_date) return null;
+          const d = parseLocalDateNode(t.due_date) as Date;
+          const startMinutes = d.getHours() * 60 + d.getMinutes();
+          const taskTop = (startMinutes / 60) * HOUR_HEIGHT;
+
+          return (
+            <CalendarTaskBlock
+              key={`task-${t.id}`}
+              task={t}
+              day={day}
+              hourHeight={HOUR_HEIGHT}
+              top={taskTop}
+              onToggle={onTaskToggle}
+              onDragStart={(task, e) => {
+                setDragTask(task);
+                setDragEvent(null);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDragOffsetY(e.clientY - rect.top);
+              }}
+              onDragEnd={() => {
+                setDragTask(null);
+                setDragOffsetY(0);
+              }}
+            />
+          );
+        })}
+
+        {/* Inline task creator */}
+        {creatingAt && (
+          <div
+            className="absolute left-12 right-1 z-30 rounded-md border-2 border-indigo-400 bg-indigo-500/20 overflow-hidden shadow-lg"
+            style={{ top: creatingAt.y, minHeight: HOUR_HEIGHT }}
+          >
+            <div className="flex items-center gap-2 px-2 py-1">
+              <span className="text-[10px] font-medium text-indigo-300 whitespace-nowrap">
+                {format(creatingAt.time, 'h:mm a')}
+              </span>
+              <input
+                ref={createInputRef}
+                type="text"
+                value={creatingValue}
+                onChange={(e) => setCreatingValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && creatingValue.trim()) {
+                    fetch('/api/v2/tasks', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
+                    })
+                      .then(res => { if (res.ok) { onEventMoved?.(); } })
+                      .catch(console.error);
+                    setCreatingAt(null);
+                    setCreatingValue('');
+                  } else if (e.key === 'Escape') {
+                    setCreatingAt(null);
+                    setCreatingValue('');
+                  }
+                }}
+                onBlur={() => {
+                  if (creatingValue.trim()) {
+                    fetch('/api/v2/tasks', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
+                    })
+                      .then(res => { if (res.ok) { onEventMoved?.(); } })
+                      .catch(console.error);
+                  }
+                  setCreatingAt(null);
+                  setCreatingValue('');
+                }}
+                placeholder="Add task..."
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-indigo-300/70 min-w-0"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
