@@ -11,6 +11,7 @@ import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarSources } from '@/hooks/useCalendarSources';
+import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
@@ -39,6 +40,7 @@ export default function CalendarViewV2() {
   const [isAddCalendarOpen, setIsAddCalendarOpen] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState<{ id: number; name: string; url: string; color: string; mode: 'ical' | 'caldav' } | null>(null);
   const [isTaskSidebarOpen, setIsTaskSidebarOpen] = useState(false);
+  const [isUnscheduledPanelOpen, setIsUnscheduledPanelOpen] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(currentDate, viewType);
@@ -105,6 +107,23 @@ export default function CalendarViewV2() {
         body: JSON.stringify({ status: newStatus })
       });
     } catch { fetchTasks(); refetchEvents(); }
+
+  const handleDropTask = async (taskId: number, targetDay: Date) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: targetDay.toISOString() } : t));
+    try {
+      await fetch(`/api/v2/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_date: targetDay.toISOString() }),
+      });
+    } catch {
+      fetchTasks();
+    }
+    fetchTasks();
+    refetchEvents();
+  };
   };
 
   const getItemsForDay = (date: Date) => {
@@ -207,7 +226,7 @@ export default function CalendarViewV2() {
           </div>
 
           <button onClick={resetToToday} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm min-h-[36px]">Today</button>
-          <button onClick={() => setIsTaskSidebarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Task List">
+          <button onClick={() => setIsUnscheduledPanelOpen(v => !v)} className={`px-3 py-2 flex items-center gap-1.5 text-sm rounded-lg transition-colors min-h-[36px] ${isUnscheduledPanelOpen ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-800 text-text-primary hover:bg-gray-200 dark:hover:bg-gray-700'}`} title="Task Panel">
             <ListTodo size={14} /> Tasks
           </button>
           <button onClick={() => setIsAddCalendarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Add Calendar Subscription">
@@ -324,31 +343,38 @@ export default function CalendarViewV2() {
           )}
         </div>
 
-        {/* ===== DESKTOP & TABLET: Grid View ===== */}
-        <div className="hidden md:block pb-4">
-          {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
-          ) : viewType === 'week' ? (
-            <div className="grid grid-cols-7 gap-3 min-w-[800px]">
-              {gridDays.map(day => (
-                <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} />
-              ))}
-            </div>
-          ) : (
-            /* Month: responsive 7-column calendar grid */
-            <div>
-              {/* Day-of-week headers */}
-              <div className="grid grid-cols-7 mb-2">
-                {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d => (
-                  <div key={d} className="text-center text-xs font-semibold uppercase tracking-wider text-text-muted py-2">{d.slice(0,3)}</div>
-                ))}
-              </div>
-              {/* Month cells */}
-              <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+        {/* ===== DESKTOP & TABLET: Grid View + Task Panel ===== */}
+        <div className="hidden md:flex gap-4 pb-4">
+          <div className="flex-1 min-w-0">
+            {viewType === 'day' ? (
+              <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
+            ) : viewType === 'week' ? (
+              <div className="grid grid-cols-7 gap-3 min-w-[600px]">
                 {gridDays.map(day => (
-                  <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} />
+                  <DesktopWeekDay key={day.toISOString()} day={day} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} />
                 ))}
               </div>
+            ) : (
+              /* Month: responsive 7-column calendar grid */
+              <div>
+                {/* Day-of-week headers */}
+                <div className="grid grid-cols-7 mb-2">
+                  {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d => (
+                    <div key={d} className="text-center text-xs font-semibold uppercase tracking-wider text-text-muted py-2">{d.slice(0,3)}</div>
+                  ))}
+                </div>
+                {/* Month cells */}
+                <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                  {gridDays.map(day => (
+                    <DesktopMonthDay key={day.toISOString()} day={day} currentMonth={currentDate.getMonth()} items={getItemsForDay(day)} onToggle={handleTaskToggle} onEventClick={handleEventClick} onDropTask={(taskId, targetDay) => { handleDropTask(taskId, targetDay); }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {isUnscheduledPanelOpen && (
+            <div className="w-72 shrink-0 border border-border-default rounded-xl bg-bg-primary overflow-hidden">
+              <UnscheduledTaskPanel isOpen={true} onClose={() => setIsUnscheduledPanelOpen(false)} onTaskScheduled={() => handleDataChanged()} />
             </div>
           )}
         </div>
@@ -372,6 +398,13 @@ export default function CalendarViewV2() {
       <CalendarTaskSidebar
         isOpen={isTaskSidebarOpen}
         onClose={() => setIsTaskSidebarOpen(false)}
+      />
+
+      {/* Mobile: Bottom drawer for unscheduled tasks */}
+      <UnscheduledTaskDrawer
+        isOpen={isUnscheduledPanelOpen}
+        onClose={() => setIsUnscheduledPanelOpen(false)}
+        onTaskScheduled={() => handleDataChanged()}
       />
     </div>
   );
@@ -405,10 +438,30 @@ function DayDetailPanel({ day, items, onEventClick, onTaskToggle }: { day: Date;
 }
 
 // --- Desktop Week Day Cell ---
-function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void }) {
+function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void }) {
   const isTodayDate = isToday(day);
+  const [isDragOver, setIsDragOver] = useState(false);
+
   return (
-    <div className={`flex flex-col gap-2 min-h-[200px] ${isTodayDate ? 'bg-blue-50/50 dark:bg-blue-900/5 rounded-xl -mx-2 px-2 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>
+    <div
+      className={`flex flex-col gap-2 min-h-[200px] transition-colors ${isTodayDate ? 'bg-blue-50/50 dark:bg-blue-900/5 rounded-xl -mx-2 px-2 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''} ${isDragOver ? 'ring-2 ring-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const dropData = e.dataTransfer.getData('text/plain');
+        const taskMatch = dropData.match(/^task-(\d+)$/);
+        if (taskMatch) {
+          const taskId = parseInt(taskMatch[1]);
+          onDropTask?.(taskId, day);
+        }
+        const appData = e.dataTransfer.getData('application/task-id');
+        if (appData) {
+          onDropTask?.(parseInt(appData), day);
+        }
+      }}
+    >
       <div className="text-center mb-1">
         <div className={`text-xs font-medium uppercase tracking-wider ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>{format(day, 'EEE')}</div>
         <div className={`text-lg font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</div>
@@ -418,7 +471,7 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; ite
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
         ))}
         {items.tasks.map((t: Task) => (
-          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="default" />
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="default" draggable />
         ))}
         {items.tasks.length === 0 && items.events.length === 0 && <div className="h-full border-t border-transparent" />}
       </div>
@@ -427,17 +480,37 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick }: { day: Date; ite
 }
 
 // --- Desktop Month Day Cell ---
-function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void }) {
+function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onDropTask }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void }) {
   const isTodayDate = isToday(day);
   const inMonth = day.getMonth() === currentMonth;
   const total = items.tasks.length + items.events.length;
   const doneCount = items.tasks.filter(t => t.status === 'done').length;
+  const [isDragOver, setIsDragOver] = useState(false);
 
   return (
-    <div className={`min-h-[100px] p-2 bg-white dark:bg-gray-800 transition-colors ${
-      isTodayDate ? 'bg-blue-50 dark:bg-blue-900/20' :
-      inMonth ? '' : 'bg-gray-50 dark:bg-gray-850 opacity-50'
-    }`}>
+    <div
+      className={`min-h-[100px] p-2 transition-colors ${
+        isDragOver ? 'ring-2 ring-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10' :
+        isTodayDate ? 'bg-blue-50 dark:bg-blue-900/20' :
+        inMonth ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-850 opacity-50'
+      }`}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const dropData = e.dataTransfer.getData('text/plain');
+        const taskMatch = dropData.match(/^task-(\d+)$/);
+        if (taskMatch) {
+          const taskId = parseInt(taskMatch[1]);
+          onDropTask?.(taskId, day);
+        }
+        const appData = e.dataTransfer.getData('application/task-id');
+        if (appData) {
+          onDropTask?.(parseInt(appData), day);
+        }
+      }}
+    >
       <div className={`text-sm font-semibold mb-1 ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : inMonth ? 'text-text-primary' : 'text-text-muted'}`}>
         {format(day, 'd')}
         {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
@@ -447,7 +520,7 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick }: {
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} variant="compact" />
         ))}
         {items.tasks.slice(0, 3).map(t => (
-          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="compact" />
+          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} variant="compact" draggable />
         ))}
         {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
         {total === 0 && <div className="h-8" />}
