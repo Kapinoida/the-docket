@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Task } from '@/types/v2';
-import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, isTomorrow, isPast } from 'date-fns';
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
-import { parseLocalDateNode } from '../../lib/dateUtils';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
+import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday } from 'date-fns';
+import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { parseLocalDateNode } from '@/lib/dateUtils';
+import { EventCard } from '@/components/calendar/EventCard';
+import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
+import { useCalendarEventsRange } from '@/hooks/useCalendarEvents';
 import EventDetailModal from '../modals/EventDetailModal';
-
-// Shared helper: generate color from hex
-const eventColorStyle = (color?: string) => {
-  const c = color || '#7c3aed';
-  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
-};
 
 interface WeeklyCalendarProps {
   onTaskSelect?: (task: Task) => void;
@@ -20,40 +18,33 @@ interface WeeklyCalendarProps {
 
 export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyCalendarProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
-  const [loading, setLoading] = useState(true);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [tasksLoading, setTasksLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, [currentStart]);
+  const windowEnd = addDays(currentStart, 7);
+  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEventsRange(currentStart, windowEnd);
+  const loading = tasksLoading || eventsLoading;
 
-  // Auto-poll every 30s for live updates
-  useEffect(() => {
-    const interval = setInterval(() => { fetchData(); }, 30000);
-    return () => clearInterval(interval);
-  }, [currentStart]);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchTasks = useCallback(async () => {
     try {
-      const windowEnd = addDays(currentStart, 7);
-
-      const [tasksRes, eventsRes] = await Promise.all([
-        fetch('/api/v2/tasks'),
-        fetch(`/api/v2/calendar/events?start=${currentStart.toISOString()}&end=${windowEnd.toISOString()}`)
-      ]);
-
-      if (tasksRes.ok) setTasks(await tasksRes.json());
-      if (eventsRes.ok) setEvents(await eventsRes.json());
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      const res = await fetch('/api/v2/tasks');
+      if (res.ok) setTasks(await res.json());
+    } catch (e) {
+      console.error('Tasks fetch error:', e);
     } finally {
-      setLoading(false);
+      setTasksLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  useEffect(() => {
+    const interval = setInterval(() => { fetchTasks(); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchTasks]);
 
   const handleTaskComplete = async (taskId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -67,7 +58,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
       if (response.ok) {
         onTaskComplete?.(taskId);
       } else {
-        fetchData();
+        fetchTasks();
       }
     } catch (err) {
       console.error("Failed to complete task", err);
@@ -92,15 +83,6 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentStart, i));
 
-  const isTrulyAllDay = (event: any) => {
-    if (event.is_all_day) return true;
-    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
-      const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
-      if (dur === 24 * 60 * 60 * 1000) return true;
-    }
-    return false;
-  };
-
   const getItemsForDay = (date: Date) => {
     const dayTasks = tasks.filter(task =>
       task.status !== 'done' &&
@@ -116,47 +98,10 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     return { tasks: dayTasks, events: dayEvents };
   };
 
-  const renderTaskCard = (task: Task, isOverdue = false) => (
-    <div
-      key={`task-${task.id}`}
-      onClick={() => onTaskSelect?.(task)}
-      className={`group relative p-2.5 rounded-md border text-sm cursor-pointer transition-all hover:shadow-sm ${
-        isOverdue
-          ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
-          : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800'
-      }`}
-    >
-      <div className="flex items-start gap-2">
-        <button
-          onClick={(e) => handleTaskComplete(task.id, e)}
-          className={`p-1 -m-1 min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-300 hover:text-green-500 transition-colors ${isOverdue ? 'text-red-300 hover:text-red-500' : ''}`}
-        >
-          <Circle size={16} strokeWidth={2} />
-        </button>
-        <span className={`line-clamp-2 ${isOverdue ? 'text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-200'}`}>
-          {task.content || 'Untitled Task'}
-        </span>
-      </div>
-    </div>
-  );
-
-  const renderEventCard = (event: any) => {
-    const colors = eventColorStyle(event.calendar_color);
-    return (
-    <div
-      key={`event-${event.id}`}
-      onClick={() => setSelectedEvent(event)}
-      className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
-      style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs opacity-75 whitespace-nowrap">
-          {!isTrulyAllDay(event) && format(new Date(event.start_time), 'h:mm a')}
-        </span>
-        <span className="font-medium truncate">{event.title}</span>
-      </div>
-    </div>
-  )};
+  const handleTaskToggle = (taskId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleTaskComplete(taskId, e);
+  };
 
   // --- Shared: Day chip used in both mobile strip and within day detail ---
   const DayChip = ({ day, onSelect, selected }: { day: Date; onSelect?: (d: Date) => void; selected?: boolean }) => {
@@ -238,7 +183,9 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
             <span className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full text-xs font-bold">{overdueTasks.length}</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {overdueTasks.map(task => renderTaskCard(task, true))}
+            {overdueTasks.map(task => (
+              <CalendarTaskCard key={task.id} task={task} onToggle={handleTaskToggle} variant="overdue" onClick={() => onTaskSelect?.(task)} />
+            ))}
           </div>
         </div>
       )}
@@ -277,8 +224,12 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
             <p className="text-sm text-gray-400 py-4 text-center">Nothing scheduled</p>
           ) : (
             <div className="space-y-2">
-              {selectedItems.events.map(e => renderEventCard(e))}
-              {selectedItems.tasks.map(t => renderTaskCard(t))}
+              {selectedItems.events.map(e => (
+                <EventCard key={`evt-${e.id}`} event={e} onClick={() => setSelectedEvent(e)} />
+              ))}
+              {selectedItems.tasks.map(t => (
+                <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={() => onTaskSelect?.(t)} />
+              ))}
             </div>
           )}
         </div>
@@ -303,10 +254,14 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
               <div className="flex flex-col gap-2 flex-1">
                 {dayEvents.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    {dayEvents.map(e => renderEventCard(e))}
+                    {dayEvents.map(e => (
+                      <EventCard key={`evt-${e.id}`} event={e} onClick={() => setSelectedEvent(e)} />
+                    ))}
                   </div>
                 )}
-                {dayTasks.map(t => renderTaskCard(t))}
+                {dayTasks.map(t => (
+                    <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={() => onTaskSelect?.(t)} />
+                  ))}
                 {dayTasks.length === 0 && dayEvents.length === 0 && (
                   <div className="h-full border-t border-transparent" />
                 )}

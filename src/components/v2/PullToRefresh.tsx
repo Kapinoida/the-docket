@@ -73,7 +73,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
   return (
     <div
       ref={containerRef}
-      className={`overflow-y-auto overscroll-contain ${className}`}
+      className={`overflow-y-auto overscroll-contain md:overflow-visible ${className}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

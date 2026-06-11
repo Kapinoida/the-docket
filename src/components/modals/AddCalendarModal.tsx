@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Link as LinkIcon, User, Lock, Loader2 } from 'lucide-react';
 import ColorPicker from '../ui/ColorPicker';
 
@@ -8,9 +8,10 @@ interface AddCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  editCalendar?: { id: number; name: string; url: string; color: string; mode: 'ical' | 'caldav' };
 }
 
-export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCalendarModalProps) {
+export default function AddCalendarModal({ isOpen, onClose, onSuccess, editCalendar }: AddCalendarModalProps) {
   const [mode, setMode] = useState<'ical' | 'caldav'>('ical');
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -20,6 +21,22 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
   const [error, setError] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState('#7c3aed');
 
+  useEffect(() => {
+    if (editCalendar) {
+      setName(editCalendar.name);
+      setUrl(editCalendar.url);
+      setSelectedColor(editCalendar.color);
+      setMode(editCalendar.mode);
+    } else {
+      setName('');
+      setUrl('');
+      setUsername('');
+      setPassword('');
+      setSelectedColor('#7c3aed');
+      setMode('ical');
+    }
+  }, [editCalendar]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +45,7 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
     setIsLoading(true);
 
     try {
-      const payload = mode === 'ical' 
+      const basePayload = mode === 'ical' 
         ? {
             name: name || 'Calendar Subscription',
             server_url: url,
@@ -44,6 +61,8 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
             resource_type: 'event_calendar',
             color: selectedColor
           };
+
+      const payload = editCalendar ? { ...basePayload, id: editCalendar.id } : basePayload;
 
       const res = await fetch('/api/caldav/config', {
         method: 'POST',
@@ -78,7 +97,7 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-text-primary flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-accent-blue" />
-            Add Calendar
+            {editCalendar ? 'Edit Calendar' : 'Add Calendar'}
           </h2>
           <button 
             onClick={onClose}
@@ -198,7 +217,7 @@ export default function AddCalendarModal({ isOpen, onClose, onSuccess }: AddCale
               className="px-4 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === 'ical' ? 'Subscribe' : 'Connect Account'}
+              {editCalendar ? 'Save Changes' : mode === 'ical' ? 'Subscribe' : 'Connect Account'}
             </button>
           </div>
         </form>

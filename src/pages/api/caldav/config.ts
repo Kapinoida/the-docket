@@ -64,6 +64,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (id) {
+        // Determine if this is an iCal subscription
+        const isICalEdit = (calendar_url && (calendar_url.includes('.ics') || calendar_url.includes('/ical/'))) || (server_url && server_url.includes('.ics'));
+
         // UPDATE
         let query = `
           UPDATE caldav_configs SET 
@@ -75,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             color = $6,
             updated_at = NOW()
         `;
-        const params = [server_url, username, calendar_url, name, resource_type || 'task_list', color || '#7c3aed'];
+        const params = [server_url, username || (isICalEdit ? 'ical_user' : ''), calendar_url, name, resource_type || 'event_calendar', color || '#7c3aed'];
 
         let paramIdx = 7;
         if (password) {

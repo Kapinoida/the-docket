@@ -1,9 +1,11 @@
-
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Task } from '../../types/v2';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
+import { EventCard } from '@/components/calendar/EventCard';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
@@ -12,21 +14,21 @@ import { TaskListSkeleton } from './Skeleton';
 import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
 
-// Shared helper: generate color from hex
-const eventColorStyle = (color?: string) => {
-  const c = color || '#7c3aed';
-  return { backgroundColor: `${c}18`, borderColor: `${c}40`, color: c };
-};
-
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const fetchTasks = async () => {
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(startOfToday, 'day');
+  const [tasksLoading, setTasksLoading] = useState(true);
+
+  const fetchTasks = useCallback(async () => {
     try {
       const res = await fetch('/api/v2/tasks?due=today');
       if (res.ok) {
@@ -35,47 +37,24 @@ export default function TodayView() {
       }
     } catch (error) {
       console.error('Failed to fetch today tasks', error);
+    } finally {
+      setTasksLoading(false);
     }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-      
-      const startISOString = startOfToday.toISOString();
-      const endISOString = endOfToday.toISOString();
-
-      const res = await fetch(`/api/v2/calendar/events?start=${startISOString}&end=${endISOString}`);
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch today events', error);
-    }
-  };
-
-  const fetchAll = async () => {
-    await Promise.all([fetchTasks(), fetchEvents()]);
-    setIsLoading(false);
-    setIsRefreshing(false);
-  };
-
-  useEffect(() => {
-    fetchAll();
   }, []);
 
-  // Auto-poll every 30s for live updates
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
   useEffect(() => {
-    const interval = setInterval(() => { fetchAll(); }, 30000);
+    const interval = setInterval(() => { fetchTasks(); }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchTasks]);
+
+  const loading = isLoading || (eventsLoading && events.length === 0) || (tasksLoading && tasks.length === 0);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchAll();
+    await Promise.all([fetchTasks(), refetchEvents()]);
+    setIsRefreshing(false);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -167,22 +146,13 @@ export default function TodayView() {
       return dueStr === todayStr;
   });
 
-  const isTrulyAllDay = (event: any) => {
-    if (event.is_all_day) return true;
-    if (typeof event.start_time === 'string' && event.start_time.endsWith('T00:00:00.000Z')) {
-        const dur = new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
-        if (dur === 24 * 60 * 60 * 1000) return true;
-    }
-    return false;
-  };
-
   const todayEvents = events.filter(event => {
     const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
     const eventDay = new Date(eventDate);
     eventDay.setHours(0, 0, 0, 0);
-    return eventDay.getTime() === today.getTime();
+    return eventDay.getTime() === todayDate.getTime();
   });
 
   return (
@@ -218,7 +188,7 @@ export default function TodayView() {
 
       {/* Pull-to-refresh wrapper for task list */}
       <PullToRefresh onRefresh={handleRefresh} className="max-h-[50vh] md:max-h-none">
-        {isLoading ? (
+        {loading ? (
             <TaskListSkeleton />
         ) : (
             <div className="space-y-8">
@@ -276,23 +246,9 @@ export default function TodayView() {
                                 <Calendar size={14} /> Events
                               </div>
                               <div className="rounded-xl p-3 border border-gray-100 dark:border-gray-800">
-                                {todayEvents.map(event => {
-                                  const colors = eventColorStyle(event.calendar_color);
-                                  return (
-                                  <div
-                                    key={`event-${event.id}`}
-                                    onClick={() => setSelectedEvent(event)}
-                                    className="p-1.5 px-2.5 rounded text-xs border cursor-pointer hover:opacity-80"
-                                    style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
-                                  >
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-xs opacity-75 whitespace-nowrap">
-                                        {!isTrulyAllDay(event) && format(new Date(event.start_time), 'h:mm a')}
-                                      </span>
-                                      <span className="font-medium truncate">{event.title}</span>
-                                    </div>
-                                  </div>
-                                )})}
+                                {todayEvents.map(event => (
+                                  <EventCard key={`event-${event.id}`} event={event} onClick={() => setSelectedEvent(event)} />
+                                ))}
                               </div>
                             </div>
                           )}
@@ -311,7 +267,7 @@ export default function TodayView() {
       <EventDetailModal
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
-        event={selectedEvent}
+        event={selectedEvent as any}
       />
     </div>
   );
