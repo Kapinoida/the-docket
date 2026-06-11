@@ -12,6 +12,7 @@ interface CalendarTaskBlockProps {
   hourHeight: number;
   top: number;
   onToggle?: (taskId: number, e: React.MouseEvent) => void;
+  onClick?: (task: Task) => void;
   onDragStart?: (task: Task, e: React.DragEvent) => void;
   onDragEnd?: () => void;
 }
@@ -28,6 +29,7 @@ export function CalendarTaskBlock({
   hourHeight,
   top,
   onToggle,
+  onClick,
   onDragStart,
   onDragEnd,
 }: CalendarTaskBlockProps) {
@@ -41,7 +43,8 @@ export function CalendarTaskBlock({
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (e.target instanceof HTMLElement && e.target.closest('[data-task-checkbox]')) return;
-  }, []);
+    onClick?.(task);
+  }, [onClick, task]);
 
   const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

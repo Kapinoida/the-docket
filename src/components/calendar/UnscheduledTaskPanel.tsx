@@ -5,6 +5,7 @@ import { Task } from '@/types/v2';
 import { X, GripVertical, CheckCircle2, Circle, Plus, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
+import { v2TaskToLegacy } from '@/lib/calendar';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 
 interface UnscheduledTaskPanelProps {
@@ -82,16 +83,7 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
   };
 
   const handleTaskClick = (task: Task) => {
-    openTaskEdit({
-      ...task,
-      id: task.id.toString(),
-      dueDate: task.due_date ? parseLocalDateNode(task.due_date) as Date : null,
-      completed: task.status === 'done',
-      createdAt: new Date(task.created_at),
-      updatedAt: new Date(task.updated_at),
-      content: task.content,
-      recurrenceRule: task.recurrence_rule,
-    } as any);
+    openTaskEdit(v2TaskToLegacy(task));
   };
 
   const formatScheduledLabel = (dateStr: string | Date | null) => {
