@@ -113,6 +113,7 @@ export default function CalendarViewV2() {
         body: JSON.stringify({ status: newStatus })
       });
     } catch { fetchTasks(); refetchEvents(); }
+  };
 
   const handleDropTask = async (taskId: number, targetDay: Date) => {
     const task = tasks.find(t => t.id === taskId);
@@ -129,7 +130,6 @@ export default function CalendarViewV2() {
     }
     fetchTasks();
     refetchEvents();
-  };
   };
 
   const getItemsForDay = (date: Date) => {
