@@ -37,6 +37,19 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     if (isOpen) fetchTasks();
   }, [isOpen, fetchTasks]);
 
+  // Cross-view sync
+  useEffect(() => {
+    const sync = () => { fetchTasks(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks]);
+
   const unscheduledTasks = tasks.filter(t => !t.due_date && t.status !== 'done');
   const scheduledTasks = tasks.filter(t => t.due_date && t.status !== 'done');
 
@@ -53,6 +66,7 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
         setQuickAddValue('');
         fetchTasks();
         inputRef.current?.focus();
+        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
       }
     } catch (e) {
       console.error('Failed to create task', e);
@@ -71,6 +85,7 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
         body: JSON.stringify({ status: newStatus }),
       });
       if (newStatus === 'done') setTimeout(() => fetchTasks(), 1500);
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
     } catch {
       fetchTasks();
     }

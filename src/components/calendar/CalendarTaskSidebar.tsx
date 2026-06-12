@@ -38,6 +38,19 @@ export default function CalendarTaskSidebar({ isOpen, onClose }: CalendarTaskSid
     if (isOpen) fetchTasks();
   }, [isOpen, fetchTasks]);
 
+  // Cross-view sync
+  useEffect(() => {
+    const sync = () => { fetchTasks(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks]);
+
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickAddValue.trim()) return;
@@ -62,6 +75,7 @@ export default function CalendarTaskSidebar({ isOpen, onClose }: CalendarTaskSid
       if (res.ok) {
         setQuickAddValue('');
         fetchTasks();
+        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'sidebar' } }));
       }
     } catch (e) {
       console.error('Failed to create task', e);
@@ -83,6 +97,7 @@ export default function CalendarTaskSidebar({ isOpen, onClose }: CalendarTaskSid
       if (newStatus === 'done') {
         setTimeout(() => fetchTasks(), 1500);
       }
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'sidebar' } }));
     } catch {
       fetchTasks();
     }
