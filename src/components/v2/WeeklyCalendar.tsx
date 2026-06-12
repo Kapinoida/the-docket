@@ -52,6 +52,19 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
+  // Cross-view sync
+  useEffect(() => {
+    const sync = () => { fetchTasks(); refetchEvents(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks, refetchEvents]);
+
   const handleTaskComplete = async (taskId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     try {

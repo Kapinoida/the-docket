@@ -76,6 +76,19 @@ export default function CalendarViewV2() {
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
+  // Cross-view sync: refetch when tasks are created/updated/deleted elsewhere
+  useEffect(() => {
+    const sync = () => { fetchTasks(); refetchEvents(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks, refetchEvents]);
+
   const handleRefresh = async () => {
     setTasksLoading(true);
     await Promise.all([fetchTasks(), refetchEvents()]);
@@ -113,6 +126,7 @@ export default function CalendarViewV2() {
         body: JSON.stringify({ status: newStatus })
       });
     } catch { fetchTasks(); refetchEvents(); }
+    window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
   };
 
   const handleDropTask = async (taskId: number, targetDay: Date) => {
@@ -130,6 +144,7 @@ export default function CalendarViewV2() {
     }
     fetchTasks();
     refetchEvents();
+    window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
   };
 
   const getItemsForDay = (date: Date) => {
@@ -940,7 +955,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
-                      .then(res => { if (res.ok) { onEventMoved?.(); } })
+                      .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
                       .catch(console.error);
                     setCreatingAt(null);
                     setCreatingValue('');
@@ -956,7 +971,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
-                      .then(res => { if (res.ok) { onEventMoved?.(); } })
+                      .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
                       .catch(console.error);
                   }
                   setCreatingAt(null);
