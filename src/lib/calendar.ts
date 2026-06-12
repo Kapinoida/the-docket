@@ -31,8 +31,8 @@ export const eventColorStyle = (color?: string) => {
   const c = color || '#7c3aed';
   const { r, g, b } = hexToRgb(c);
   return {
-    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.4)`,
-    borderColor: `rgba(${r}, ${g}, ${b}, 0.7)`,
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.7)`,
+    borderColor: `rgba(${r}, ${g}, ${b}, 0.9)`,
     color: '#fff',
   };
 };
