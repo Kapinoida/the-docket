@@ -16,7 +16,6 @@ import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
-import CalendarTaskSidebar from './calendar/CalendarTaskSidebar';
 
 type ViewType = 'week' | 'month' | 'day';
 
@@ -40,7 +39,6 @@ export default function CalendarViewV2() {
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [isAddCalendarOpen, setIsAddCalendarOpen] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState<{ id: number; name: string; url: string; color: string; mode: 'ical' | 'caldav' } | null>(null);
-  const [isTaskSidebarOpen, setIsTaskSidebarOpen] = useState(false);
   const [isUnscheduledPanelOpen, setIsUnscheduledPanelOpen] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
@@ -415,10 +413,6 @@ export default function CalendarViewV2() {
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
         event={selectedEvent as any}
-      />
-      <CalendarTaskSidebar
-        isOpen={isTaskSidebarOpen}
-        onClose={() => setIsTaskSidebarOpen(false)}
       />
 
       {/* Mobile: Bottom drawer for unscheduled tasks */}
