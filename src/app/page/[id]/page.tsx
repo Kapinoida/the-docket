@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
-import { Page, Task } from '../../../types/v2';
+import { Page, Task } from '../../../types';
 
 import { ConfirmationModal } from '../../../components/modals/ConfirmationModal';
 import { MovePageModal } from '../../../components/modals/MovePageModal';
@@ -43,7 +43,10 @@ export default function PageView() {
              setPage(data);
              setLoading(false);
          })
-         .catch(err => console.error(err));
+         .catch(err => {
+             console.error(err);
+             setLoading(false);
+         });
     }
   }, [id]);
 

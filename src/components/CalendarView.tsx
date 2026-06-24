@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Task } from '@/types/v2';
+import { Task } from '@/types';
 import { ChevronLeft, ChevronRight, Plus, Clock, Calendar, AlertCircle, ListTodo, Pencil } from 'lucide-react';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb, v2TaskToLegacy } from '@/lib/calendar';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
@@ -13,6 +13,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarSources } from '@/hooks/useCalendarSources';
 import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
@@ -45,10 +46,11 @@ export default function CalendarViewV2() {
   const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(currentDate, viewType);
   const { calendars, refetch: refetchCalendars } = useCalendarSources();
   const { openTaskEdit } = useTaskEdit();
+  const { showToast } = useToast();
   const loading = eventsLoading || tasksLoading;
 
   const handleOpenTaskEdit = useCallback((task: Task) => {
-    openTaskEdit(v2TaskToLegacy(task));
+    openTaskEdit(task);
   }, [openTaskEdit]);
 
   // Persist state
@@ -138,6 +140,7 @@ export default function CalendarViewV2() {
         body: JSON.stringify({ due_date: targetDay.toISOString() }),
       });
     } catch {
+      showToast('Failed to move task', 'error');
       fetchTasks();
     }
     fetchTasks();
@@ -302,7 +305,7 @@ export default function CalendarViewV2() {
         {/* ===== MOBILE: Week = day strip + detail, Month = compact grid, Day = time grid ===== */}
         <div className="md:hidden space-y-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} />
+            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
           ) : viewType === 'week' ? (
             <>
               {/* Week: Horizontal day strip */}
@@ -357,7 +360,7 @@ export default function CalendarViewV2() {
                 })}
               </div>
               {/* Selected day detail below grid */}
-              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} onEventClick={handleEventClick} onTaskClick={handleOpenTaskEdit} />
+              <DayDetailPanel day={selectedDay} items={getItemsForDay(selectedDay)} onEventClick={handleEventClick} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
             </>
           )}
         </div>
@@ -557,6 +560,9 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const HOUR_HEIGHT = 64;
   const HOUR_START = 0;
   const HOUR_END = 24;
+  const LEFT_GUTTER = 48;
+  const COLUMN_GAP = 1;
+  const DEFAULT_TASK_DURATION = 30;
   const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => i + HOUR_START);
 
@@ -577,6 +583,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const [dragOffsetY, setDragOffsetY] = useState(0);
   const lastTouchY = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  const { showToast } = useToast();
 
   // Filter events for this day
   const dayEvents = events.filter(e => {
@@ -604,50 +612,55 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
 
   const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
 
-  // Compute column layout for overlapping timed events
-  const eventLayouts = useMemo(() => {
-    const sorted = [...timedEvents].sort((a, b) =>
-      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-    );
-    const colMap = new Map<number, number>();
+  const itemLayouts = useMemo(() => {
+    const items = [
+      ...timedEvents.map(e => ({
+        key: `evt-${e.id}`,
+        startMs: new Date(e.start_time).getTime(),
+        endMs: new Date(e.end_time).getTime(),
+      })),
+      ...timedTasks.map(t => {
+        const startMs = (parseLocalDateNode(t.due_date!) as Date).getTime();
+        return {
+          key: `task-${t.id}`,
+          startMs,
+          endMs: startMs + DEFAULT_TASK_DURATION * 60000,
+        };
+      }),
+    ];
+    const sorted = [...items].sort((a, b) => a.startMs - b.startMs);
+    const colMap = new Map<string, number>();
     for (let i = 0; i < sorted.length; i++) {
-      const e = sorted[i];
-      const eStart = new Date(e.start_time).getTime();
-      const eEnd = new Date(e.end_time).getTime();
+      const item = sorted[i];
       const used = new Set<number>();
       for (let j = 0; j < i; j++) {
-        const o = sorted[j];
-        const oStart = new Date(o.start_time).getTime();
-        const oEnd = new Date(o.end_time).getTime();
-        if (eStart < oEnd && eEnd > oStart) {
-          used.add(colMap.get(o.id)!);
+        const other = sorted[j];
+        if (item.startMs < other.endMs && item.endMs > other.startMs) {
+          used.add(colMap.get(other.key)!);
         }
       }
       let col = 0;
       while (used.has(col)) col++;
-      colMap.set(e.id, col);
+      colMap.set(item.key, col);
     }
-    const result = new Map<number, { column: number; total: number }>();
-    for (const event of timedEvents) {
-      const eStart = new Date(event.start_time).getTime();
-      const eEnd = new Date(event.end_time).getTime();
+    const itemMap = new Map(items.map(i => [i.key, i]));
+    const result = new Map<string, { column: number; total: number }>();
+    for (const item of items) {
       let maxCol = 0;
-      for (const [otherId, col] of colMap) {
-        if (otherId === event.id) continue;
-        const other = timedEvents.find(ev => ev.id === otherId)!;
-        const oStart = new Date(other.start_time).getTime();
-        const oEnd = new Date(other.end_time).getTime();
-        if (eStart < oEnd && eEnd > oStart) {
+      for (const [otherKey, col] of colMap) {
+        if (otherKey === item.key) continue;
+        const other = itemMap.get(otherKey)!;
+        if (item.startMs < other.endMs && item.endMs > other.startMs) {
           maxCol = Math.max(maxCol, col);
         }
       }
-      result.set(event.id, {
-        column: colMap.get(event.id) ?? 0,
-        total: Math.max(maxCol + 1, (colMap.get(event.id) ?? 0) + 1),
+      result.set(item.key, {
+        column: colMap.get(item.key) ?? 0,
+        total: Math.max(maxCol + 1, (colMap.get(item.key) ?? 0) + 1),
       });
     }
     return result;
-  }, [timedEvents]);
+  }, [timedEvents, timedTasks]);
 
   return (
     <div className="mt-2">
@@ -713,8 +726,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                fetch(`/api/v2/tasks/${dragTask.id}`, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ due_date: newDue.toISOString() }),
-               }).catch(err => console.error('Task drop failed:', err));
+body: JSON.stringify({ due_date: newDue.toISOString() }),
+                }).catch(err => { console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
 
                setDragTask(null);
                setDragOffsetY(0);
@@ -743,8 +756,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                     fetch(`/api/v2/tasks/${taskId}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ due_date: newDue.toISOString() }),
-                    }).catch(err => console.error('Task drop failed:', err));
+body: JSON.stringify({ due_date: newDue.toISOString() }),
+                     }).catch(err => { console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
                     setTimeout(() => onEventMoved?.(), 500);
                   }
                 }
@@ -764,11 +777,11 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
              fetch(`/api/v2/calendar/events/${dragEvent.id}`, {
                method: 'PATCH',
                headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                 start_time: newStart.toISOString(),
-                 end_time: newEnd.toISOString(),
-               }),
-             }).catch(err => console.error('Drag update failed:', err));
+body: JSON.stringify({
+                  start_time: newStart.toISOString(),
+                  end_time: newEnd.toISOString(),
+                }),
+              }).catch(err => { console.error('Drag update failed:', err); showToast('Failed to update event', 'error'); });
 
              setDragEvent(null);
              setDragOffsetY(0);
@@ -809,11 +822,9 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
           const top = (startMinutes / 60) * HOUR_HEIGHT;
           const height = (durationMinutes / 60) * HOUR_HEIGHT;
           const colors = eventColorStyle(event.calendar_color);
-          const layout = eventLayouts.get(event.id) ?? { column: 0, total: 1 };
-          const leftGutter = 48;
-          const gap = 1;
-          const leftOffset = `calc(${leftGutter}px + ${layout.column} * ((100% - ${leftGutter}px) / ${layout.total}))`;
-          const colWidth = `calc((100% - ${leftGutter}px - ${gap * (layout.total - 1)}px) / ${layout.total})`;
+          const layout = itemLayouts.get(`evt-${event.id}`) ?? { column: 0, total: 1 };
+          const leftOffset = `calc(${LEFT_GUTTER}px + ${layout.column} * ((100% - ${LEFT_GUTTER}px) / ${layout.total}))`;
+          const colWidth = `calc((100% - ${LEFT_GUTTER}px - ${COLUMN_GAP * (layout.total - 1)}px) / ${layout.total})`;
 
           return (
             <div
@@ -867,15 +878,15 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ start_time: newStart.toISOString(), end_time: newEnd.toISOString() }),
-                }).catch(err => console.error('Touch drag update failed:', err));
+                }).catch(err => { console.error('Touch drag update failed:', err); showToast('Failed to update event', 'error'); });
 
                 setDragEvent(null);
                 setDragOffsetY(0);
                 setTimeout(() => onEventMoved?.(), 500);
               }}
               onClick={() => onEventClick?.(event)}
-              className={`absolute z-20 rounded px-2 py-1 border cursor-pointer overflow-hidden ${
-                dragEvent?.id === event.id ? 'opacity-40' : 'hover:opacity-80'
+              className={`absolute z-20 rounded px-2 py-1 border cursor-pointer overflow-hidden transition-shadow ${
+                dragEvent?.id === event.id ? 'ring-2 ring-indigo-400' : 'hover:shadow-lg'
               }`}
               style={{
                 top,
@@ -903,6 +914,10 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
           const d = parseLocalDateNode(t.due_date) as Date;
           const startMinutes = d.getHours() * 60 + d.getMinutes();
           const taskTop = (startMinutes / 60) * HOUR_HEIGHT;
+          const taskHeight = (DEFAULT_TASK_DURATION / 60) * HOUR_HEIGHT;
+          const layout = itemLayouts.get(`task-${t.id}`) ?? { column: 0, total: 1 };
+          const leftOffset = `calc(${LEFT_GUTTER}px + ${layout.column} * ((100% - ${LEFT_GUTTER}px) / ${layout.total}))`;
+          const colWidth = `calc((100% - ${LEFT_GUTTER}px - ${COLUMN_GAP * (layout.total - 1)}px) / ${layout.total})`;
 
           return (
             <CalendarTaskBlock
@@ -911,6 +926,9 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
               day={day}
               hourHeight={HOUR_HEIGHT}
               top={taskTop}
+              left={leftOffset}
+              width={colWidth}
+              blockHeight={taskHeight}
               onToggle={onTaskToggle}
               onClick={onTaskClick}
               onDragStart={(task, e) => {
@@ -950,7 +968,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
                       .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
-                      .catch(console.error);
+                      .catch(err => { console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
                     setCreatingAt(null);
                     setCreatingValue('');
                   } else if (e.key === 'Escape') {
@@ -966,7 +984,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
                       .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
-                      .catch(console.error);
+                      .catch(err => { console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
                   }
                   setCreatingAt(null);
                   setCreatingValue('');

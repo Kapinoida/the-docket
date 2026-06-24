@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, addDays, nextMonday, nextFriday } from 'date-fns';
 import { Calendar, Repeat, X, ChevronRight, Check } from 'lucide-react';
-import { RecurrenceRule } from '@/types/v2';
+import { RecurrenceRule } from '@/types';
 import { createPortal } from 'react-dom';
 import 'react-day-picker/dist/style.css'; 
 
@@ -17,6 +17,7 @@ interface DatePickerPopoverProps {
 }
 
 type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none';
+type EndCondition = 'never' | 'count' | 'until';
 
 export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position, triggerRef, showTime = true }: DatePickerPopoverProps) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? new Date(date) : undefined);
@@ -33,17 +34,24 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
     const [interval, setInterval] = useState<number>(recurrenceRule?.interval || 1);
     const [daysOfWeek, setDaysOfWeek] = useState<number[]>(recurrenceRule?.daysOfWeek || []);
     const [weekOfMonth, setWeekOfMonth] = useState<number>(recurrenceRule?.weekOfMonth || 1); // Default to first
+    const [endCondition, setEndCondition] = useState<EndCondition>(
+        recurrenceRule?.count ? 'count' : recurrenceRule?.until ? 'until' : 'never'
+    );
+    const [count, setCount] = useState<number>(recurrenceRule?.count || 5);
+    const [untilDate, setUntilDate] = useState<string>(recurrenceRule?.until || '');
     
     // UI State for Custom Mode
     const [showCustom, setShowCustom] = useState(false);
 
     useEffect(() => {
-        // Initialize state if rule exists
         if (recurrenceRule) {
              setRecurrenceType(recurrenceRule.type);
              setInterval(recurrenceRule.interval);
              setDaysOfWeek(recurrenceRule.daysOfWeek || []);
              setWeekOfMonth(recurrenceRule.weekOfMonth || 1);
+             setEndCondition(recurrenceRule.count ? 'count' : recurrenceRule.until ? 'until' : 'never');
+             setCount(recurrenceRule.count || 5);
+             setUntilDate(recurrenceRule.until || '');
         }
     }, [recurrenceRule]);
 
@@ -53,17 +61,20 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
 
     const handleQuickSelect = (type: 'today' | 'tomorrow' | 'next-week') => {
         const today = new Date();
+        today.setHours(17, 0, 0, 0);
         let newDate;
         switch (type) {
-            case 'today': newDate = today; break;
+            case 'today': newDate = new Date(today); break;
             case 'tomorrow': newDate = addDays(today, 1); break;
             case 'next-week': newDate = nextMonday(today); break;
         }
-        
-        // Apply time if set
-        if (selectedTime && newDate) {
-            const [h, m] = selectedTime.split(':').map(Number);
-            newDate.setHours(h, m, 0, 0);
+
+        // Apply time if set, otherwise default to 5:00 PM (end of business day)
+        if (newDate) {
+            if (selectedTime) {
+                const [h, m] = selectedTime.split(':').map(Number);
+                newDate.setHours(h, m, 0, 0);
+            }
         }
         
         // Immediate save for quick actions
@@ -73,7 +84,9 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                 type: recurrenceType,
                 interval: Math.max(1, interval),
                 daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : undefined,
-                weekOfMonth: weekOfMonth
+                weekOfMonth: weekOfMonth,
+                ...(endCondition === 'count' && count > 0 ? { count } : {}),
+                ...(endCondition === 'until' && untilDate ? { until: untilDate } : {}),
             };
         }
         
@@ -89,7 +102,9 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                 type: recurrenceType,
                 interval: Math.max(1, interval),
                 daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : undefined,
-                weekOfMonth: weekOfMonth
+                weekOfMonth: weekOfMonth,
+                ...(endCondition === 'count' && count > 0 ? { count } : {}),
+                ...(endCondition === 'until' && untilDate ? { until: untilDate } : {}),
             };
         }
 
@@ -119,7 +134,10 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
         if (interval === 1 && recurrenceType === 'daily') return 'Daily';
         if (interval === 1 && recurrenceType === 'weekly' && daysOfWeek.length === 0) return 'Weekly';
         if (interval === 1 && recurrenceType === 'monthly' && daysOfWeek.length === 0) return 'Monthly';
-        return 'Custom...';
+        let label = 'Custom';
+        if (endCondition === 'count') label += ` ×${count}`;
+        if (endCondition === 'until') label += ` until ${untilDate || '...'}`;
+        return label;
     };
 
     // Calculate screen position from trigger ref if available
@@ -318,6 +336,44 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                                 </div>
                                 <div className="text-xs text-text-muted italic">
                                     Note: Leave "Day" empty to repeat on the same date (e.g. 15th).
+                                </div>
+                            </div>
+                        )}
+
+                        {recurrenceType !== 'none' && (
+                            <div className="flex flex-col gap-2 pt-2 border-t border-border-subtle">
+                                <div className="text-xs text-text-muted">Ends</div>
+                                <div className="flex gap-2 items-center">
+                                    <select
+                                        value={endCondition}
+                                        onChange={(e) => setEndCondition(e.target.value as EndCondition)}
+                                        className="bg-bg-primary border border-border-default rounded px-2 py-0.5 text-xs text-text-primary"
+                                    >
+                                        <option value="never">Never</option>
+                                        <option value="count">After</option>
+                                        <option value="until">On date</option>
+                                    </select>
+                                    {endCondition === 'count' && (
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="999"
+                                                value={count}
+                                                onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+                                                className="w-12 bg-bg-primary border border-border-default rounded px-1 py-0.5 text-center text-text-primary text-xs"
+                                            />
+                                            <span className="text-xs text-text-muted">times</span>
+                                        </div>
+                                    )}
+                                    {endCondition === 'until' && (
+                                        <input
+                                            type="date"
+                                            value={untilDate}
+                                            onChange={(e) => setUntilDate(e.target.value)}
+                                            className="bg-bg-primary border border-border-default rounded px-2 py-0.5 text-xs text-text-primary"
+                                        />
+                                    )}
                                 </div>
                             </div>
                         )}

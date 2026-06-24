@@ -1,8 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import pool from '../../../lib/db';
+import { getPushSubscriptions, getTasksDueSoon, recordPushNotification, removePushSubscriptionById } from '../../../lib/db';
 import webpush from 'web-push';
 
-// Configure web-push once
 const vapidKeys = {
   publicKey: process.env.VAPID_PUBLIC_KEY || '',
   privateKey: process.env.VAPID_PRIVATE_KEY || '',
@@ -23,36 +22,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Find tasks due within the next 10 minutes that have explicit times
-    // and haven't been notified since last update
-    const tasks = await pool.query(`
-      SELECT t.id, t.content, t.due_date
-      FROM tasks t
-      WHERE t.status = 'todo'
-        AND t.due_date IS NOT NULL
-        AND t.due_date > NOW()
-        AND t.due_date <= NOW() + INTERVAL '10 minutes'
-        AND NOT EXISTS (
-          SELECT 1 FROM push_notifications pn
-          WHERE pn.task_id = t.id
-            AND pn.sent_at > t.updated_at
-        )
-      ORDER BY t.due_date
-    `);
+    const tasks = await getTasksDueSoon();
 
-    if (tasks.rows.length === 0) {
+    if (tasks.length === 0) {
       return res.status(200).json({ sent: 0 });
     }
 
-    // Get all subscriptions
-    const subs = await pool.query('SELECT * FROM push_subscriptions');
+    const subs = await getPushSubscriptions();
 
-    if (subs.rows.length === 0) {
+    if (subs.length === 0) {
       return res.status(200).json({ sent: 0, message: 'No subscribers' });
     }
 
     let sent = 0;
-    for (const task of tasks.rows) {
+    for (const task of tasks) {
       const dueTime = new Date(task.due_date).toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
@@ -66,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tag: `task-${task.id}`,
       });
 
-      for (const sub of subs.rows) {
+      for (const sub of subs) {
         try {
           await webpush.sendNotification(
             {
@@ -76,15 +59,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             payload
           );
         } catch (e: any) {
-          // Remove dead subscriptions
           if (e.statusCode === 410 || e.statusCode === 404) {
-            await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+            await removePushSubscriptionById(sub.id);
           }
         }
       }
 
-      // Record notification
-      await pool.query('INSERT INTO push_notifications (task_id) VALUES ($1)', [task.id]);
+      await recordPushNotification(task.id);
       sent++;
     }
 

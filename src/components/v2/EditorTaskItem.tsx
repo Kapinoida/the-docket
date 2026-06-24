@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { NodeViewContent, NodeViewWrapper, Editor } from '@tiptap/react';
 import { CheckCircle2, Circle, Calendar, Clock, Edit2 } from 'lucide-react';
-import { Task } from '../../types/v2';
+import { Task } from '../../types';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -42,31 +42,20 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
   });
 
   const handleDateSelect = (date: Date | null, recurrence?: any) => {
+      const dueDate = date ? date.toISOString() : null;
       onUpdate?.({ 
-          due_date: date,
+          due_date: dueDate,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
-      // Also update local attributes if not synced yet (optimistic)
       updateAttributes({ 
-          due_date: date,
+          due_date: dueDate,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
   };
 
   const handleEdit = (e: React.MouseEvent) => {
-      e.stopPropagation(); // Stop prose mirror from stealing focus immediately if needed, though this is an overlay
-      
-      // Adapt V2 task to V1 expected by context
-      openTaskEdit({
-          ...task,
-          id: task.id.toString(),
-          dueDate: task.due_date ? parseLocalDateNode(task.due_date) : null,
-          completed: task.status === 'done',
-          createdAt: new Date(task.created_at),
-          updatedAt: new Date(task.updated_at),
-          content: task.content,
-          recurrenceRule: task.recurrence_rule
-      } as any);
+      e.stopPropagation();
+      openTaskEdit(task);
   };
 
   return (

@@ -53,6 +53,7 @@ export const viewport: Viewport = {
 import { ThemeProvider } from "../components/ThemeProvider";
 
 import { TaskEditProvider } from "../contexts/TaskEditContext";
+import { ToastProvider } from "../contexts/ToastContext";
 import { CommandPalette } from "../components/CommandPalette";
 
 import LayoutWrapper from "../components/v2/LayoutWrapper";
@@ -76,13 +77,15 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
         >
-            <TaskEditProvider>
-              <PwaRegister />
-              <CommandPalette />
-              <LayoutWrapper>
-                  {children}
-              </LayoutWrapper>
-            </TaskEditProvider>
+<ToastProvider>
+                <TaskEditProvider>
+                    <PwaRegister />
+                    <CommandPalette />
+                    <LayoutWrapper>
+                        {children}
+                    </LayoutWrapper>
+                </TaskEditProvider>
+            </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

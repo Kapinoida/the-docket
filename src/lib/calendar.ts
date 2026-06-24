@@ -1,24 +1,7 @@
-export interface CalendarEvent {
-  id: number;
-  title: string;
-  description: string;
-  start_time: string;
-  end_time: string;
-  is_all_day: boolean;
-  location: string;
-  calendar_name: string;
-  calendar_color?: string;
-}
+import type { CalendarEvent } from '@/types';
+import { parseLocalDateNode } from '@/lib/dateUtils';
 
-export interface CalendarSource {
-  id: number;
-  name: string;
-  color: string;
-  resource_type: string;
-  server_url: string;
-  calendar_url: string;
-  username?: string;
-}
+export type { CalendarEvent, CalendarSource } from '@/types';
 
 export const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -31,26 +14,11 @@ export const eventColorStyle = (color?: string) => {
   const c = color || '#7c3aed';
   const { r, g, b } = hexToRgb(c);
   return {
-    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.7)`,
-    borderColor: `rgba(${r}, ${g}, ${b}, 0.9)`,
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.75)`,
+    borderColor: `rgba(${r}, ${g}, ${b}, 0.85)`,
     color: '#fff',
   };
 };
-
-import type { Task as V2Task } from '@/types/v2';
-import type { Task as LegacyTask } from '@/types';
-import { parseLocalDateNode } from '@/lib/dateUtils';
-
-export const v2TaskToLegacy = (task: V2Task): LegacyTask => ({
-  ...task,
-  id: String(task.id),
-  dueDate: task.due_date ? parseLocalDateNode(task.due_date) as Date : null,
-  completed: task.status === 'done',
-  createdAt: new Date(task.created_at),
-  updatedAt: new Date(task.updated_at),
-  content: task.content,
-  recurrenceRule: task.recurrence_rule,
-});
 
 export const isTrulyAllDay = (event: CalendarEvent) => {
   if (event.is_all_day) return true;

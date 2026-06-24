@@ -1,25 +1,79 @@
-// Core interfaces for The Docket application
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
 
 export interface RecurrenceRule {
   type: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number;
-  daysOfWeek?: number[]; // [0-6] Sunday=0
-  weekOfMonth?: number; // 1 (first), 2, 3, 4, -1 (last)
-  day?: string; // For weekly: 'monday', 'tuesday', etc.
-  date?: number; // For monthly: 1-31
-  month?: number; // For yearly: 1-12
+  daysOfWeek?: number[];
+  weekOfMonth?: number;
+  count?: number;
+  until?: string;
 }
 
-export interface TaskInstance {
-  id: string;
+export interface Task {
+  id: number;
   content: string;
-  dueDate: Date | null;
-  completed: boolean;
-  completedAt?: Date;
-  sourceNote?: { id: string; title: string; };
-  recurrenceRule?: RecurrenceRule;
-  createdAt: Date;
-  updatedAt: Date;
+  status: TaskStatus;
+  due_date: string | null;
+  recurrence_rule?: RecurrenceRule;
+  created_at: string;
+  updated_at: string;
+  page_name?: string;
+}
+
+export type PageItemType = 'page' | 'task';
+export type DisplayMode = 'reference' | 'embed';
+
+export interface Page {
+  id: number;
+  title: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content: any;
+  folder_id?: number | null;
+  is_favorite: boolean;
+  created_at: Date;
+  updated_at: Date;
+  items?: PageItem[];
+  folder?: { id: number; name: string } | null;
+  parent_page?: { id: number; title: string } | null;
+}
+
+export interface PageItem {
+  id: number;
+  page_id: number;
+  child_page_id?: number;
+  child_task_id?: number;
+  type: PageItemType;
+  item?: Page | Task;
+  position: number;
+  display_mode: DisplayMode;
+  created_at: Date;
+}
+
+export interface Context {
+  direct_pages: Page[];
+  ancestor_pages: Page[];
+}
+
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  is_all_day: boolean;
+  location: string;
+  calendar_name: string;
+  calendar_color?: string;
+}
+
+export interface CalendarSource {
+  id: number;
+  name: string;
+  color: string;
+  resource_type: string;
+  server_url: string;
+  calendar_url: string;
+  username?: string;
 }
 
 export interface Note {
@@ -38,62 +92,6 @@ export interface Folder {
   createdAt: Date;
 }
 
-export interface Task {
-  id: string;
-  content: string;
-  dueDate: Date | null;
-  recurrenceRule?: RecurrenceRule;
-  sourceNoteId?: string;
-  completed: boolean;
-  completedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Database row interfaces matching current schema
-export interface FolderRow {
-  id: string;
-  name: string;
-  parent_id?: string;
-  created_at: Date;
-}
-
-export interface NoteRow {
-  id: string;
-  title: string;
-  content: string;
-  folder_id?: string;
-  tags?: string[];
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface TaskRow {
-  id: string;
-  content: string;
-  due_date: Date | null;
-  recurrence_rule: any; // Ideally JSONB/Object
-  source_note_id?: string; // Derived from join
-  is_completed?: boolean; // 'completed' col in DB is boolean. 'isCompleted' might be old logic?
-                         // Schema has `completed` BOOLEAN.
-                         // But api.ts queries say `SELECT t."isCompleted"`.
-                         // Let's check schema again. schema.sql says `completed` BOOLEAN.
-                         // So it should be `completed: boolean`.
-  completed?: boolean;
-  completed_at?: Date;
-  tags?: string[];
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface NoteTaskRow {
-  id: string;
-  note_id: string;
-  task_id: string;
-  type: 'ORIGIN' | 'REFERENCE';
-}
-
-// Tab management interfaces
 export type TabType = 'home' | 'note' | 'task' | 'tasks' | 'agenda' | 'folder' | 'calendar';
 
 export interface Tab {
@@ -112,4 +110,110 @@ export interface TabContent {
   taskId?: string;
   task?: Task;
   scrollToTaskId?: string;
+}
+
+export interface TaskRow {
+  id: number;
+  content: string;
+  status: TaskStatus;
+  due_date: string | null;
+  recurrence_rule: RecurrenceRule | null;
+  created_at: string;
+  updated_at: string;
+  completed?: boolean;
+  completed_at?: string;
+  source_note_id?: number;
+}
+
+export interface PageRow {
+  id: number;
+  title: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content: any;
+  folder_id?: number | null;
+  is_favorite: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PageItemRow {
+  id: number;
+  page_id: number;
+  child_page_id?: number;
+  child_task_id?: number;
+  position: number;
+  display_mode: DisplayMode;
+  created_at: Date;
+}
+
+export interface NoteRow {
+  id: number;
+  title: string;
+  content: string;
+  folder_id?: string;
+  tags?: string[];
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface FolderRow {
+  id: number;
+  name: string;
+  parent_id?: string;
+  created_at: Date;
+}
+
+export interface CalendarEventRow {
+  id: number;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  is_all_day: boolean;
+  location: string;
+  calendar_name: string;
+  calendar_color?: string;
+}
+
+export interface CalendarSourceRow {
+  id: number;
+  name: string;
+  color: string;
+  resource_type: string;
+  server_url: string;
+  calendar_url: string;
+  username?: string;
+}
+
+export function taskRowToTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    content: row.content,
+    status: row.status || 'todo',
+    due_date: row.due_date,
+    recurrence_rule: row.recurrence_rule || undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function taskToTaskRow(task: Partial<Task>): Partial<TaskRow> {
+  const row: Partial<TaskRow> = {};
+  if (task.content !== undefined) row.content = task.content;
+  if (task.status !== undefined) row.status = task.status;
+  if (task.due_date !== undefined) row.due_date = task.due_date;
+  if (task.recurrence_rule !== undefined) row.recurrence_rule = task.recurrence_rule ?? null;
+  return row;
+}
+
+export function pageRowToPage(row: PageRow): Page {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    folder_id: row.folder_id,
+    is_favorite: row.is_favorite,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }

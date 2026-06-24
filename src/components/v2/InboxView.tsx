@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { Task } from '../../types/v2';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Task } from '../../types';
 import { TaskItem } from './TaskItem';
 import { Plus, Inbox as InboxIcon, ArrowRight } from 'lucide-react';
 import MoveToPageModal from './MoveToPageModal';
@@ -19,7 +19,7 @@ export default function InboxView() {
   const [movingTask, setMovingTask] = useState<Task | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const res = await fetch('/api/v2/tasks?context=none');
       if (res.ok) {
@@ -29,7 +29,7 @@ export default function InboxView() {
     } catch (error) {
       console.error('Failed to fetch tasks', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -38,6 +38,18 @@ export default function InboxView() {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    const sync = () => { fetchTasks(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -57,8 +69,10 @@ export default function InboxView() {
       });
 
       if (res.ok) {
+        const task = await res.json();
         setInputValue('');
         fetchTasks();
+        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'inboxView' } }));
       }
     } catch (error) {
       console.error('Failed to create task', error);
@@ -72,10 +86,12 @@ export default function InboxView() {
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ status: 'done' })
+      }).then(() => {
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: 'done' }, source: 'inboxView' } }));
       }).catch(() => fetchTasks());
   };
 
-  const handleUpdate = async (id: number, updates: Partial<Task>) => {
+const handleUpdate = async (id: number, updates: Partial<Task>) => {
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
       try {
@@ -84,6 +100,7 @@ export default function InboxView() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates)
           });
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates, source: 'inboxView' } }));
       } catch (error) {
           console.error('Failed to update task', error);
           fetchTasks();
@@ -94,6 +111,7 @@ export default function InboxView() {
       setTasks(prev => prev.filter(t => t.id !== id));
       try {
           await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+          window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId: id, source: 'inboxView' } }));
       } catch (error) {
           console.error('Failed to delete task', error);
           fetchTasks();

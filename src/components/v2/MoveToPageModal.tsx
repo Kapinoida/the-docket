@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, FileText } from 'lucide-react';
-import { Page } from '../../types/v2';
+import { Page } from '../../types';
 
 interface MoveToPageModalProps {
   isOpen: boolean;

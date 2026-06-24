@@ -20,7 +20,7 @@ import { TagExtension } from './extensions/TagExtension';
 import { CollapsibleBlockExtension } from './extensions/CollapsibleBlockExtension';
 import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
-import { Page } from '../../../types/v2';
+import { Page } from '../../../types';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal, RefreshCw, AlertTriangle } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { GlobalDragHandle, dragStore } from './GlobalDragHandle';
@@ -105,8 +105,12 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
       Highlight,
       Typography,
       Link.configure({
-          openOnClick: false,
+          openOnClick: true,
           autolink: true,
+          HTMLAttributes: {
+              target: '_blank',
+              rel: 'noopener noreferrer',
+          },
       }),
       CodeBlockLowlight.configure({
           lowlight,
@@ -130,6 +134,30 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
       }),
     ],
     content: initialContent || { type: 'doc', content: [] },
+    onCreate: ({ editor }) => {
+      // Auto-linkify any URLs in the initial content (typed autolink only catches keystrokes)
+      const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+      const tr = editor.state.tr;
+      let count = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (!node.isText) return;
+        const text = node.text || '';
+        let match;
+        urlRegex.lastIndex = 0;
+        while ((match = urlRegex.exec(text)) !== null) {
+          const $pos = editor.state.doc.resolve(pos + match.index);
+          if ($pos.marks().some(m => m.type.name === 'link')) continue;
+          const from = pos + match.index;
+          const to = from + match[0].length;
+          tr.addMark(from, to, editor.schema.marks.link.create({ href: match[0] }));
+          count++;
+        }
+      });
+      if (count > 0) {
+        tr.setMeta('addToHistory', false);
+        editor.view.dispatch(tr);
+      }
+    },
     immediatelyRender: false,
     editorProps: {
       attributes: {

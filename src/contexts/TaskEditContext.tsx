@@ -36,10 +36,10 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
   };
 
   const createTask = () => {
-    setEditingTask({ content: '', completed: false });
+    setEditingTask({ content: '', status: 'todo' });
     setIsCreating(true);
     setIsModalOpen(true);
-  }
+  };
 
   const closeTaskEdit = () => {
     setIsModalOpen(false);
@@ -53,58 +53,41 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
     if (!editingTask) return;
 
     try {
-      // Map legacy updates to V2 format
-      const v2Updates: any = { ...updates };
-      if (updates.dueDate !== undefined) v2Updates.due_date = updates.dueDate;
-      if (updates.completed !== undefined) v2Updates.status = updates.completed ? 'done' : 'todo';
-      delete v2Updates.dueDate;
-      delete v2Updates.completed;
-
       if (isCreating) {
-         const response = await fetch('/api/v2/tasks', {
+        const response = await fetch('/api/v2/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(v2Updates),
+          body: JSON.stringify(updates),
         });
 
         if (!response.ok) {
           throw new Error(`Failed to create task: ${response.statusText}`);
         }
 
-        const v2Task = await response.json();
-        const newTask = {
-            ...v2Task,
-            dueDate: v2Task.due_date,
-            completed: v2Task.status === 'done'
-        };
+        const newTask = await response.json();
         console.log('Task created successfully:', newTask);
-        
+
         window.dispatchEvent(new CustomEvent('taskCreated', {
           detail: { task: newTask, source: 'modal' }
         }));
       } else {
-        // Update existing task
-        const response = await fetch(`/api/v2/tasks?id=${(editingTask as Task).id}`, {
+        const taskId = (editingTask as Task).id;
+        const response = await fetch(`/api/v2/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(v2Updates),
+          body: JSON.stringify(updates),
         });
 
         if (!response.ok) {
           throw new Error(`Failed to update task: ${response.statusText}`);
         }
 
-        const v2Task = await response.json();
-        const updatedTask = {
-            ...v2Task,
-            dueDate: v2Task.due_date,
-            completed: v2Task.status === 'done'
-        };
+        const updatedTask = await response.json();
         console.log('Task updated successfully:', updatedTask);
-        
+
         window.dispatchEvent(new CustomEvent('taskUpdated', {
-          detail: { 
-            taskId: (editingTask as Task).id, 
+          detail: {
+            taskId,
             task: updatedTask,
             source: 'modal'
           }
@@ -116,11 +99,11 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
     }
   };
 
-  const handleDelete = async (taskId: string) => {
-    if (isCreating) return; // Cannot delete what doesn't exist yet
+  const handleDelete = async (taskId: number) => {
+    if (isCreating) return;
 
     try {
-      const response = await fetch(`/api/v2/tasks?id=${taskId}`, {
+      const response = await fetch(`/api/v2/tasks/${taskId}`, {
         method: 'DELETE',
       });
 
@@ -129,7 +112,7 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
       }
 
       console.log('Task deleted successfully:', taskId);
-      
+
       window.dispatchEvent(new CustomEvent('taskDeleted', {
         detail: { taskId }
       }));
@@ -144,7 +127,7 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
       {children}
       {editingTask && (
         <TaskEditModal
-          task={editingTask as Task} // Type assertion okay because Modal handles empty ID gracefully or we fix Modal
+          task={editingTask as Task}
           isOpen={isModalOpen}
           onClose={closeTaskEdit}
           onSave={handleSave}

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Task } from '../../types/v2';
+import { Task } from '../../types';
 import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
@@ -17,7 +17,6 @@ import EventDetailModal from '../modals/EventDetailModal';
 export default function TodayView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
@@ -49,7 +48,19 @@ export default function TodayView() {
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
-  const loading = isLoading || (eventsLoading && events.length === 0) || (tasksLoading && tasks.length === 0);
+  useEffect(() => {
+    const sync = () => { fetchTasks(); refetchEvents(); };
+    window.addEventListener('taskCreated', sync);
+    window.addEventListener('taskUpdated', sync);
+    window.addEventListener('taskDeleted', sync);
+    return () => {
+      window.removeEventListener('taskCreated', sync);
+      window.removeEventListener('taskUpdated', sync);
+      window.removeEventListener('taskDeleted', sync);
+    };
+  }, [fetchTasks, refetchEvents]);
+
+  const loading = (eventsLoading && events.length === 0) || (tasksLoading && tasks.length === 0);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -75,8 +86,10 @@ export default function TodayView() {
       });
 
       if (res.ok) {
+        const task = await res.json();
         setInputValue('');
         fetchTasks();
+        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'todayView' } }));
       }
     } catch (error) {
       console.error('Failed to create task', error);
@@ -90,6 +103,8 @@ export default function TodayView() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'done' })
+      }).then(() => {
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: 'done' }, source: 'todayView' } }));
       }).catch(err => {
           console.error("Failed to mark done", err);
           fetchTasks();
@@ -105,6 +120,7 @@ export default function TodayView() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates)
           });
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates, source: 'todayView' } }));
       } catch (error) {
           console.error('Failed to update task', error);
           fetchTasks(); 
@@ -115,6 +131,7 @@ export default function TodayView() {
       setTasks(prev => prev.filter(t => t.id !== id));
       try {
           await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+          window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId: id, source: 'todayView' } }));
       } catch (error) {
           console.error('Failed to delete task', error);
           fetchTasks();

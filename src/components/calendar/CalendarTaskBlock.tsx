@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Task } from '@/types/v2';
+import { Task } from '@/types';
 import { format } from 'date-fns';
 import { CheckCircle2, Circle, GripVertical } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
@@ -11,6 +11,9 @@ interface CalendarTaskBlockProps {
   day: Date;
   hourHeight: number;
   top: number;
+  left?: string;
+  width?: string;
+  blockHeight?: number;
   onToggle?: (taskId: number, e: React.MouseEvent) => void;
   onClick?: (task: Task) => void;
   onDragStart?: (task: Task, e: React.DragEvent) => void;
@@ -28,6 +31,9 @@ export function CalendarTaskBlock({
   day,
   hourHeight,
   top,
+  left,
+  width,
+  blockHeight,
   onToggle,
   onClick,
   onDragStart,
@@ -64,13 +70,14 @@ export function CalendarTaskBlock({
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`absolute left-12 right-1 z-20 rounded-md px-2 py-1 border overflow-hidden transition-opacity group ${
+      className={`absolute z-20 rounded-md px-2 py-1 border overflow-hidden transition-opacity group ${left ? '' : 'left-12 right-1'} ${
         isDone ? 'line-through opacity-50' : 'cursor-grab active:cursor-grabbing hover:shadow-md'
       }`}
       style={{
         top,
-        minHeight: hourHeight,
-        height: hourHeight,
+        minHeight: blockHeight ?? hourHeight,
+        height: blockHeight ?? hourHeight,
+        ...(left ? { left, width } : {}),
         backgroundColor: colors.bg,
         borderColor: isHovered && !isDone ? 'rgba(124, 58, 237, 0.8)' : colors.border,
         color: colors.text,

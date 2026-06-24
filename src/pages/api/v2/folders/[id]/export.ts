@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import pool from '../../../../../lib/db';
+import { getFolderName, getFolderPages } from '../../../../../lib/db';
 
 export default async function handler(
   req: NextApiRequest,
@@ -18,17 +18,12 @@ export default async function handler(
   }
 
   try {
-    // 1. Get folder info
-    const folderRes = await pool.query('SELECT name FROM folders WHERE id = $1', [Number(id)]);
-    if (folderRes.rowCount === 0) {
+    const folderName = await getFolderName(Number(id));
+    if (!folderName) {
       return res.status(404).json({ error: 'Folder not found' });
     }
-    const folderName = folderRes.rows[0].name;
 
-    // 2. Get all pages in this folder
-    const pagesRes = await pool.query('SELECT id, title, content FROM pages WHERE folder_id = $1 ORDER BY title ASC', [Number(id)]);
-    const pages = pagesRes.rows;
-
+    const pages = await getFolderPages(Number(id));
     return res.status(200).json({ folderName, pages });
   } catch (error: any) {
     console.error('Export Folder API Error:', error);

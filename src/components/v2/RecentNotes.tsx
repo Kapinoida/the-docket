@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Page } from '@/types/v2';
+import { Page } from '@/types';
 import { FileText, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 

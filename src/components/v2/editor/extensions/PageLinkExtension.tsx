@@ -2,7 +2,7 @@
 import { Node, mergeAttributes, InputRule } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import { useEffect, useState, useRef } from 'react';
-import { Page } from '../../../../types/v2';
+import { Page } from '../../../../types';
 import { FileText } from 'lucide-react';
 
 const PageLinkNodeView = ({ node, updateAttributes, editor }: any) => {

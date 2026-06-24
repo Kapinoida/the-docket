@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Task } from '@/types/v2';
+import { Task } from '@/types';
 import { X, GripVertical, CheckCircle2, Circle, Plus, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
-import { v2TaskToLegacy } from '@/lib/calendar';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 
 interface UnscheduledTaskPanelProps {
@@ -111,8 +110,8 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     e.dataTransfer.setData('application/task-id', String(task.id));
   };
 
-  const handleTaskClick = (task: Task) => {
-    openTaskEdit(v2TaskToLegacy(task));
+const handleTaskClick = (task: Task) => {
+    openTaskEdit(task);
   };
 
   const formatDueLabel = (dateStr: string | Date | null) => {

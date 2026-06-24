@@ -1,9 +1,8 @@
 import { createMocks } from 'node-mocks-http';
 import handler from '../tasks';
-import { createTask, getTask } from '../../../../lib/db';
+import { createTask, getTask, getTasks, updateTask, deleteTask, deleteCompletedTasks, addItemToPage, createTombstone, deleteTaskReferences } from '../../../../lib/db';
 import pool from '../../../../lib/db';
 
-// Mock the DB module
 jest.mock('../../../../lib/db', () => {
     const originalModule = jest.requireActual('../../../../lib/db');
     return {
@@ -13,9 +12,14 @@ jest.mock('../../../../lib/db', () => {
         },
         createTask: jest.fn(),
         getTask: jest.fn(),
+        getTasks: jest.fn(),
+        updateTask: jest.fn(),
+        deleteTask: jest.fn(),
+        deleteCompletedTasks: jest.fn(),
         addItemToPage: jest.fn(),
         createTombstone: jest.fn(),
         deleteTaskReferences: jest.fn(),
+        normalizeDateToNoon: jest.fn((d) => d),
     };
 });
 
@@ -24,17 +28,16 @@ describe('/api/v2/tasks', () => {
         jest.clearAllMocks();
     });
 
-    // ── GET: basic ────────────────────────────────────────
     it('GET returns all tasks when no query params', async () => {
         const { req, res } = createMocks({ method: 'GET' });
-        const mockRows = [
+        const mockTasks = [
             { id: 1, content: 'Task 1' },
             { id: 2, content: 'Task 2' },
         ];
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: mockRows });
+        (getTasks as jest.Mock).mockResolvedValueOnce(mockTasks);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
-        expect(JSON.parse(res._getData())).toEqual(mockRows);
+        expect(JSON.parse(res._getData())).toEqual(mockTasks);
     });
 
     it('GET with id returns single task', async () => {
@@ -60,91 +63,38 @@ describe('/api/v2/tasks', () => {
         expect(res._getStatusCode()).toBe(404);
     });
 
-    // ── GET: today filter ─────────────────────────────────
-    it('GET ?due=today filters to overdue + today, not done, non-empty', async () => {
+    it('GET ?due=today delegates to getTasks', async () => {
         const { req, res } = createMocks({
             method: 'GET',
             query: { due: 'today' },
         });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+        (getTasks as jest.Mock).mockResolvedValueOnce([]);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain("t.due_date::date <= CURRENT_DATE");
-        expect(sql).toContain("t.status != 'done'");
-        expect(sql).toContain("t.content != ''");
-        expect(sql).toContain("page_name");
+        expect(getTasks).toHaveBeenCalledWith(expect.objectContaining({ due: 'today' }));
     });
 
-    // ── GET: inbox filter (context=none) ──────────────────
-    it('GET ?context=none returns tasks with no page_items link', async () => {
-        const { req, res } = createMocks({
-            method: 'GET',
-            query: { context: 'none' },
-        });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-        await handler(req, res);
-        expect(res._getStatusCode()).toBe(200);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain('NOT EXISTS');
-        expect(sql).toContain('page_items');
-        expect(sql).toContain('child_task_id');
-    });
-
-    // ── GET: status filter ────────────────────────────────
-    it('GET ?status=todo filters to non-done tasks', async () => {
+    it('GET ?status=todo delegates to getTasks', async () => {
         const { req, res } = createMocks({
             method: 'GET',
             query: { status: 'todo' },
         });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+        (getTasks as jest.Mock).mockResolvedValueOnce([]);
         await handler(req, res);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain("t.status != 'done'");
+        expect(res._getStatusCode()).toBe(200);
+        expect(getTasks).toHaveBeenCalledWith(expect.objectContaining({ status: 'todo' }));
     });
 
-    it('GET ?status=done filters to done tasks only', async () => {
-        const { req, res } = createMocks({
-            method: 'GET',
-            query: { status: 'done' },
-        });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-        await handler(req, res);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain("t.status = 'done'");
-    });
-
-    // ── GET: sort ─────────────────────────────────────────
-    it('GET defaults to newest first', async () => {
-        const { req, res } = createMocks({ method: 'GET' });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-        await handler(req, res);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain('ORDER BY t.created_at DESC');
-    });
-
-    it('GET ?sort=dueDate sorts by due_date', async () => {
-        const { req, res } = createMocks({
-            method: 'GET',
-            query: { sort: 'dueDate' },
-        });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-        await handler(req, res);
-        const sql = (pool.query as jest.Mock).mock.calls[0][0];
-        expect(sql).toContain('ORDER BY t.due_date ASC NULLS LAST');
-    });
-
-    // ── POST ──────────────────────────────────────────────
     it('POST creates a new task', async () => {
         const { req, res } = createMocks({
             method: 'POST',
             body: { content: 'New Task', dueDate: '2023-01-01' },
         });
-        const mockTask = { id: 1, content: 'New Task', due_date: new Date('2023-01-01') };
+        const mockTask = { id: 1, content: 'New Task', due_date: '2023-01-01' };
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
-        expect(JSON.parse(res._getData())).toEqual(JSON.parse(JSON.stringify(mockTask)));
+        expect(JSON.parse(res._getData())).toEqual(mockTask);
         expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null);
     });
 
@@ -157,7 +107,7 @@ describe('/api/v2/tasks', () => {
         expect(res._getStatusCode()).toBe(400);
     });
 
-    it('POST allows empty string content (new task from editor)', async () => {
+    it('POST allows empty string content', async () => {
         const { req, res } = createMocks({
             method: 'POST',
             body: { content: '' },
@@ -168,23 +118,18 @@ describe('/api/v2/tasks', () => {
         expect(res._getStatusCode()).toBe(201);
     });
 
-    // ── PUT ───────────────────────────────────────────────
     it('PUT updates a task', async () => {
         const { req, res } = createMocks({
             method: 'PUT',
             query: { id: '1' },
             body: { status: 'done' },
         });
-        (pool.query as jest.Mock).mockResolvedValueOnce({
-            rowCount: 1,
-            rows: [{ id: 1, status: 'done' }],
-        });
+        const updatedTask = { id: 1, content: 'Test', status: 'done' };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
-        expect(pool.query).toHaveBeenCalledWith(
-            expect.stringContaining('UPDATE tasks SET'),
-            expect.arrayContaining(['done', 1])
-        );
+        expect(JSON.parse(res._getData())).toEqual(updatedTask);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ status: 'done' }));
     });
 
     it('PUT returns 400 when no id provided', async () => {
@@ -206,18 +151,16 @@ describe('/api/v2/tasks', () => {
         expect(res._getStatusCode()).toBe(400);
     });
 
-    // ── DELETE: bulk ──────────────────────────────────────
-    it('DELETE with bulk_action=delete_completed removes done tasks', async () => {
+    it('DELETE with bulk_action=delete_completed uses deleteCompletedTasks', async () => {
         const { req, res } = createMocks({
             method: 'DELETE',
             query: { bulk_action: 'delete_completed' },
         });
-        (pool.query as jest.Mock).mockImplementation(() =>
-            Promise.resolve({ rows: [{ id: 1 }, { id: 2 }] })
-        );
+        (deleteCompletedTasks as jest.Mock).mockResolvedValueOnce(2);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
-        expect(pool.query).toHaveBeenCalledWith("SELECT id FROM tasks WHERE status = 'done'");
+        expect(JSON.parse(res._getData())).toEqual({ success: true, count: 2 });
+        expect(deleteCompletedTasks).toHaveBeenCalled();
     });
 
     it('DELETE with bulk_action returns 0 count when no completed tasks', async () => {
@@ -225,9 +168,9 @@ describe('/api/v2/tasks', () => {
             method: 'DELETE',
             query: { bulk_action: 'delete_completed' },
         });
-        (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+        (deleteCompletedTasks as jest.Mock).mockResolvedValueOnce(0);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
-        expect(JSON.parse(res._getData())).toEqual({ count: 0 });
+        expect(JSON.parse(res._getData())).toEqual({ success: true, count: 0 });
     });
 });

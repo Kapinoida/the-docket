@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { CalendarEvent } from '@/lib/calendar';
 import { startOfWeek, addDays, startOfMonth, endOfMonth, getDay, startOfDay } from 'date-fns';
 
@@ -37,7 +37,10 @@ export function useCalendarEvents(
   const [loading, setLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
-  const { start, end } = getDateRange(date, viewType, rangeEnd);
+  const { start, end } = useMemo(
+    () => getDateRange(date, viewType, rangeEnd),
+    [date, viewType, rangeEnd]
+  );
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -51,7 +54,7 @@ export function useCalendarEvents(
       setLoading(false);
       hasLoadedRef.current = true;
     }
-  }, [start.toISOString(), end.toISOString()]);
+  }, [start, end]);
 
   useEffect(() => {
     fetchEvents();
