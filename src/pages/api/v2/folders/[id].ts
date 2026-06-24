@@ -1,12 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import pool from '@/lib/db';
-
-const mapFolder = (row: any) => ({
-  id: String(row.id),
-  name: row.name,
-  parentId: row.parent_id ? String(row.parent_id) : undefined,
-  createdAt: row.created_at
-});
+import { updateFolder, deleteFolder } from '@/lib/db';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
@@ -17,59 +10,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-
-
     if (req.method === 'PUT') {
       const { name, parentId } = req.body;
-      console.log(`[API] PUT folder ${folderId} Body:`, req.body);
       
       if (parentId === folderId) {
           return res.status(400).json({ error: 'Cannot move folder into itself' });
       }
 
-      let query = 'UPDATE folders SET ';
-      const values: any[] = [];
-      let paramCount = 1;
+      const fields: { name?: string; parent_id?: number | null } = {};
+      if (name !== undefined) fields.name = name;
+      if (parentId !== undefined) fields.parent_id = parentId || null;
 
-      if (name !== undefined) {
-        query += `name = $${paramCount}, `;
-        values.push(name);
-        paramCount++;
+      if (Object.keys(fields).length === 0) {
+          return res.status(400).json({ error: 'No fields to update' });
       }
 
-      if (parentId !== undefined) {
-        query += `parent_id = $${paramCount}, `;
-        values.push(parentId); // parentId can be null
-        paramCount++;
-      }
-
-      // Remove trailing comma
-      query = query.slice(0, -2); 
-      query += ` WHERE id = $${paramCount} RETURNING *`;
-      values.push(folderId);
-
-      if (values.length === 1) { // Only ID passed, no updates
-         return res.status(400).json({ error: 'No fields to update' });
-      }
-
-      const result = await pool.query(query, values);
-      
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'Folder not found' });
-      }
-
-      return res.status(200).json(mapFolder(result.rows[0]));
+      const updated = await updateFolder(folderId, fields);
+      if (!updated) return res.status(404).json({ error: 'Folder not found' });
+      return res.status(200).json(updated);
     }
 
     if (req.method === 'DELETE') {
-      // Note: This might fail if there are subfolders or pages attached, 
-      // depending on FK constraints. The UI checks simple cases.
-      const result = await pool.query('DELETE FROM folders WHERE id = $1', [folderId]);
-      
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'Folder not found' });
-      }
-      
+      await deleteFolder(folderId);
       return res.status(200).json({ success: true });
     }
 

@@ -5,7 +5,7 @@ import { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Selection } from '@tiptap/pm/state';
 import { useState, useEffect, useRef } from 'react';
 import { EditorTaskItem } from '../../EditorTaskItem';
-import { Task } from '../../../../types/v2';
+import { Task } from '../../../../types';
 
 // Extend the EditorEvents interface (Module Augmentation)
 declare module '@tiptap/core' {
@@ -58,6 +58,26 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
                              const pos = getPos();
                              if (typeof pos === 'number') {
                                  editor.commands.insertContentAt(pos + 1, data.content);
+                                 // Auto-linkify URLs in the hydrated content
+                                 const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+                                 const tr = editor.state.tr;
+                                 let count = 0;
+                                 editor.state.doc.descendants((n, p) => {
+                                   if (!n.isText || p < pos || p > pos + node.nodeSize) return;
+                                   const text = n.text || '';
+                                   let match;
+                                   urlRegex.lastIndex = 0;
+                                   while ((match = urlRegex.exec(text)) !== null) {
+                                     const $pos = editor.state.doc.resolve(p + match.index);
+                                     if ($pos.marks().some(m => m.type.name === 'link')) continue;
+                                     tr.addMark(p + match.index, p + match.index + match[0].length, editor.schema.marks.link.create({ href: match[0] }));
+                                     count++;
+                                   }
+                                 });
+                                 if (count > 0) {
+                                   tr.setMeta('addToHistory', false);
+                                   editor.view.dispatch(tr);
+                                 }
                              }
                          } catch (e) {
                              console.error("Failed to hydrate task content", e);
@@ -76,9 +96,9 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
             content: '',
             status: 'todo',
             due_date: null,
-            created_at: new Date(),
-            updated_at: new Date()
-        } as Task);
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
     }
   }, [taskId]);
 

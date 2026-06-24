@@ -3,6 +3,8 @@ import pool, { createTask, addItemToPage } from './db';
 import { v4 as uuidv4 } from 'uuid';
 import ICAL from 'ical.js';
 import { spawnNextRecurrence } from './recurrence';
+import { rruleToRecurrenceRule, recurrenceRuleToRrule } from './recurrenceCalc';
+import { RecurrenceRule } from '@/types';
 
 // Types
 export interface CalDAVConfig {
@@ -30,6 +32,7 @@ interface LocalTask {
   content: string;
   status: string;
   due_date: Date | null;
+  recurrence_rule: RecurrenceRule | null;
   updated_at: Date;
   caldav_uid: string | null;
   caldav_etag: string | null;
@@ -88,13 +91,19 @@ function parseVTodo(icalData: string) {
     
     if (!vtodo) return null;
 
+    let recurrenceRule: RecurrenceRule | null = null;
+    const rruleProp = vtodo.getFirstPropertyValue('rrule');
+    if (rruleProp) {
+      recurrenceRule = rruleToRecurrenceRule(rruleProp.toString());
+    }
+
     return {
       uid: vtodo.getFirstPropertyValue('uid'),
       summary: vtodo.getFirstPropertyValue('summary'),
       status: vtodo.getFirstPropertyValue('status'),
-      // ICAL.js handling of dates can be complex, verify type
       due: vtodo.getFirstPropertyValue('due') ? vtodo.getFirstPropertyValue('due').toJSDate() : null,
       lastModified: vtodo.getFirstPropertyValue('last-modified') ? vtodo.getFirstPropertyValue('last-modified').toJSDate() : null,
+      recurrenceRule,
     };
   } catch (e) {
     console.warn("Failed to parse VTODO", e);
@@ -150,7 +159,7 @@ function parseVEvent(icalData: string) {
 /**
  * Helper: Create VTODO string
  */
-function createVTodoString(uid: string, summary: string, status: string, dueDate: Date | null): string {
+function createVTodoString(uid: string, summary: string, status: string, dueDate: Date | null, recurrenceRule?: RecurrenceRule | null): string {
   const comp = new ICAL.Component(['vcalendar', [], []]);
   const vtodo = new ICAL.Component('vtodo');
   comp.addSubcomponent(vtodo);
@@ -165,11 +174,17 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
     (time as any).isDate = true; // Force DATE-only (All Day) to avoid timezone shifts
     vtodo.addPropertyWithValue('due', time);
   }
+
+  if (recurrenceRule) {
+    const rruleStr = recurrenceRuleToRrule(recurrenceRule);
+    // @ts-ignore - ical.js types are incomplete for Recur
+    const rrule = ICAL.Recur.fromString(rruleStr);
+    vtodo.addPropertyWithValue('rrule', rrule);
+  }
   
   vtodo.addPropertyWithValue('dtstamp', ICAL.Time.now());
   
   const generated = comp.toString();
-  // console.log(`[Sync] Generated VTODO for ${uid}:`, generated);
   return generated;
 }
 
@@ -178,7 +193,7 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
  */
 async function pushLocalToRemote(client: DAVClient, config: CalDAVConfig, rObj: any, local: LocalTask, parsed: any) {
     if (!parsed.uid) throw new Error("Parsed UID is missing");
-    const vtodoStr = createVTodoString(parsed.uid, local.content, local.status, local.due_date);
+    const vtodoStr = createVTodoString(parsed.uid, local.content, local.status, local.due_date, local.recurrence_rule);
     const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
     
     // We use the remote object's url
@@ -229,21 +244,19 @@ async function pushLocalToRemote(client: DAVClient, config: CalDAVConfig, rObj: 
  * Helper: Update Local from Remote
  */
 async function updateLocalFromRemote(localId: number, parsed: any, newEtag: string | undefined | null) {
-    // Case-insensitive status check
     const statusStr = parsed.status ? parsed.status.toUpperCase() : '';
     const newStatus = statusStr === 'COMPLETED' ? 'done' : 'todo';
+    const recurrenceRule = parsed.recurrenceRule || null;
     
     await pool.query(
-      'UPDATE tasks SET content = $1, status = $2, due_date = $3, updated_at = NOW() WHERE id = $4',
-      [parsed.summary, newStatus, parsed.due, localId]
+      'UPDATE tasks SET content = $1, status = $2, due_date = $3, recurrence_rule = $4, updated_at = NOW() WHERE id = $5',
+      [parsed.summary, newStatus, parsed.due, recurrenceRule ? JSON.stringify(recurrenceRule) : null, localId]
     );
     await pool.query(
       'UPDATE task_sync_meta SET caldav_etag = $1, last_synced_at = NOW() WHERE task_id = $2',
       [newEtag, localId]
     );
 
-    // Handle recurrence: if this remote completion is for a recurring task,
-    // spawn the next instance locally (same as the Docket UI path).
     if (newStatus === 'done') {
       try {
         const spawnedId = await spawnNextRecurrence(localId);
@@ -807,7 +820,8 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
     // Let's assume user only has ONE "task_list" config for now.
     
     const localTasksRes = await pool.query(`
-      SELECT t.*, m.caldav_uid, m.caldav_etag, m.last_synced_at 
+      SELECT t.*, m.caldav_uid, m.caldav_etag, m.last_synced_at,
+             t.recurrence_rule
       FROM tasks t 
       LEFT JOIN task_sync_meta m ON t.id = m.task_id
     `);
@@ -902,9 +916,10 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
         // Check if we already have this UID in task_sync_meta but no task? (Orphan meta?)
         
         const newStatus = parsed.status === 'COMPLETED' ? 'done' : 'todo';
+        const recurrenceRule = parsed.recurrenceRule || null;
         const newTaskRes = await pool.query(
-          'INSERT INTO tasks (content, status, due_date) VALUES ($1, $2, $3) RETURNING id',
-          [parsed.summary || 'Untitled', newStatus, parsed.due]
+          'INSERT INTO tasks (content, status, due_date, recurrence_rule) VALUES ($1, $2, $3, $4) RETURNING id',
+          [parsed.summary || 'Untitled', newStatus, parsed.due, recurrenceRule ? JSON.stringify(recurrenceRule) : null]
         );
         const newTaskId = newTaskRes.rows[0].id;
         
@@ -931,7 +946,7 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
        // For MVP: JUST DO IT.
        
        const newUid = uuidv4();
-       const vtodoStr = createVTodoString(newUid, local.content, local.status, local.due_date);
+       const vtodoStr = createVTodoString(newUid, local.content, local.status, local.due_date, local.recurrence_rule);
        const filename = `${newUid}.ics`;
        
        await client.createCalendarObject({

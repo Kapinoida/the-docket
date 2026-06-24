@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, FileText, CheckCircle, Home, Calendar, Hash } from 'lucide-react';
-import { Page, Task } from '@/types/v2';
+import { Page, Task } from '@/types';
 
 // Helper interface for the flat API response
 interface SearchResultItem {

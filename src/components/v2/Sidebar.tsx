@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, ListTodo, Timer, Settings, Hash } from 'lucide-react';
-import { Page } from '../../types/v2';
+import { Page } from '../../types';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
 import { usePersistedState } from '../../lib/usePersistedState';
@@ -269,7 +269,7 @@ export default function Sidebar() {
                              // If on inbox/tasks page, they might need refresh too? 
                              // We are relying on window event from createPage but we task creation might not emit?
                              // Let's emit a global event for now or just trust navigation
-                             window.dispatchEvent(new Event('taskCreated'));
+                             window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'sidebar' } }));
 
                         } catch (err) {
                             console.error('Failed to quick add', err);

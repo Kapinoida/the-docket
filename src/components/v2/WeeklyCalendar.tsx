@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Task } from '@/types/v2';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay, v2TaskToLegacy } from '@/lib/calendar';
+import { Task } from '@/types';
+import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
@@ -13,11 +13,10 @@ import { useTaskEdit } from '@/contexts/TaskEditContext';
 import EventDetailModal from '../modals/EventDetailModal';
 
 interface WeeklyCalendarProps {
-  onTaskSelect?: (task: Task) => void;
   onTaskComplete?: (taskId: number) => void;
 }
 
-export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyCalendarProps) {
+export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
@@ -25,7 +24,7 @@ export default function WeeklyCalendar({ onTaskSelect, onTaskComplete }: WeeklyC
   const { openTaskEdit } = useTaskEdit();
 
   const handleOpenTaskEdit = useCallback((task: Task) => {
-    openTaskEdit(v2TaskToLegacy(task));
+    openTaskEdit(task);
   }, [openTaskEdit]);
 
   const windowEnd = addDays(currentStart, 7);

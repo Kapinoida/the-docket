@@ -2,8 +2,7 @@
 
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Folder as FolderIcon, FileText, ChevronRight, ChevronDown, Plus, Trash2, Pencil, X, Download, ListTodo } from 'lucide-react';
-import { Folder } from '@/types';
-import { Page } from '@/types/v2';
+import { Folder, Page } from '@/types';
 
 interface FolderTreeProps {
   onFolderSelect?: (folder: Folder) => void;

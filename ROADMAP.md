@@ -7,6 +7,34 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Fix useCalendarEvents re-fetch loop** 🟢  
+  Wrapped `getDateRange()` in `useMemo` so `start`/`end` are stable references; changed `useCallback` deps from `.toISOString()` strings to `[start, end]` references. Polling interval no longer tears down/recreates unnecessarily.  
+  *Completed: 2026-06-22*
+
+- [x] **JWT secret hardening** 🟢  
+  Removed hardcoded `|| 'docket-dev-secret-change-in-production'` fallback from `middleware.ts`, `login/route.ts`, and `me/route.ts`. All three now throw at module init if `JWT_SECRET` env var is missing. Added `JWT_SECRET: ${JWT_SECRET}` to `docker-compose.yml` environment block (interpolated from `.env` file).  
+  *Completed: 2026-06-22*
+
+- [x] **Database migrations framework** 🟢  
+  Adopted `node-pg-migrate` for dev/CI and a lightweight `scripts/run-migrations.js` runner for production (no devDeps in standalone image). Created `001_baseline.sql` (idempotent full schema), `002_caldav_name_default.sql` (data backfill), `003_notes_to_pages.sql` (conditional legacy data migration). Migrations tracked in `pgmigrations` table. Converted and deleted 6 legacy ad-hoc migration scripts. Updated `update.sh` and `Dockerfile`.  
+  *Completed: 2026-06-22*
+
+- [x] **Cross-view task sync & UI bug fixes** 🟢  
+  Fixed perpetual loading in TodayView/page\[id\], connected views with custom events for instant sync, fixed CalendarView mobile DayDetailPanel, extended DayView overlap to timed tasks, fixed event color opacity, extracted layout constants.  
+  *Completed: 2026-06-15*
+
+- [x] **Recurrence engine bug fixes & test coverage** 🟢  
+  Fixed weekly `daysOfWeek` calculation (was ignored), added duplicate-spawn protection, removed unused `RecurrenceRule` fields, extracted pure functions to `recurrenceCalc.ts`, added 35 unit tests.  
+  *Completed: 2026-06-15*
+
+- [x] **RRULE sync for CalDAV VTODOs** 🟢  
+  Added bidirectional RRULE ↔ RecurrenceRule conversion. `parseVTodo` now extracts RRULE, `createVTodoString` now emits RRULE, sync paths persist `recurrence_rule` to DB. Added 25 tests.  
+  *Completed: 2026-06-15*
+
+- [x] **Task widget API endpoint** 🟢  
+  Added `/api/widget/today` returning today's tasks in a lightweight JSON format for AIO Launcher widget integration. Added route to public middleware whitelist.  
+  *Completed: 2026-06-12*
+
 - [x] **Calendar shared module extraction** 🟢  
   Created `src/lib/calendar.ts` (shared types + utils), `EventCard`, `CalendarTaskCard`, `CalendarTaskBlock` components, `useCalendarEvents` and `useCalendarSources` hooks. Refactored CalendarView, WeeklyCalendar, TodayView to use shared modules.  
   *Completed: 2026-06-11*
@@ -23,29 +51,38 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   Added task completion toggles, quick-add input with date selector (today/tomorrow/no date), due date badges, TaskEditModal integration, sorted task list (overdue → today → tomorrow → upcoming → no date), completed tasks section.  
   *Completed: 2026-06-11*
 
+- [x] **Merge CalendarTaskSidebar into UnscheduledTaskPanel** 🟢  
+  Replaced standalone `CalendarTaskSidebar` with an integrated panel inside `UnscheduledTaskPanel`. Unified sidebar calendar interaction under one component tree. Deleted 283 lines of standalone sidebar code.  
+  *Completed: 2026-06-11*
+
+- [x] **Wire TaskEditModal to all calendar task clicks** 🟢  
+  `CalendarView` and `WeeklyCalendar` now pass `openTaskEdit()` to `CalendarTaskCard` and `CalendarTaskBlock` `onClick` props. Clicking a task in week, month, or mobile views opens the edit modal.  
+  *Completed: 2026-06-11*
+
 ---
 
 ## 🏗️ Immediate (Next 1–2 weeks)
 
 ### Architectural & Technical Debt
-- [ ] **Unify type systems**  
-  *Merge `src/types/index.ts` and `src/types/v2.ts` into a single canonical set, using snake_case DB types and camelCase public API types with explicit transformations.*  
-  **Status:** 🔴 Not Started  
-  **Context:** Current dual type systems cause manual conversion in TaskEditContext.
+- [x] **Unify type systems** 🟢  
+  *Merged `src/types/index.ts` and `src/types/v2.ts` into a single canonical set. Removed all adapter code and dead code (`api.ts`, unused hooks). The canonical `Task` type uses `status: TaskStatus` (not `completed: boolean`) and string dates matching JSON shapes.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-13*
 
-- [ ] **Consolidate API layers**  
-  *Remove `src/lib/api.ts` legacy layer, migrate all routes to use `src/lib/db.ts` exclusively.*  
-  **Status:** 🔴 Not Started  
-  **Context:** Some routes still depend on legacy camelCase conversions; blocking progress.
+- [x] **Consolidate API layers** 🟢  
+  *Removed `src/lib/api.ts`, added ~20 data access functions to `db.ts` (`getTasks`, `updateTask`, `deleteTask`, `deleteCompletedTasks`, `getFolders`, `createFolder`, `updateFolder`, `deleteFolder`, `getCalendarEvents`, `updateCalendarEvent`, CalDAV config CRUD, push subscription helpers, journal helpers, `searchAll`, `getFolderPages`). Refactored 12 route files to use `db.ts` helpers instead of inline SQL. Removed `mapFolder` camelCase conversions. Removed 4 unused `db.ts` exports. Fixed `pages.ts` dynamic import.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-13*
 
-- [ ] **Database migrations framework**  
-  *Choose a lightweight migration tool (e.g., `graphile-migrate`, `node-pg-migrate`) and convert existing `src/migrations/` files.*  
-  **Status:** 🔴 Not Started  
-  **Context:** Manual SQL changes are error-prone; no version tracking.
+- [x] **Database migrations framework** 🟢  
+  *Adopted `node-pg-migrate` + custom production runner. Converted all legacy scripts to migration files. See Recently Completed for details.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-22*
 
-- [ ] **JWT secret handling**  
-  *Replace hardcoded default with environment variable and fail fast if missing in production.*  
-  **Status:** 🔴 Not Started
+- [x] **JWT secret handling** 🟢  
+  *Removed hardcoded fallback. All auth routes throw at init if `JWT_SECRET` is missing.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-22*
 
 ### Calendar & Sync Improvements
 - [ ] **CalDAV multi‑account support**  
@@ -53,19 +90,54 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started  
   **Context:** Marked as TODO in codebase; users need multiple calendar sources.
 
-- [ ] **Recurrence engine edge cases**  
-  *Audit `recurrence.ts` for exceptions, timezone handling, and missing rule parts (BYDAY, COUNT). Add tests.*  
+- [x] **Recurrence COUNT/UNTIL end conditions** 🟢  
+  Added `count` and `until` fields to `RecurrenceRule`. `spawnNextRecurrence` terminates on COUNT exhaustion or UNTIL date. RRULE round-trip supports COUNT and UNTIL. DatePickerPopover has "Ends" UI (Never/After/On date). 18 new tests.  
+  *Completed: 2026-06-15*
+
+- [x] **Wire TaskEditModal to calendar task clicks** 🟢  
+  *CalendarView and WeeklyCalendar now pass `openTaskEdit()` to card `onClick` props. Clicking a task in any view opens the edit modal.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-11*
+
+- [x] **Real-time cross-view task sync** 🟢  
+  *Views now communicate via custom DOM events (`taskUpdated`, `taskCreated`, `taskDeleted`). Completed earlier as part of the cross-view sync & UI bug fixes batch. `useTaskSync` was removed in type unification — direct event dispatch replaces it.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-11*
+
+### Performance & Stability
+- [x] **Fix useCalendarEvents re-fetch loop** 🟢  
+  *Wrapped `getDateRange()` in `useMemo`; deps changed to `[start, end]` references.*  
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-22*
+
+- [ ] **Consolidate 30s polling intervals**  
+  *CalendarView, TodayView, WeeklyCalendar, and useCalendarEvents all run separate 30s intervals. Should be one shared sync mechanism.*  
+  **Status:** 🔴 Not Started  
+  **Context:** Network saturation and battery drain on mobile when multiple views are mounted.
+
+- [x] **Add error state UI for failed operations** 🟢
+  *Created ToastProvider context + useToast() hook with showToast(message, type) API. Toasts auto-dismiss after 4s, render via portal, color-coded (success/error/info). Wired into all 7 CalendarView drag-drop/creation handlers. Reusable — other components can adopt trivially.*
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-24*
+
+- [x] **Silent drag-drop failures in CalendarView** 🟢
+  *All 7 drag-drop/creation .catch(console.error) handlers now show error toasts via useToast(). Covers handleDropTask, DayView onDrop (dragTask, external drop, dragEvent), onTouchEnd, and inline task creation.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-06-24*
+
+### Code Quality
+- [ ] **Move constants out of component functions**  
+  *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  
   **Status:** 🔴 Not Started
 
-- [ ] **Wire TaskEditModal to calendar task clicks**  
-  *CalendarTaskCard and CalendarTaskBlock have onClick props, but CalendarView and WeeklyCalendar don't pass `openTaskEdit()` yet. Clicking a task in week/month/mobile views currently does nothing.*  
-  **Status:** 🔴 Not Started  
-  **Context:** Natural next step after calendar refactoring; both components already designed for it.
+- [ ] **Remove console.log from production code**  
+  *45+ `console.log` statements in production code (caldav sync, recurrence, contexts).*  
+  **Status:** 🔴 Not Started
 
-- [ ] **Real-time cross-view task sync**  
-  *When a task is completed in CalendarTaskSidebar or CalendarView, TodayView and other views don't update until their next 30s poll. Use existing `taskUpdated`/`taskCreated` custom events from TaskEditContext + `useTaskSync` hook to propagate changes instantly across all open views.*  
+- [ ] **Replace `handleDeletePage` / `handleCreatePageSubmit` full page reloads**  
+  *Sidebar uses `window.location.href` instead of Next.js router. Should use `useRouter().push()`.*  
   **Status:** 🔴 Not Started  
-  **Context:** `useTaskSync` already exists and dispatches/listens for DOM events; just needs wiring into calendar views.
+  **Context:** `src/components/v2/Sidebar.tsx` lines 141, 168.
 
 ### Testing & Stability
 - [ ] **Re-enable TypeScript & ESLint in builds**  

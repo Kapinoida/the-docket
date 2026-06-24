@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TaskItem } from '../TaskItem';
-import { Task } from '../../../types/v2';
+import { Task } from '../../../types';
 import { TaskEditProvider } from '../../../contexts/TaskEditContext';
 
 // Mock fetch for the provider (it may call API on save)
@@ -21,8 +21,8 @@ describe('TaskItem', () => {
     id: 1,
     content: 'Test Task Content',
     status: 'todo',
-    created_at: new Date('2023-01-01'),
-    updated_at: new Date('2023-01-01'),
+    created_at: '2023-01-01T00:00:00.000Z',
+    updated_at: '2023-01-01T00:00:00.000Z',
     due_date: null,
     recurrence_rule: undefined
   };
@@ -75,7 +75,7 @@ describe('TaskItem', () => {
   it('renders due date in MMM d format', () => {
     const taskWithDate: Task = {
       ...mockTask,
-      due_date: new Date('2026-05-18T00:00:00.000Z')
+      due_date: '2026-05-18T00:00:00.000Z'
     };
     customRender(
       <TaskItem task={taskWithDate} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
@@ -86,7 +86,7 @@ describe('TaskItem', () => {
   it('renders time alongside date when time is not midnight', () => {
     const taskWithTime: Task = {
       ...mockTask,
-      due_date: new Date('2026-05-18T15:30:00.000Z')
+      due_date: '2026-05-18T15:30:00.000Z'
     };
     customRender(
       <TaskItem task={taskWithTime} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
@@ -97,7 +97,7 @@ describe('TaskItem', () => {
   it('shows recurrence clock icon when task has recurrence rule', () => {
     const recurringTask: Task = {
       ...mockTask,
-      due_date: new Date('2026-05-18T00:00:00.000Z'),
+      due_date: '2026-05-18T00:00:00.000Z',
       recurrence_rule: { type: 'weekly', interval: 1 }
     };
     customRender(

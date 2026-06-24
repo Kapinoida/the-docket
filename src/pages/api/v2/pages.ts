@@ -1,6 +1,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPage, getPage, getPageItems, getTagsForItem } from '../../../lib/db';
+import { createPage, getPage, getPageItems, getTagsForItem, addItemToPage, deleteTask } from '../../../lib/db';
 import pool from '../../../lib/db';
 
 export default async function handler(
@@ -9,6 +9,7 @@ export default async function handler(
 ) {
   const { method } = req;
   const { id } = req.query;
+  const pageId = Number(id);
 
   try {
     switch (method) {
@@ -72,15 +73,9 @@ export default async function handler(
         const newPage = await createPage(title, content, finalFolderId);
 
         // Link to parent if applicable
-        if (parentPageId) {
-             // We need to import addItemToPage if it's not exported from db, 
-             // but checking imports: createPage, getPage, getPageItems are imported.
-             // Need to add addItemToPage to import list above if missing.
-             // It seems 'addItemToPage' is exported in db.ts but check imports in this file.
-             // Line 3 imports: { createPage, getPage, getPageItems }. Need to add addItemToPage.
-             const { addItemToPage } = await import('../../../lib/db');
-             await addItemToPage(Number(parentPageId), newPage.id, 'page');
-        }
+if (parentPageId) {
+              await addItemToPage(Number(parentPageId), newPage.id, 'page');
+         }
 
         return res.status(201).json(newPage);
 
@@ -93,8 +88,65 @@ export default async function handler(
         let valueIdx = 1;
 
         if (newContent !== undefined) {
+          // Get old content to detect removed v2Task references
+          const oldPage = await pool.query('SELECT content FROM pages WHERE id = $1', [pageId]);
+          const oldContent = oldPage.rows[0]?.content;
+          
           updateFields.push(`content = $${valueIdx++}`);
           updateValues.push(newContent);
+          
+          // After updating, clean up any orphaned tasks (tasks removed from this page's content
+          // that aren't referenced by any other page)
+          if (oldContent) {
+            const extractTaskIds = (content: any): number[] => {
+              const ids: number[] = [];
+              const walk = (node: any) => {
+                if (!node) return;
+                if (node.type === 'v2Task' && node.attrs?.taskId) {
+                  ids.push(node.attrs.taskId);
+                }
+                if (node.content && Array.isArray(node.content)) {
+                  node.content.forEach(walk);
+                }
+              };
+              try {
+                walk(typeof content === 'string' ? JSON.parse(content) : content);
+              } catch {}
+              return ids;
+            };
+            
+            const oldIds = new Set(extractTaskIds(oldContent));
+            const newIds = new Set(extractTaskIds(newContent));
+            
+            for (const taskId of oldIds) {
+              if (!newIds.has(taskId)) {
+                // Task was removed from this page's content.
+                // Delete it only if no other page references it via page_items
+                // AND no other page's content embeds it via v2Task node.
+                const otherPageItemRefs = await pool.query(
+                  'SELECT COUNT(*) as cnt FROM page_items WHERE child_task_id = $1 AND page_id != $2',
+                  [taskId, pageId]
+                );
+                
+                if (parseInt(otherPageItemRefs.rows[0].cnt) === 0) {
+                  // Also check other pages' content for v2Task embeds
+                  const otherContentRefs = await pool.query(
+                    `SELECT COUNT(*) as cnt FROM pages 
+                     WHERE id != $1 AND content::text LIKE $2`,
+                    [pageId, `%"taskId":${taskId}%`]
+                  );
+                  
+                  if (parseInt(otherContentRefs.rows[0].cnt) === 0) {
+                    await deleteTask(taskId);
+                  } else {
+                    // Task is embedded in another page's content but not in page_items.
+                    // Just remove the page_items link for this page.
+                    await pool.query('DELETE FROM page_items WHERE child_task_id = $1 AND page_id = $2', [taskId, pageId]);
+                  }
+                }
+              }
+            }
+          }
         }
         if (newTitle !== undefined) {
           updateFields.push(`title = $${valueIdx++}`);
@@ -125,7 +177,6 @@ export default async function handler(
 
       case 'DELETE':
         if (!id) return res.status(400).json({ error: 'ID is required' });
-        const pageId = Number(id);
 
         // 1. Identify and Delete Orphaned Tasks (Tasks only on this page)
         // A task is orphaned if it is linked to this page AND not linked to any other page.

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Task, Page } from '@/types/v2';
+import { Task, Page } from '@/types';
 import WeeklyCalendar from './WeeklyCalendar';
 import RecentNotes from './RecentNotes';
 import { Plus, Layout, Calendar, CheckSquare } from 'lucide-react';
@@ -79,20 +79,6 @@ export default function DashboardView() {
       window.removeEventListener('taskDeleted', handleTaskDelete);
     };
   }, [fetchStats]);
-
-  const handleTaskSelect = (task: Task) => {
-    // Adapter for V1 TaskEditContext
-    openTaskEdit({
-      ...task,
-      id: task.id.toString(), // V2 uses number, V1 uses string
-      dueDate: task.due_date ? parseLocalDateNode(task.due_date) : null,
-      completed: task.status === 'done',
-      createdAt: new Date(task.created_at),
-      updatedAt: new Date(task.updated_at),
-      content: task.content,
-      recurrenceRule: task.recurrence_rule
-    } as any);
-  };
 
   const handleNoteSelect = (page: Page) => {
     router.push(`/page/${page.id}`);
@@ -183,7 +169,6 @@ export default function DashboardView() {
                 </h3>
             </div>
             <WeeklyCalendar 
-              onTaskSelect={handleTaskSelect} 
               onTaskComplete={() => fetchStats()}
             />
           </div>

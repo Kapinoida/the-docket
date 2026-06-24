@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, MoreVertical } from 'lucide-react';
-import { Task } from '../../types/v2';
+import { Task } from '../../types';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -73,7 +73,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const handleDateSelect = (date: Date | null, recurrence?: any) => {
       onUpdate?.({ 
-          due_date: date,
+          due_date: date ? date.toISOString() : null,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
   };
@@ -93,16 +93,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const handleEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
-      openTaskEdit({
-          ...task,
-          id: task.id.toString(),
-          dueDate: task.due_date ? parseLocalDateNode(task.due_date) : null,
-          completed: task.status === 'done',
-          createdAt: new Date(task.created_at),
-          updatedAt: new Date(task.updated_at),
-          content: task.content,
-          recurrenceRule: task.recurrence_rule
-      } as any);
+      openTaskEdit(task);
   };
 
   const isDone = task.status === 'done';

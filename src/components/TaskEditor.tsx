@@ -1,60 +1,60 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TaskInstance, Note, RecurrenceRule } from '@/types';
+import { Task, RecurrenceRule } from '@/types';
 import { format } from 'date-fns';
 import { Calendar, X, Repeat } from 'lucide-react';
 import { DatePickerPopover } from './v2/DatePickerPopover';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 
 interface TaskEditorProps {
-  task?: TaskInstance;
+  task?: Task;
   folderId?: string;
   onSave: (taskUpdates: any) => void;
   onClose: () => void;
   isInTab?: boolean;
-  onNoteSelect?: (note: Note) => void;
+  onNoteSelect?: (note: any) => void;
 }
 
 export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = false, onNoteSelect }: TaskEditorProps) {
   const [content, setContent] = useState(task?.content || '');
   const [dueDate, setDueDate] = useState(
-    task?.dueDate ? format(parseLocalDateNode(task.dueDate) as Date, 'yyyy-MM-dd') : ''
+    task?.due_date ? format(parseLocalDateNode(task.due_date) as Date, 'yyyy-MM-dd') : ''
   );
   const [dueTime, setDueTime] = useState(() => {
-    if (!task?.dueDate) return '';
-    // Only show time if the stored date isn't midnight UTC (date-only)
-    const rawDate = new Date(task.dueDate);
+    if (!task?.due_date) return '';
+    const rawDate = new Date(task.due_date);
     if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
-      return ''; // Date-only value, no time to show
+      return '';
     }
-    return format(parseLocalDateNode(task.dueDate) as Date, 'HH:mm');
+    return format(parseLocalDateNode(task.due_date) as Date, 'HH:mm');
   });
-  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrenceRule);
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrence_rule);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
-  const [completed, setCompleted] = useState(task?.completed || false);
+  const [status, setStatus] = useState<Task['status']>(task?.status || 'todo');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (task) {
       setContent(task.content);
-      setDueDate(task.dueDate ? format(parseLocalDateNode(task.dueDate) as Date, 'yyyy-MM-dd') : '');
-      // Only show time if it was explicitly set (not midnight UTC)
-      if (task.dueDate) {
-        const rawDate = new Date(task.dueDate);
+      setDueDate(task.due_date ? format(parseLocalDateNode(task.due_date) as Date, 'yyyy-MM-dd') : '');
+      if (task.due_date) {
+        const rawDate = new Date(task.due_date);
         if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
-          setDueTime(''); // Date-only value
+          setDueTime('');
         } else {
-          setDueTime(format(parseLocalDateNode(task.dueDate) as Date, 'HH:mm'));
+          setDueTime(format(parseLocalDateNode(task.due_date) as Date, 'HH:mm'));
         }
       } else {
         setDueTime('');
       }
-      setRecurrenceRule(task.recurrenceRule);
-      setCompleted(task.completed || false);
+      setRecurrenceRule(task.recurrence_rule);
+      setStatus(task.status || 'todo');
     }
   }, [task]);
+
+  const isDone = status === 'done';
 
   const handleSave = async () => {
     if (!content.trim()) {
@@ -64,22 +64,19 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
 
     setIsSaving(true);
     try {
-      // Construct updates object
       const updates: any = {
         content: content.trim(),
-        dueDate: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null,
-        recurrenceRule: recurrenceRule || null,
-        completed: completed,
+        due_date: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null,
+        recurrence_rule: recurrenceRule || null,
+        status,
       };
-      
-      // If we have an ID, include it for completeness, though onSave in context handles it by closure state usually.
+
       if (task) {
-          updates.id = task.id;
+        updates.id = task.id;
       }
 
-      // Delegate to parent handler
       await onSave(updates);
-      
+
     } catch (error) {
       console.error('Error saving task:', error);
       alert('Failed to save task');
@@ -105,11 +102,11 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
     }
   };
 
-  const containerClasses = isInTab 
+  const containerClasses = isInTab
     ? "h-full flex flex-col bg-white dark:bg-gray-800"
     : "fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50 p-4 overflow-y-auto";
-    
-  const editorClasses = isInTab 
+
+  const editorClasses = isInTab
     ? "h-full flex flex-col"
     : "bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col";
 
@@ -155,7 +152,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <button 
+                <button
                   ref={dateButtonRef}
                   onClick={() => setShowDatePicker(!showDatePicker)}
                   className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -166,24 +163,25 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                       {dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return format(new Date(y, m - 1, d), 'MMMM d, yyyy'); })() : 'Set due date...'}
                     </span>
                   </div>
-                  {recurrenceRule && (
+{recurrenceRule && (
                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full flex items-center gap-1">
                         <Repeat className="w-3 h-3" />
                         {recurrenceRule.type === 'daily' && recurrenceRule.interval > 1 ? 'Every ' + recurrenceRule.interval + ' days' :
                          recurrenceRule.type === 'weekly' && (recurrenceRule.interval > 1 || (recurrenceRule.daysOfWeek && recurrenceRule.daysOfWeek.length > 0)) ? 'Custom Wk' :
                          recurrenceRule.type === 'monthly' && (recurrenceRule.interval > 1 || recurrenceRule.weekOfMonth) ? 'Custom Mo' :
                          recurrenceRule.type}
+                        {recurrenceRule.count ? ` ×${recurrenceRule.count}` : ''}
+                        {recurrenceRule.until ? ` until ${recurrenceRule.until.slice(0, 8)}` : ''}
                      </span>
-                  )}
+                 )}
                 </button>
-                
+
                 {showDatePicker && (
-                  <DatePickerPopover 
+                  <DatePickerPopover
                     date={dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return new Date(y, m - 1, d); })() : null}
                     recurrenceRule={recurrenceRule}
                     onSelect={(date, rule) => {
                       setDueDate(date ? format(date, 'yyyy-MM-dd') : '');
-                      // Preserve existing time when date changes
                       if (date && !dueTime) {
                         setDueTime('12:00');
                       }
@@ -207,21 +205,21 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             </div>
           </div>
 
-          {/* Task Completion */}
+          {/* Task Status */}
           {task && (
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
                 id="task-completed"
-                checked={completed}
-                onChange={(e) => setCompleted(e.target.checked)}
+                checked={isDone}
+                onChange={(e) => setStatus(e.target.checked ? 'done' : 'todo')}
                 className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
               />
-              <label 
-                htmlFor="task-completed" 
+              <label
+                htmlFor="task-completed"
                 className={`text-sm font-medium cursor-pointer ${
-                  completed 
-                    ? 'text-green-700 dark:text-green-400 line-through' 
+                  isDone
+                    ? 'text-green-700 dark:text-green-400 line-through'
                     : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -229,43 +227,12 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
               </label>
             </div>
           )}
-
-          {/* Source Note Info */}
-          {task?.sourceNote && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Created from note:{' '}
-                {onNoteSelect ? (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(`/api/notes/${task.sourceNote!.id}`);
-                        if (response.ok) {
-                          const fullNote = await response.json();
-                          onNoteSelect(fullNote);
-                        } else {
-                          console.error('Failed to fetch note');
-                        }
-                      } catch (error) {
-                        console.error('Error fetching note:', error);
-                      }
-                    }}
-                    className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
-                  >
-                    {task.sourceNote.title}
-                  </button>
-                ) : (
-                  <span className="font-medium">{task.sourceNote.title}</span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Press Enter to save • Escape to cancel
+            Press Enter to save &bull; Escape to cancel
           </div>
           <div className="flex gap-2">
             <button
@@ -277,17 +244,16 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
             {task && (
               <button
                 onClick={() => {
-                  setCompleted(!completed);
-                  // Auto-save when toggling completion
+                  setStatus(isDone ? 'todo' : 'done');
                   setTimeout(handleSave, 100);
                 }}
                 className={`px-4 py-2 text-sm rounded transition-colors ${
-                  completed
+                  isDone
                     ? 'bg-orange-500 text-white hover:bg-orange-600'
                     : 'bg-green-500 text-white hover:bg-green-600'
                 }`}
               >
-                {completed ? 'Mark Incomplete' : 'Mark Complete'}
+                {isDone ? 'Mark Incomplete' : 'Mark Complete'}
               </button>
             )}
             <button

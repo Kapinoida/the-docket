@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { Page, Task, PageItem, PageItemType } from '../types/v2';
+import { Page, Task, PageItem, PageItemType } from '../types';
 
 // Database connection pool
 const pool = new Pool({
@@ -58,29 +58,6 @@ export async function getPage(id: number): Promise<Page | null> {
       folder: row.folder_data ? { id: row.folder_data.id, name: row.folder_data.name } : null,
       parent_page: row.parent_page_data ? { id: row.parent_page_data.id, title: row.parent_page_data.title } : null
   };
-}
-
-export async function getPages(options: { folderId?: number, view?: 'favorites' | 'recent' | 'all' } = {}): Promise<Page[]> {
-  let query = 'SELECT * FROM pages';
-  const params: any[] = [];
-  const startParam = 1;
-
-  if (options.folderId !== undefined) {
-    query += ` WHERE folder_id = $${startParam}`;
-    params.push(options.folderId);
-  } else if (options.view === 'favorites') {
-    query += ' WHERE is_favorite = true';
-  }
-
-  // Ordering
-  if (options.view === 'recent') {
-    query += ' ORDER BY updated_at DESC LIMIT 10';
-  } else {
-    query += ' ORDER BY title ASC';
-  }
-
-  const res = await pool.query(query, params);
-  return res.rows;
 }
 
 export async function createTask(content: string, dueDate: Date | null = null, recurrenceRule: any = null): Promise<Task> {
@@ -153,46 +130,6 @@ export async function getPageItems(pageId: number): Promise<PageItem[]> {
     };
   });
 } 
-
-// Get all pages where an item appears (Context)
-export async function getItemContext(itemId: number, itemType: PageItemType): Promise<Page[]> {
-  const column = itemType === 'page' ? 'child_page_id' : 'child_task_id';
-  
-  const query = `
-    SELECT p.* 
-    FROM pages p
-    JOIN page_items pi ON p.id = pi.page_id
-    WHERE pi.${column} = $1
-  `;
-  
-  const res = await pool.query(query, [itemId]);
-  return res.rows;
-}
-
-export async function searchContent(query: string) {
-  const searchTerm = `%${query}%`;
-  
-  const pagesPromise = pool.query(
-    'SELECT * FROM pages WHERE title ILIKE $1 OR content::text ILIKE $1 LIMIT 5',
-    [searchTerm]
-  );
-  
-  const tasksPromise = pool.query(
-    `SELECT t.*, p.id as page_id, p.title as page_title 
-     FROM tasks t
-     LEFT JOIN page_items pi ON t.id = pi.child_task_id
-     LEFT JOIN pages p ON pi.page_id = p.id
-     WHERE t.content ILIKE $1 LIMIT 5`,
-    [searchTerm]
-  );
-  
-  const [pagesRes, tasksRes] = await Promise.all([pagesPromise, tasksPromise]);
-  
-  return {
-    pages: pagesRes.rows,
-    tasks: tasksRes.rows
-  };
-}
 
 export async function getFocusTasks() {
   const now = new Date();
@@ -360,25 +297,370 @@ export async function getTagsForItem(itemId: number, itemType: 'page' | 'task'):
   return res.rows;
 }
 
-export async function getItemsByTag(tagId: number) {
-    const pagesRes = await pool.query(`
-        SELECT p.* 
-        FROM pages p
-        JOIN tag_assignments ta ON p.id = ta.item_id
-        WHERE ta.tag_id = $1 AND ta.item_type = 'page'
-        ORDER BY p.title ASC
-    `, [tagId]);
+// --- Task Data Access ---
 
-    const tasksRes = await pool.query(`
-        SELECT t.* 
-        FROM tasks t
-        JOIN tag_assignments ta ON t.id = ta.item_id
-        WHERE ta.tag_id = $1 AND ta.item_type = 'task'
-        ORDER BY t.created_at DESC
-    `, [tagId]);
+export interface GetTasksOptions {
+  due?: 'today';
+  context?: 'none';
+  status?: 'todo' | 'done' | 'all';
+  sort?: 'dueDate' | 'oldest' | 'newest';
+}
 
-    return {
-        pages: pagesRes.rows,
-        tasks: tasksRes.rows
-    };
+export async function getTasks(options: GetTasksOptions = {}): Promise<Task[]> {
+  let query = `SELECT t.*, (SELECT p.title FROM page_items pi JOIN pages p ON p.id = pi.page_id WHERE pi.child_task_id = t.id LIMIT 1) as page_name`;
+  const params: any[] = [];
+  let paramIdx = 1;
+
+  if (options.due === 'today') {
+    query += ` FROM tasks t WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
+    query += ` ORDER BY t.due_date ASC, t.created_at ASC`;
+  } else if (options.context === 'none') {
+    query += ` FROM tasks t WHERE t.content != '' AND (t.status IS NULL OR t.status != 'done')`;
+    query += ` AND NOT EXISTS (SELECT 1 FROM page_items WHERE child_task_id = t.id)`;
+    query += ` ORDER BY t.created_at DESC`;
+  } else {
+    query += " FROM tasks t WHERE t.content != ''";
+    if (options.status === 'todo') {
+      query += " AND (t.status IS NULL OR t.status != 'done')";
+    } else if (options.status === 'done') {
+      query += " AND t.status = 'done'";
+    }
+    if (options.sort === 'dueDate') {
+      query += " ORDER BY t.due_date ASC NULLS LAST, t.created_at ASC";
+    } else if (options.sort === 'oldest') {
+      query += " ORDER BY t.created_at ASC";
+    } else {
+      query += " ORDER BY t.created_at DESC";
+    }
+  }
+
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+export interface UpdateTaskFields {
+  content?: string;
+  status?: string;
+  due_date?: Date | string | null;
+  recurrence_rule?: any;
+}
+
+export async function updateTask(id: number, fields: UpdateTaskFields): Promise<Task | null> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIdx = 1;
+
+  if (fields.content !== undefined) {
+    setClauses.push(`content = $${paramIdx++}`);
+    values.push(fields.content);
+  }
+  if (fields.status !== undefined) {
+    setClauses.push(`status = $${paramIdx++}`);
+    values.push(fields.status);
+  }
+  if (fields.due_date !== undefined) {
+    setClauses.push(`due_date = $${paramIdx++}`);
+    values.push(fields.due_date);
+  }
+  if (fields.recurrence_rule !== undefined) {
+    setClauses.push(`recurrence_rule = $${paramIdx++}`);
+    values.push(fields.recurrence_rule);
+  }
+
+  if (setClauses.length === 0) return null;
+
+  setClauses.push(`updated_at = NOW()`);
+  values.push(id);
+
+  const query = `UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+  const res = await pool.query(query, values);
+  return res.rows[0] || null;
+}
+
+export async function deleteTask(id: number): Promise<void> {
+  await createTombstone(id);
+  await deleteTaskReferences(id);
+  await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+  await pool.query('DELETE FROM page_items WHERE child_task_id = $1', [id]);
+}
+
+export async function deleteCompletedTasks(): Promise<number> {
+  const completedRes = await pool.query("SELECT id FROM tasks WHERE status = 'done'");
+  const completedIds = completedRes.rows.map((r: any) => r.id);
+
+  for (const taskId of completedIds) {
+    await createTombstone(taskId);
+    await deleteTaskReferences(taskId);
+  }
+
+  const deleteRes = await pool.query("DELETE FROM tasks WHERE status = 'done'");
+  return deleteRes.rowCount ?? 0;
+}
+
+// --- Folder Data Access ---
+
+export async function getFolders(): Promise<any[]> {
+  const res = await pool.query('SELECT * FROM folders ORDER BY name ASC');
+  return res.rows;
+}
+
+export async function createFolder(name: string, parentId?: number | null): Promise<any> {
+  const res = await pool.query(
+    'INSERT INTO folders (name, parent_id) VALUES ($1, $2) RETURNING *',
+    [name, parentId || null]
+  );
+  return res.rows[0];
+}
+
+export async function updateFolder(id: number, fields: { name?: string; parent_id?: number | null }): Promise<any> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIdx = 1;
+
+  if (fields.name !== undefined) {
+    setClauses.push(`name = $${paramIdx++}`);
+    values.push(fields.name);
+  }
+  if (fields.parent_id !== undefined) {
+    setClauses.push(`parent_id = $${paramIdx++}`);
+    values.push(fields.parent_id);
+  }
+
+  if (setClauses.length === 0) return null;
+
+  values.push(id);
+  const query = `UPDATE folders SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+  const res = await pool.query(query, values);
+  return res.rows[0] || null;
+}
+
+export async function deleteFolder(id: number): Promise<void> {
+  await pool.query('DELETE FROM folders WHERE id = $1', [id]);
+}
+
+// --- Calendar Event Data Access ---
+
+export async function getCalendarEvents(start: string, end: string): Promise<{ regular: any[]; recurring: any[] }> {
+  const regularQuery = `
+    SELECT e.*, c.name as calendar_name, c.username, c.color as calendar_color
+    FROM calendar_events e
+    JOIN caldav_configs c ON e.calendar_id = c.id
+    WHERE c.enabled = TRUE
+    AND e.rrule IS NULL
+    AND (e.start_time <= $2::timestamptz AND e.end_time >= $1::timestamptz)
+  `;
+  const recurringQuery = `
+    SELECT e.*, c.name as calendar_name, c.username, c.color as calendar_color
+    FROM calendar_events e
+    JOIN caldav_configs c ON e.calendar_id = c.id
+    WHERE c.enabled = TRUE
+    AND e.rrule IS NOT NULL
+    AND e.start_time <= $1::timestamptz
+  `;
+  const [regularRes, recurringRes] = await Promise.all([
+    pool.query(regularQuery, [start, end]),
+    pool.query(recurringQuery, [end])
+  ]);
+  return { regular: regularRes.rows, recurring: recurringRes.rows };
+}
+
+export async function updateCalendarEvent(id: string, fields: { start_time?: string; end_time?: string; last_synced_at?: Date }): Promise<any> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIdx = 1;
+
+  if (fields.start_time !== undefined) {
+    setClauses.push(`start_time = $${paramIdx++}`);
+    values.push(fields.start_time);
+  }
+  if (fields.end_time !== undefined) {
+    setClauses.push(`end_time = $${paramIdx++}`);
+    values.push(fields.end_time);
+  }
+  if (fields.last_synced_at !== undefined) {
+    setClauses.push(`last_synced_at = $${paramIdx++}`);
+    values.push(fields.last_synced_at);
+  }
+
+  if (setClauses.length === 0) return null;
+
+  values.push(id);
+  const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+  const res = await pool.query(query, values);
+  return res.rows[0] || null;
+}
+
+export async function getCalendarEventWithConfig(id: string): Promise<any> {
+  const res = await pool.query(`
+    SELECT e.*, c.server_url, c.username, c.password, c.calendar_url
+    FROM calendar_events e
+    JOIN caldav_configs c ON e.calendar_id = c.id
+    WHERE e.id = $1 AND c.enabled = TRUE
+  `, [id]);
+  return res.rows[0] || null;
+}
+
+export async function updateCalendarEventRawData(id: string, rawData: string): Promise<void> {
+  await pool.query('UPDATE calendar_events SET raw_data = $1 WHERE id = $2', [rawData, id]);
+}
+
+export async function getCalendarEventById(id: string): Promise<any> {
+  const res = await pool.query(`
+    SELECT e.*, c.name as calendar_name, c.color as calendar_color
+    FROM calendar_events e
+    JOIN caldav_configs c ON e.calendar_id = c.id
+    WHERE e.id = $1
+  `, [id]);
+  return res.rows[0] || null;
+}
+
+// --- Push Notification Data Access ---
+
+export async function upsertPushSubscription(endpoint: string, p256dh: string, auth: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (endpoint) DO UPDATE SET p256dh = $2, auth = $3`,
+    [endpoint, p256dh, auth]
+  );
+}
+
+export async function removePushSubscription(endpoint: string): Promise<void> {
+  await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+}
+
+export async function hasPushSubscriptions(): Promise<boolean> {
+  const res = await pool.query('SELECT COUNT(*)::int as count FROM push_subscriptions');
+  return res.rows[0].count > 0;
+}
+
+export async function getPushSubscriptions(): Promise<any[]> {
+  const res = await pool.query('SELECT * FROM push_subscriptions');
+  return res.rows;
+}
+
+export async function getTasksDueSoon(): Promise<any[]> {
+  const res = await pool.query(`
+    SELECT id, content, due_date
+    FROM tasks
+    WHERE status = 'todo'
+      AND due_date IS NOT NULL
+      AND due_date > NOW()
+      AND due_date <= NOW() + INTERVAL '10 minutes'
+      AND NOT EXISTS (
+        SELECT 1 FROM push_notifications pn
+        WHERE pn.task_id = tasks.id
+          AND pn.sent_at > tasks.updated_at
+      )
+    ORDER BY due_date
+  `);
+  return res.rows;
+}
+
+export async function recordPushNotification(taskId: number): Promise<void> {
+  await pool.query('INSERT INTO push_notifications (task_id) VALUES ($1)', [taskId]);
+}
+
+export async function removePushSubscriptionById(id: number): Promise<void> {
+  await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [id]);
+}
+
+// --- CalDAV Config Data Access ---
+
+export async function getCalDAVConfigs(): Promise<any[]> {
+  const res = await pool.query(`
+    SELECT id, server_url, username, calendar_url, enabled, name, resource_type, color, created_at
+    FROM caldav_configs
+    WHERE enabled = TRUE
+    ORDER BY created_at ASC
+  `);
+  return res.rows;
+}
+
+export async function createCalDAVConfig(fields: { server_url: string; username: string; password: string; calendar_url: string; name: string; resource_type: string; color: string }): Promise<any> {
+  const res = await pool.query(
+    `INSERT INTO caldav_configs (server_url, username, password, calendar_url, name, resource_type, color)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, server_url, username, enabled, name, resource_type, color`,
+    [fields.server_url, fields.username, fields.password, fields.calendar_url, fields.name, fields.resource_type, fields.color]
+  );
+  return res.rows[0];
+}
+
+export async function updateCalDAVConfig(id: number, fields: { server_url?: string; username?: string; password?: string; calendar_url?: string; name?: string; resource_type?: string; color?: string }): Promise<any> {
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIdx = 1;
+
+  if (fields.server_url !== undefined) { setClauses.push(`server_url = $${paramIdx++}`); values.push(fields.server_url); }
+  if (fields.username !== undefined) { setClauses.push(`username = $${paramIdx++}`); values.push(fields.username); }
+  if (fields.calendar_url !== undefined) { setClauses.push(`calendar_url = $${paramIdx++}`); values.push(fields.calendar_url); }
+  if (fields.name !== undefined) { setClauses.push(`name = $${paramIdx++}`); values.push(fields.name); }
+  if (fields.resource_type !== undefined) { setClauses.push(`resource_type = $${paramIdx++}`); values.push(fields.resource_type); }
+  if (fields.color !== undefined) { setClauses.push(`color = $${paramIdx++}`); values.push(fields.color); }
+  if (fields.password !== undefined) { setClauses.push(`password = $${paramIdx++}`); values.push(fields.password); }
+
+  if (setClauses.length === 0) return null;
+
+  setClauses.push(`updated_at = NOW()`);
+  values.push(id);
+  const query = `UPDATE caldav_configs SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING id, server_url, username, enabled, name, resource_type, color`;
+  const res = await pool.query(query, values);
+  return res.rows[0] || null;
+}
+
+export async function deleteCalDAVConfig(id: number): Promise<void> {
+  await pool.query('DELETE FROM caldav_configs WHERE id = $1', [id]);
+}
+
+// --- Journal Data Access ---
+
+export async function getJournalPage(): Promise<any> {
+  const res = await pool.query("SELECT * FROM pages WHERE title = 'Journal'");
+  return res.rows[0] || null;
+}
+
+export async function upsertJournalContent(pageId: number, content: any): Promise<void> {
+  await pool.query(
+    'UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2',
+    [content, pageId]
+  );
+}
+
+export async function createJournalPage(): Promise<any> {
+  const res = await pool.query(
+    "INSERT INTO pages (title, content) VALUES ('Journal', $1) RETURNING *",
+    [{ type: 'doc', content: [] }]
+  );
+  return res.rows[0];
+}
+
+// --- Search ---
+
+export async function searchAll(query: string): Promise<any[]> {
+  const searchTerm = `%${query}%`;
+
+  const [pagesRes, tasksRes, tagsRes] = await Promise.all([
+    pool.query(`SELECT id, title, 'page' as type FROM pages WHERE title ILIKE $1 LIMIT 5`, [searchTerm]),
+    pool.query(`SELECT id, content, 'task' as type FROM tasks WHERE content ILIKE $1 LIMIT 5`, [searchTerm]),
+    pool.query(`SELECT id, name, 'tag' as type FROM tags WHERE name ILIKE $1 LIMIT 5`, [searchTerm]),
+  ]);
+
+  return [
+    ...tagsRes.rows.map((r: any) => ({ ...r, title: r.name })),
+    ...pagesRes.rows.map((r: any) => ({ ...r, title: r.title || 'Untitled Page' })),
+    ...tasksRes.rows.map((r: any) => ({ ...r, title: r.content })),
+  ];
+}
+
+// --- Folder Export ---
+
+export async function getFolderPages(folderId: number): Promise<any[]> {
+  const res = await pool.query('SELECT id, title, content FROM pages WHERE folder_id = $1 ORDER BY title ASC', [folderId]);
+  return res.rows;
+}
+
+export async function getFolderName(folderId: number): Promise<string | null> {
+  const res = await pool.query('SELECT name FROM folders WHERE id = $1', [folderId]);
+  return res.rows[0]?.name || null;
 }

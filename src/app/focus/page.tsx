@@ -11,7 +11,7 @@ import useSoundEffects from '@/hooks/useSoundEffects';
 import useAmbience from '@/hooks/useAmbience';
 import { useFocusPreferences } from '@/hooks/useFocusPreferences';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
-import { Task } from '@/types/v2';
+import { Task } from '@/types';
 import { Target, X, ListTodo, Settings, Zap, Brain, Music } from 'lucide-react';
 
 export default function FocusPage() {

@@ -21,7 +21,7 @@ docker compose restart nginx
 echo "Running database migrations..."
 # Wait a few seconds for the app to initialize if needed, though 'exec' usually waits for container start
 sleep 5
-docker compose exec -T app node scripts/migrate-production.js
+docker compose exec -T app node scripts/run-migrations.js
 
 
 # Cleanup unused images

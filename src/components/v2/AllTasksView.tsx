@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Task } from '../../types/v2';
+import { Task } from '../../types';
 import { TaskItem } from './TaskItem';
 import { ListTodo, Plus, Filter, SortAsc, SortDesc, CheckCircle2, Circle } from 'lucide-react';
 import { useTaskEdit } from '../../contexts/TaskEditContext';

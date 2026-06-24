@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle2, Circle } from 'lucide-react';
-import { Task } from '@/types/v2';
+import { Task } from '@/types';
 
 interface CalendarTaskCardProps {
   task: Task;
