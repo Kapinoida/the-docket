@@ -275,6 +275,48 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ---
 
+## BUG-011: DatePickerPopover Save button hidden off-screen on mobile
+
+- **Status:** 🐛 Open
+- **Severity:** Medium
+- **Reported:** 2026-06-29 (via Hermes, from Dave)
+- **Description:** When editing a task on mobile and opening the date picker, the "Save" and "Clear Date" buttons at the bottom of the DatePickerPopover get pushed off-screen — especially when the recurrence section is expanded. Dave wants either: (a) the popover to be draggable so he can move it to see the full content, or (b) the section to be scrollable.
+
+- **Steps to reproduce:**
+  1. Open a task from TodayView or InboxView on a phone (or narrow viewport)
+  2. Click the "Set due date..." button to open the DatePickerPopover
+  3. Click the recurrence selector (Repeat icon) to expand the recurrence editor
+  4. Observe: the Save/Clear Date buttons at the bottom are below the viewport, unusable
+
+- **Expected:** The full DatePickerPopover is visible and usable, including the Save button, regardless of whether the recurrence section is expanded.
+
+- **Actual:** The popover renders as `position: fixed` via `createPortal` to `document.body` with no max-height or internal scrolling. When the popover's content exceeds the viewport height (especially with the recurrence editor expanded — adding ~200px of extra height), the bottom buttons get clipped off-screen.
+
+- **Affected files:**
+  - `src/components/v2/DatePickerPopover.tsx` — popover has `w-[340px] flex flex-col gap-3` with NO `max-h` or `overflow-y-auto` (line 192). The portal rendering (line 392) escapes the TaskEditor modal's scroll container.
+  - `src/components/TaskEditor.tsx` — renders the DatePickerPopover via portal with `triggerRef={dateButtonRef}` (line 192). The modal container already has `overflow-y-auto` (line 107), but it doesn't help because the popover is portalled to `document.body`.
+
+- **Hermes notes:**
+  - The TaskEditor modal already follows the mobile scroll pattern (`items-start md:items-center overflow-y-auto`), but the DatePickerPopover escapes this container via `createPortal(content, document.body)`.
+  - The popover positioning logic (lines 167-187) tries to flip above/below the trigger, but this only handles the trigger-relative position — it doesn't account for the popover's own height exceeding the remaining viewport space.
+  - The `spaceBelow >= 380` check (line 169) uses a hardcoded 380px threshold. When the recurrence editor is expanded, the actual popover height is closer to 600px.
+
+  **Fix options (pick one or combine):**
+
+  **A — Scrollable popover (simplest):** Add `max-h-[85vh] overflow-y-auto` to the popover container (line 192). This ensures the popover never exceeds the viewport. If content is too tall, the popover itself scrolls. The Save/Clear buttons stay at the bottom inside the scrollable area. Quick, safe, one-line CSS change.
+
+  **B — Draggable popover:** Make the popover draggable via touch/mouse events. The user can drag it to reposition. More complex — requires tracking `transform: translate()` offsets via `onPointerDown`/`onPointerMove`/`onPointerUp`, with bounds checking to prevent dragging off-screen. Better UX for power users but more code.
+
+  **C — Dynamic positioning:** Replace the hardcoded `380` threshold with actual popover height measurement. Use a `ResizeObserver` or `getBoundingClientRect()` on the popover ref after render. Flip above/below based on real available space. Also account for the popover's own height when choosing position.
+
+  **D — Render inside modal instead of portal:** Stop using `createPortal` for the DatePickerPopover when inside a TaskEditor modal. Let the TaskEditor's `overflow-y-auto` container handle scrolling. Falls back to inline rendering (`position: absolute` relative to the trigger). This undoes the portal escape hatch that was added to fix popover clipping — may reintroduce that bug on desktop.
+
+  **Recommended:** Start with **Option A** (`max-h-[85vh] overflow-y-auto`) as the immediate fix — it's one line and prevents the popover from ever exceeding the viewport. Then consider **Option B** (draggable) as a mobile UX enhancement in a follow-up if Dave wants the ability to reposition. Option C (dynamic measurement) is the most robust long-term fix but requires more refactoring of the positioning logic.
+
+- **Fixed in:** TBD
+
+---
+
 ## Template for new bugs
 
 ```
