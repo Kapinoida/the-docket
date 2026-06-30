@@ -18,7 +18,6 @@ export function SyncButton() {
         throw new Error(data.error || 'Sync failed');
       }
 
-      console.log('Sync Results:', data);
       router.refresh(); // Refresh data on page
     } catch (error) {
       console.error('Sync Error:', error);

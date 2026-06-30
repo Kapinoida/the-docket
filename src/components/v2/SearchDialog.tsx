@@ -66,10 +66,9 @@ export function SearchDialog() {
         // router.push(`/?tag=${item.id}`);
         // Actually, current home page doesn't support tag query param filtering yet in UI (DashboardView).
         // Let's implement a quick client-side filter or basic alert for now.
-        console.log('Selected tag', item);
         router.push(`/?tag=${item.id}`); // We will need to update Dashboard to handle this
     } else {
-      console.log('Selected task', item);
+      // Selected task — no navigation needed
     }
   };
 

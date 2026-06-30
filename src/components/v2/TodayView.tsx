@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { format } from 'date-fns';
+import React, { useState } from 'react';
 import { Task } from '../../types';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
+import { CalendarEvent, isTrulyAllDay } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useSync } from '@/contexts/SyncContext';
 import { TaskItem } from './TaskItem';
 import { Clock, Plus, Calendar } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
@@ -15,57 +14,12 @@ import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
 
 export default function TodayView() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks, events, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
   const [inputValue, setInputValue] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
-  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(startOfToday, 'day');
-  const [tasksLoading, setTasksLoading] = useState(true);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v2/tasks?due=today');
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch today tasks', error);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
-
-  useEffect(() => {
-    const interval = setInterval(() => { fetchTasks(); }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
-
-  useEffect(() => {
-    const sync = () => { fetchTasks(); refetchEvents(); };
-    window.addEventListener('taskCreated', sync);
-    window.addEventListener('taskUpdated', sync);
-    window.addEventListener('taskDeleted', sync);
-    return () => {
-      window.removeEventListener('taskCreated', sync);
-      window.removeEventListener('taskUpdated', sync);
-      window.removeEventListener('taskDeleted', sync);
-    };
-  }, [fetchTasks, refetchEvents]);
-
-  const loading = (eventsLoading && events.length === 0) || (tasksLoading && tasks.length === 0);
-
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await Promise.all([fetchTasks(), refetchEvents()]);
-    setIsRefreshing(false);
+    await refetch();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -88,7 +42,6 @@ export default function TodayView() {
       if (res.ok) {
         const task = await res.json();
         setInputValue('');
-        fetchTasks();
         window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'todayView' } }));
       }
     } catch (error) {
@@ -97,23 +50,22 @@ export default function TodayView() {
   };
 
   const handleToggle = (id: number) => {
-      setTasks(prev => prev.filter(t => t.id !== id));
-      
+      const task = tasks.find(t => t.id === id);
+      const newStatus = task?.status === 'done' ? 'todo' : 'done';
+      updateLocalTask(id, { status: newStatus });
       fetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'done' })
+          body: JSON.stringify({ status: newStatus })
       }).then(() => {
-          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: 'done' }, source: 'todayView' } }));
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: newStatus }, source: 'todayView' } }));
       }).catch(err => {
           console.error("Failed to mark done", err);
-          fetchTasks();
       });
   };
 
   const handleUpdate = async (id: number, updates: Partial<Task>) => {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-
+      updateLocalTask(id, updates);
       try {
           await fetch(`/api/v2/tasks/${id}`, {
               method: 'PUT',
@@ -123,18 +75,18 @@ export default function TodayView() {
           window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates, source: 'todayView' } }));
       } catch (error) {
           console.error('Failed to update task', error);
-          fetchTasks(); 
+          refetch();
       }
   };
 
   const handleDelete = async (id: number) => {
-      setTasks(prev => prev.filter(t => t.id !== id));
+      removeLocalTask(id);
       try {
           await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
           window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId: id, source: 'todayView' } }));
       } catch (error) {
           console.error('Failed to delete task', error);
-          fetchTasks();
+          refetch();
       }
   };
 
@@ -152,13 +104,13 @@ export default function TodayView() {
   const todayStr = getCalendarDateStr(new Date());
 
   const overdueTasks = tasks.filter(t => {
-      if (!t.due_date) return false;
+      if (!t.due_date || t.status === 'done') return false;
       const dueStr = getCalendarDateStr(t.due_date);
       return dueStr < todayStr;
   });
 
   const todayTasks = tasks.filter(t => {
-      if (!t.due_date) return false;
+      if (!t.due_date || t.status === 'done') return false;
       const dueStr = getCalendarDateStr(t.due_date);
       return dueStr === todayStr;
   });
@@ -205,7 +157,7 @@ export default function TodayView() {
 
       {/* Pull-to-refresh wrapper for task list */}
       <PullToRefresh onRefresh={handleRefresh} className="max-h-[50vh] md:max-h-none">
-        {loading ? (
+        {initialLoading ? (
             <TaskListSkeleton />
         ) : (
             <div className="space-y-8">

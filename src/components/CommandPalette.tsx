@@ -82,8 +82,7 @@ export function CommandPalette() {
           setOpen(false);
           router.push(`/page/${task.page_id}`);
       } else {
-          console.log('Task has no page context', task);
-          // Optional: Navigate to a "Task View" or similar if/when it exists
+          // Task has no page context — no navigation target
       }
   };
 

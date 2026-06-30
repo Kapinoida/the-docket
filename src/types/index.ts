@@ -55,7 +55,7 @@ export interface Context {
 }
 
 export interface CalendarEvent {
-  id: number;
+  id: string;
   title: string;
   description: string;
   start_time: string;
@@ -164,7 +164,7 @@ export interface FolderRow {
 }
 
 export interface CalendarEventRow {
-  id: number;
+  id: string;
   title: string;
   description: string;
   start_time: string;

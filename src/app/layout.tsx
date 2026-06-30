@@ -54,6 +54,7 @@ import { ThemeProvider } from "../components/ThemeProvider";
 
 import { TaskEditProvider } from "../contexts/TaskEditContext";
 import { ToastProvider } from "../contexts/ToastContext";
+import { SyncProvider } from "../contexts/SyncContext";
 import { CommandPalette } from "../components/CommandPalette";
 
 import LayoutWrapper from "../components/v2/LayoutWrapper";
@@ -78,6 +79,7 @@ export default function RootLayout({
             disableTransitionOnChange
         >
 <ToastProvider>
+                <SyncProvider>
                 <TaskEditProvider>
                     <PwaRegister />
                     <CommandPalette />
@@ -85,6 +87,7 @@ export default function RootLayout({
                         {children}
                     </LayoutWrapper>
                 </TaskEditProvider>
+                </SyncProvider>
             </ToastProvider>
         </ThemeProvider>
       </body>

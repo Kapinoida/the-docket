@@ -13,13 +13,6 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-console.log('Database Pool Configured:', {
-  host: process.env.DB_HOST || 'localhost (default)',
-  port: process.env.DB_PORT || '5433 (default)',
-  database: process.env.DB_NAME || 'the_docket (default)',
-  user: process.env.DB_USER || 'postgres (default)'
-});
-
 export default pool;
 
 // V2 Data Access Functions
@@ -202,7 +195,6 @@ export async function createTombstone(taskId: number) {
   if (res.rows.length > 0) {
       const uid = res.rows[0].caldav_uid;
       await pool.query('INSERT INTO deleted_task_sync_log (caldav_uid) VALUES ($1)', [uid]);
-      console.log(`[Sync] Created tombstone for task ${taskId} (UID: ${uid})`);
   }
 }
 
@@ -239,7 +231,6 @@ export async function deleteTaskReferences(taskId: number) {
 
         if (changed) {
             await pool.query('UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2', [newContent, page.id]);
-            console.log(`[Cleaner] Removed task ${taskId} from page ${page.id}`);
         }
     }
   } catch (error) {
@@ -304,6 +295,7 @@ export interface GetTasksOptions {
   context?: 'none';
   status?: 'todo' | 'done' | 'all';
   sort?: 'dueDate' | 'oldest' | 'newest';
+  since?: string;
 }
 
 export async function getTasks(options: GetTasksOptions = {}): Promise<Task[]> {
@@ -311,7 +303,11 @@ export async function getTasks(options: GetTasksOptions = {}): Promise<Task[]> {
   const params: any[] = [];
   let paramIdx = 1;
 
-  if (options.due === 'today') {
+  if (options.since) {
+    params.push(options.since);
+    paramIdx = 2;
+    query += ` FROM tasks t WHERE t.updated_at > $1`;
+  } else if (options.due === 'today') {
     query += ` FROM tasks t WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
     query += ` ORDER BY t.due_date ASC, t.created_at ASC`;
   } else if (options.context === 'none') {

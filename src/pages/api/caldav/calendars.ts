@@ -43,7 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     for (const url of uniquePaths) {
         try {
-            console.log(`[Discovery] Probing: ${url}`);
             const res = await fetch(url, {
                 method: 'PROPFIND',
                 headers: {
@@ -86,7 +85,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }).filter(Boolean);
 
                 if (found.length > 0) {
-                    console.log(`[Discovery] Found ${found.length} calendars at ${url}`);
                     allCalendars = found;
                     break; // Stop at first valid hit
                 }
@@ -98,7 +96,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (allCalendars.length === 0) {
         // Fallback to tsdav if raw fails completely (unlikely if valid)
-        console.log('[Discovery] Raw discovery failed, falling back to tsdav');
          const calendars = await client.fetchCalendars();
          allCalendars = calendars.map(c => ({
              name: c.displayName || c.url,

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Task } from '@/types';
 import { X, GripVertical, CheckCircle2, Circle, Plus, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { useSync } from '@/contexts/SyncContext';
 
 interface UnscheduledTaskPanelProps {
   isOpen: boolean;
@@ -14,41 +15,13 @@ interface UnscheduledTaskPanelProps {
 }
 
 export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: UnscheduledTaskPanelProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks, initialLoading, updateLocalTask } = useSync();
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddDate, setQuickAddDate] = useState<'today' | 'tomorrow' | 'none'>('today');
   const [showScheduled, setShowScheduled] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const { openTaskEdit } = useTaskEdit();
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v2/tasks');
-      if (res.ok) setTasks(await res.json());
-    } catch (e) {
-      console.error('Failed to fetch tasks', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) fetchTasks();
-  }, [isOpen, fetchTasks]);
-
-  useEffect(() => {
-    const sync = () => { fetchTasks(); };
-    window.addEventListener('taskCreated', sync);
-    window.addEventListener('taskUpdated', sync);
-    window.addEventListener('taskDeleted', sync);
-    return () => {
-      window.removeEventListener('taskCreated', sync);
-      window.removeEventListener('taskUpdated', sync);
-      window.removeEventListener('taskDeleted', sync);
-    };
-  }, [fetchTasks]);
 
   const unscheduledTasks = tasks.filter(t => !t.due_date && t.status !== 'done');
   const scheduledTasks = tasks.filter(t => t.due_date && t.status !== 'done');
@@ -77,7 +50,6 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
       });
       if (res.ok) {
         setQuickAddValue('');
-        fetchTasks();
         inputRef.current?.focus();
         window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
       }
@@ -90,17 +62,16 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     const newStatus = task.status === 'done' ? 'todo' : 'done';
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    updateLocalTask(taskId, { status: newStatus });
     try {
       await fetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (newStatus === 'done') setTimeout(() => fetchTasks(), 1500);
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
     } catch {
-      fetchTasks();
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
     }
   };
 
@@ -174,7 +145,7 @@ const handleTaskClick = (task: Task) => {
 
       {/* Task List */}
       <div className="flex-1 overflow-y-auto p-2 styled-scrollbar">
-        {loading ? (
+        {initialLoading ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2 text-text-muted">
             <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
             <p className="text-xs">Loading...</p>

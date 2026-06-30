@@ -91,9 +91,41 @@ if (parentPageId) {
           // Get old content to detect removed v2Task references
           const oldPage = await pool.query('SELECT content FROM pages WHERE id = $1', [pageId]);
           const oldContent = oldPage.rows[0]?.content;
-          
+
+          // Strip dead v2Task nodes before persisting (BUG-010 Root Cause 3):
+          // v2Task nodes with taskId: null AND no text content are ghost checkboxes
+          // left by the editor input rule when the user typed '- [ ] ' but never added
+          // content. They have no backing database task and serve no purpose.
+          // Nodes WITH content are left alone — the editor's creation flow is in-flight
+          // and will update the taskId on completion.
+          const collectText = (node: any): string => {
+            if (!node) return '';
+            if (node.type === 'text') return node.text || '';
+            if (node.content && Array.isArray(node.content)) {
+              return node.content.map(collectText).join('');
+            }
+            return '';
+          };
+          const stripDeadTaskNodes = (node: any): any => {
+            if (!node || typeof node !== 'object') return node;
+            if (node.content && Array.isArray(node.content)) {
+              node.content = node.content
+                .map((child: any) => {
+                  const isDeadTask = child?.type === 'v2Task'
+                    && (child.attrs?.taskId === null || child.attrs?.taskId === undefined)
+                    && !collectText(child).trim();
+                  return isDeadTask ? null : stripDeadTaskNodes(child);
+                })
+                .filter((child: any) => child !== null);
+            }
+            return node;
+          };
+          const contentToSave = stripDeadTaskNodes(
+            typeof newContent === 'string' ? JSON.parse(newContent) : newContent
+          );
+
           updateFields.push(`content = $${valueIdx++}`);
-          updateValues.push(newContent);
+          updateValues.push(contentToSave);
           
           // After updating, clean up any orphaned tasks (tasks removed from this page's content
           // that aren't referenced by any other page)
@@ -180,21 +212,24 @@ if (parentPageId) {
 
         // 1. Identify and Delete Orphaned Tasks (Tasks only on this page)
         // A task is orphaned if it is linked to this page AND not linked to any other page.
-        await pool.query(`
-            DELETE FROM tasks 
-            WHERE id IN (
-                SELECT child_task_id 
-                FROM page_items 
-                WHERE page_id = $1 
-                AND child_task_id IS NOT NULL
-            )
-            AND id NOT IN (
-                SELECT child_task_id 
-                FROM page_items 
-                WHERE page_id != $1 
+        // Use deleteTask() so that createTombstone() and deleteTaskReferences() run for
+        // each task — ensuring CalDAV tombstones, v2Task nodes on OTHER pages, and
+        // task_sync_meta rows are all cleaned up (BUG-010 Root Cause 2).
+        const orphanedTaskRes = await pool.query(`
+            SELECT child_task_id AS id
+            FROM page_items
+            WHERE page_id = $1
+            AND child_task_id IS NOT NULL
+            AND child_task_id NOT IN (
+                SELECT child_task_id
+                FROM page_items
+                WHERE page_id != $1
                 AND child_task_id IS NOT NULL
             )
         `, [pageId]);
+        for (const row of orphanedTaskRes.rows) {
+            await deleteTask(row.id);
+        }
 
         // 2. Identify and Delete Orphaned Subpages (Pages only on this page AND no folder)
         // A page is orphaned if linked to this page, has no folder, and no other parent.
