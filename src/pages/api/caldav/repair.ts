@@ -93,16 +93,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (uid) remoteUids.add(uid);
     });
 
-    console.log(`[Repair] Found ${remoteUids.size} remote tasks.`);
-
     // 2. Fetch Local Mapped Tasks
     const localRes = await pool.query('SELECT task_id, caldav_uid FROM task_sync_meta');
     const localMapped = localRes.rows;
     
     // 3. Find Orphans (Local has UID, but UID not in Remote)
     const orphans = localMapped.filter(m => !remoteUids.has(m.caldav_uid));
-    
-    console.log(`[Repair] Found ${orphans.length} orphaned tasks (exist locally with UID, but missing from remote).`);
 
     // 4. Fix Orphans
     const repairedIds = [];

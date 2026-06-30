@@ -866,9 +866,6 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
              embers.push(new Ember(canvas.width, canvas.height));
          }
 
-         // DEBUG: Check if we have embers
-         // if (Math.random() < 0.01) console.log('Embers count:', embers.length, 'First ember y:', embers[0]?.y);
-
          const intensity = (1 - progress);
          
          embers.forEach((e, i) => {

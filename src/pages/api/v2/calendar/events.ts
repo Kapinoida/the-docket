@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { regular, recurring } = await getCalendarEvents(start as string, end as string);
 
-    const results = [...regular];
+    const results = regular.map(e => ({ ...e, id: e.uid }));
 
     for (const event of recurring) {
         try {
@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (nextDate >= windowStart) {
                     results.push({
                         ...event,
-                        id: `${event.id}_${nextDate.getTime()}`,
+                        id: `${event.uid}_${nextDate.getTime()}`,
                         start_time: nextDate.toISOString(),
                         end_time: new Date(nextDate.getTime() + duration).toISOString(),
                         is_recurring_instance: true
@@ -51,9 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             }
         } catch (err) {
-            console.error(`Failed to expand recurrence for event ${event.id}:`, err);
+            console.error(`Failed to expand recurrence for event ${event.uid}:`, err);
             if (new Date(event.start_time) >= windowStart && new Date(event.end_time) <= windowEnd) {
-                results.push(event);
+                results.push({ ...event, id: event.uid });
             }
         }
     }

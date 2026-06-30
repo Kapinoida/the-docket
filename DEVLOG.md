@@ -10,6 +10,124 @@ Use this format:
 
 ---
 
+## [2026-06-30] – Fix mobile sidebar hidden behind BottomTabBar + calendar header compactness (BUG-008)
+- **What changed:**
+  - **Sidebar container fix:** Added `pb-[calc(52px+env(safe-area-inset-bottom,8px))] md:pb-0` to the mobile sidebar container div in `src/components/v2/LayoutWrapper.tsx:68`. On mobile, the sidebar's bottom edge now ends above the BottomTabBar (52px tab height + safe-area inset). On desktop (`md:`), `md:pb-0` resets the padding. The sidebar's `mt-auto` footer (Settings + Sync) naturally repositions above the padding — no Sidebar.tsx internals needed changing.
+  - **Calendar header compactness:** Four responsive tweaks in `src/components/CalendarView.tsx:184-218` to reduce wrapping on narrow phones: (1) "Tasks" button text wrapped in `<span className="hidden md:inline">` — icon only on mobile; (2) "Add Calendar" button text similarly hidden on mobile; (3) date label `min-w-[140px]` → `min-w-[100px] md:min-w-[140px]`; (4) "Today" button padding `px-4` → `px-3 md:px-4`. All text labels and full widths restore at `md:` breakpoint.
+- **Why:**
+  Both the sidebar (`fixed inset-y-0 z-50`) and BottomTabBar (`fixed bottom-0 z-50`) shared the same z-index. DOM order caused the tab bar to paint over the sidebar's bottom ~52px+, hiding the Settings and Sync buttons. The calendar header's 5 button groups wrapped to 2-3 rows on narrow phones, wasting vertical space.
+- **Affected areas:** `src/components/v2/LayoutWrapper.tsx` (sidebar container padding), `src/components/CalendarView.tsx` (header button responsive classes).
+- **Migration needed?:** No.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors).
+
+---
+
+## [2026-06-30] – Remove console.log from production code (BUG-004)
+- **What changed:**
+  Removed all 45 `console.log` statements from production code across 13 files. `console.error` (117 calls in catch/error handlers) and `console.warn` (7 calls for operational warnings) were retained — they serve legitimate error-handling and debugging purposes. Files cleaned: `src/lib/caldav.ts` (18 `[Sync]`/`[Sync Fallback]` debug logs), `src/lib/recurrence.ts` (2 `[Recurrence]` logs), `src/lib/db.ts` (3 — pool config, tombstone, cleaner), `src/contexts/TaskEditContext.tsx` (3 "successfully" logs), `src/hooks/usePeriodicSync.ts` (4 `[AutoSync]` logs — also simplified success/fail branching), `src/components/SyncButton.tsx` (1), `src/components/CommandPalette.tsx` (1), `src/components/PwaRegister.tsx` (2 — converted failure to `console.warn`), `src/components/v2/SearchDialog.tsx` (2), `src/components/v2/Sidebar.tsx` (1 stub), `src/pages/api/caldav/calendars.ts` (3 `[Discovery]` logs), `src/pages/api/caldav/repair.ts` (2 `[Repair]` logs), `src/components/focus/FocusVisualizer.tsx` (1 dead commented-out debug line). In `caldav.ts`, the recurrence spawn `if (spawnedId)` block (which only logged) was simplified to a bare `await spawnNextRecurrence()`, and the tombstone-count `if` block (which only logged) was removed entirely.
+- **Why:**
+  Debug `console.log` statements polluted the browser console in production, leaking internal state and sync operation details. BUG-004 / ROADMAP "Remove console.log from production code". Error logging via `console.error` and operational warnings via `console.warn` are kept — they serve legitimate debugging purposes and don't clutter the console during normal operation.
+- **Affected areas:** `src/lib/caldav.ts`, `src/lib/recurrence.ts`, `src/lib/db.ts`, `src/contexts/TaskEditContext.tsx`, `src/hooks/usePeriodicSync.ts`, `src/components/SyncButton.tsx`, `src/components/CommandPalette.tsx`, `src/components/PwaRegister.tsx`, `src/components/v2/SearchDialog.tsx`, `src/components/v2/Sidebar.tsx`, `src/pages/api/caldav/calendars.ts`, `src/pages/api/caldav/repair.ts`, `src/components/focus/FocusVisualizer.tsx`.
+- **Migration needed?:** No.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors). ESLint clean (no new warnings/errors).
+
+---
+
+## [2026-06-30] – Fix orphaned v2Task nodes after task deletion (BUG-010)
+- **What changed:**
+  Three-part fix for BUG-010 — orphaned `v2Task` nodes left in page content when their backing tasks were deleted, and ghost checkboxes with `taskId: null` left by the editor's input rule.
+  - **Root Cause 2 (page deletion bypassed cleanup):** The DELETE handler in `src/pages/api/v2/pages.ts` used a raw `DELETE FROM tasks WHERE id IN (...)` to remove orphaned tasks when a page was deleted. This bypassed `createTombstone()` (no CalDAV tombstone for synced tasks), `deleteTaskReferences()` (v2Task nodes on OTHER pages referencing the same task were left behind), and `task_sync_meta` cleanup. Replaced with a SELECT of orphaned task IDs followed by per-task `deleteTask(id)` calls. `deleteTask()` (already imported) handles tombstone creation, v2Task node cleanup across all pages, `page_items` link removal, and the task row deletion in the correct order.
+  - **Root Cause 3 (editor race condition):** The v2Task creation effect in `src/components/v2/editor/extensions/TaskExtension.tsx` debounced task creation by 500ms after content was typed. If page auto-save fired within that window, the v2Task node was persisted with `taskId: null` before the `createTask()` POST ran — leaving a permanent ghost checkbox. Removed the `setTimeout(..., 500)` wrapper so `createTask()` fires immediately when content appears in a null-taskId node. The `isCreating.current` ref already prevents duplicate creations, so the debounce was unnecessary.
+  - **Save-time guard:** Added `stripDeadTaskNodes()` in the PUT handler of `pages.ts` that walks the incoming TipTap content JSON before persisting and removes any v2Task node with `taskId: null` AND no text content. These are definitively dead nodes (no backing task, no content). Nodes WITH content are left alone — the editor's (now immediate) creation flow is in-flight and will update the `taskId` on completion.
+  - **DB health-check migration:** Added `src/migrations/005_clean_orphaned_v2task_nodes.sql` — a one-time, idempotent migration that recursively walks `pages.content` JSONB via a temporary PL/pgSQL function and strips: (a) v2Task nodes with `taskId: null` and no text content, and (b) v2Task nodes whose numeric `taskId` no longer exists in the `tasks` table. The function is dropped after running. Catches the 40 manual-cleanup orphans from the June 29 audit (if any regenerated) and prevents future re-accumulation.
+- **Why:**
+  Dave found 37 orphaned v2Task nodes referencing deleted tasks + 3 with `taskId: null` across 8 pages. Root Cause 1 (historical `deleteCompletedTasks` not calling `deleteTaskReferences`) was already fixed in June 2026. Root Cause 2 (page deletion raw SQL) and Root Cause 3 (editor race condition) remained active. This fix closes all three paths and adds prevention.
+- **Affected areas:** `src/pages/api/v2/pages.ts` (DELETE handler orphan task cleanup + PUT handler null-taskId stripping), `src/components/v2/editor/extensions/TaskExtension.tsx` (creation effect), `src/migrations/005_clean_orphaned_v2task_nodes.sql` (new).
+- **Migration needed?:** Yes — `005_clean_orphaned_v2task_nodes.sql` strips dead v2Task nodes from all page content. Idempotent (only strips dead nodes; live nodes untouched). Deployed via `update.sh` / `node scripts/run-migrations.js`.
+- **Testing:** All 131 tests pass. TypeScript clean (no new errors — 15 pre-existing errors unchanged). ESLint clean (no new warnings/errors — all findings are pre-existing `no-explicit-any` and `react-hooks/exhaustive-deps` patterns consistent with the file's existing style).
+
+---
+
+## [2026-06-29] – Fix DatePickerPopover overflow on mobile + dynamic positioning (BUG-009 + BUG-011)
+- **What changed:**
+  Reworked the positioning logic in `src/components/v2/DatePickerPopover.tsx` to fix two related bugs in one pass:
+  - **Scrollable popover with dynamic maxHeight:** The popover container has `overflow-y-auto overscroll-contain` and a dynamically computed `maxHeight` set via inline style. On desktop, `maxHeight` is calculated from the actual available space between the trigger and the viewport edge (`spaceBelow - 12` or `spaceAbove - 12`, capped at 85vh). On mobile, `maxHeight` is `85vh`. This ensures the popover scrolls internally only when content actually exceeds the visible space — not based on an arbitrary fixed threshold.
+  - **Mobile centered overlay:** On `window.innerWidth < 768`, the popover renders as a centered overlay (`translate(-50%, -50%)`) with a semi-transparent backdrop (`bg-black/30`, click-to-close). Eliminates the below/above flip logic on small screens where it doesn't make sense.
+  - **Dynamic height measurement:** Replaced the hardcoded `380px` flip threshold with `popoverRef.current.scrollHeight` (unconstrained content height) measured via `ResizeObserver`. The observer re-positions the popover when the recurrence editor expands/collapses. Also listens to `window resize`. Falls back to `400px` estimate if the ref isn't ready.
+  - **Feedback loop prevention:** `setFixedStyle` uses functional updates that compare prev vs next values and bail out if nothing changed, preventing the ResizeObserver from re-triggering itself when `maxHeight` changes the popover's visible height.
+  - **Removed `overflow-hidden` + `transition-all` from recurrence container:** These were clipping expanding content and causing the ResizeObserver to fire mid-animation with wrong heights.
+  - Added `showBackdrop` state; wrapped `popoverContent` in a fragment with a conditional backdrop div (`z-[9998]`, below popover's `z-9999`).
+- **Why:**
+  BUG-011: On mobile, the popover's Save/Clear buttons were pushed off-screen when the recurrence editor was expanded (~600px total height vs ~700px viewport). BUG-009: The hardcoded `380px` flip threshold was too low — the popover with recurrence open is ~550px, so it rendered below the trigger even when there wasn't enough space. Initial fix used `offsetHeight` (constrained height) and `max-h-[85vh]` (fixed viewport percentage), which caused two follow-up issues: (1) the popover wouldn't scroll because `maxHeight` didn't account for the popover's position on screen, and (2) `offsetHeight` returned the constrained height, creating a feedback loop where the ResizeObserver thought the popover fit when it didn't. Fixed by using `scrollHeight` (natural content height), computing `maxHeight` from actual available space, removing `overflow-hidden` from the recurrence container, and adding state comparison guards to prevent feedback loops.
+- **Affected areas:** `src/components/v2/DatePickerPopover.tsx` only. No changes to `TaskEditor.tsx`, `TaskItem.tsx`, `EditorTaskItem.tsx` (all consumers pass `triggerRef`/`onClose` which the new logic handles). No DB changes.
+- **Migration needed?:** No.
+- **Testing:** All 131 tests pass. TypeScript clean (no new errors). ESLint clean (no new errors — pre-existing warnings in the file are unchanged).
+
+---
+
+## [2026-06-25] – Fix overlapping events stacking in DayView (BUG-007)
+- **What changed:**
+  Changed `CalendarEvent.id` type from `number` to `string` in `src/types/index.ts` (and `CalendarEventRow.id` for consistency), matching the DB's `uid TEXT` primary key. Updated `src/pages/api/v2/calendar/events.ts` to map `uid` to `id` in three places: (1) regular events passthrough — `regular.map(e => ({ ...e, id: e.uid }))` instead of `[...regular]`, so each event gets a unique string ID; (2) recurring event expansion — `${event.uid}_${nextDate.getTime()}` instead of `${event.id}_${nextDate.getTime()}`, fixing recurring instances from getting `'undefined_<timestamp>'`; (3) recurrence expansion fallback in the catch block — `{ ...event, id: event.uid }` instead of raw `event`. Also updated the error log to reference `event.uid` instead of `event.id`.
+- **Why:**
+  The `calendar_events` table has a composite PK `(uid TEXT, calendar_id INTEGER)` with no `id` column. `SELECT e.*` returned `uid` but not `id`, so `event.id` was always `undefined` on the frontend. The DayView `itemLayouts` algorithm keys on `evt-${e.id}` — all non-recurring events shared the key `'evt-undefined'`, collapsing into a single column and stacking on top of each other instead of rendering side-by-side. No frontend rendering code changes were needed — all 8 `event.id` usages across CalendarView, TodayView, and WeeklyCalendar already treat `id` as an opaque string (template literals, Map keys, equality checks, `String()` coercion).
+- **Affected areas:** `src/types/index.ts` (CalendarEvent.id + CalendarEventRow.id type change), `src/pages/api/v2/calendar/events.ts` (3 uid→id mappings + error log). No DB changes. No frontend component changes.
+- **Migration needed?:** No.
+- **Testing:** All 131 tests pass. TypeScript clean (no new errors). ESLint clean (no new errors).
+- **Note:** Discovered secondary issue — `db.ts` functions for calendar event updates (`updateCalendarEvent`, `getCalendarEventWithConfig`, `getCalendarEventById`, `updateCalendarEventRawData`) use `WHERE id = $1` but the table has no `id` column. The PATCH `/api/v2/calendar/events/[id]` endpoint is likely broken for event drag-resize. Separate from BUG-007; needs its own bug report.
+
+---
+- **What changed:**
+
+  **Optimistic updates:** Added `updateLocalTask(id, patch)`, `removeLocalTask(id)`, and `addLocalTask(task)` methods to SyncContext. Views call these before API calls for instant UI updates. The CustomEvent system then triggers a refetch to reconcile optimistic data with server state. Wired into:
+  - CalendarView (`handleTaskToggle`, `handleDropTask`)
+  - TodayView (`handleToggle`, `handleUpdate`, `handleDelete`)
+  - WeeklyCalendar (`handleTaskComplete`)
+
+  **Component consolidation:** Converted 3 more components from independent task fetching to `useSync()`:
+  - `AllTasksView.tsx` — removed `fetchTasks`, `setTasks`, status/sort API calls. Now uses `useSync()` + client-side `useMemo` filtering/sorting. Optimistic toggle/update via `updateLocalTask`. Bulk delete via `removeLocalTask`. Cleaned up unused `Filter`, `SortAsc`, `SortDesc`, `useTaskEdit` imports.
+  - `InboxView.tsx` — removed `fetchTasks`, `setTasks`, CustomEvent listeners. Now uses `useSync()` + `useMemo` filter for `!page_name && status !== 'done' && content !== ''` (replaces `?context=none` server filter). Optimistic toggle/update/delete via context methods. Removed `isLoading`, `isRefreshing` state.
+  - `UnscheduledTaskPanel.tsx` — removed `fetchTasks`, `setTasks`, `useEffect` on `isOpen`, CustomEvent listeners. Now uses `useSync()`. Optimistic toggle via `updateLocalTask`. Removed `loading` state (uses `initialLoading` from context).
+
+  **Delta sync for tasks:** Added `since` query parameter to `GET /api/v2/tasks` — returns only tasks with `updated_at > since`. Updated `getTasks()` in `db.ts` to accept and apply `since` filter. Added `004_task_updated_at_index.sql` migration (index on `tasks.updated_at`). SyncContext now:
+  - Tracks `lastFetchTimeRef` (timestamp of last fetch)
+  - Polling (30s interval) uses `?since=<lastFetchTime>` — fetches only changed tasks, merges into existing state via Map
+  - CustomEvents (user mutations) trigger full refetch (no `since`) for correctness — ensures deletions are captured
+  - Initial fetch is always full (no `since`)
+
+  **Refined loading state:** Split `loading` into `initialLoading` (true only during first fetch) and `isFetching` (true during any fetch). Views use `initialLoading` for skeleton screens. `isFetching` available for future "refreshing..." indicators. Updated all 6 consumer views.
+
+- **Why:** Phase 1 consolidated polling but removed optimistic updates (UI lag), left 5 components with independent fetch logic, and fetched full payloads every 30s. Phase 2 restores UX snappiness, completes the consolidation, and reduces idle polling bandwidth.
+- **Affected areas:** `src/contexts/SyncContext.tsx`, `src/components/CalendarView.tsx`, `src/components/v2/TodayView.tsx`, `src/components/v2/WeeklyCalendar.tsx`, `src/components/v2/AllTasksView.tsx`, `src/components/v2/InboxView.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`, `src/lib/db.ts`, `src/pages/api/v2/tasks.ts`, `src/migrations/004_task_updated_at_index.sql` (new). API is backward-compatible — `since` is optional.
+- **Migration needed?:** Yes — `004_task_updated_at_index.sql` adds index on `tasks.updated_at`. Deployed via `update.sh`.
+- **Testing:** All 131 tests pass. TypeScript clean (no new errors). ESLint clean (no new warnings/errors beyond pre-existing).
+
+---
+
+## [2026-06-24] – Consolidate 30s polling intervals into SyncContext (BUG-002, Phase 1)
+- **What changed:**
+  Created `src/contexts/SyncContext.tsx` — a `SyncProvider` with a single 30s `setInterval` that fetches `GET /api/v2/tasks` (all tasks) and `GET /api/v2/calendar/events` (±180-day window from today) in parallel. Listens for `taskCreated`/`taskUpdated`/`taskDeleted` CustomEvents for immediate refetch (so views don't need their own listeners). Uses a `fetchInProgressRef` guard to prevent overlapping fetches. Exposes `{ tasks, events, loading, refetch }` via `useSync()` hook.
+  
+  Added `SyncProvider` to `src/app/layout.tsx` inside `ToastProvider`, wrapping `TaskEditProvider`.
+  
+  Modified `src/components/CalendarView.tsx`: removed `useCalendarEvents` import, inline `fetchTasks` callback, `setTasks`/`tasksLoading` state, 30s `setInterval`, and cross-view CustomEvent listeners. Now consumes `useSync()` for both tasks and events. Removed optimistic `setTasks(prev => ...)` updates in `handleTaskToggle` and `handleDropTask` — replaced with `refetch()` on error/after mutation. `handleDataChanged` and `handleRefresh` call `refetch()`.
+  
+  Modified `src/components/v2/TodayView.tsx`: removed `useCalendarEvents` import, `fetchTasks`/`setTasks`/`tasksLoading`, 30s interval, and CustomEvent listeners. Now consumes `useSync()`. Added `status !== 'done'` filter to `overdueTasks` and `todayTasks` filters (previously filtered server-side by `?due=today`). Removed optimistic `setTasks` updates in `handleToggle`, `handleUpdate`, `handleDelete` — relying on CustomEvent → SyncContext refetch. Cleaned up unused `format`/`eventColorStyle` imports.
+  
+  Modified `src/components/v2/WeeklyCalendar.tsx`: removed `useCalendarEventsRange` import, `fetchTasks`/`setTasks`/`tasksLoading`, 30s interval, and CustomEvent listeners. Now consumes `useSync()`. Removed optimistic `setTasks` update in `handleTaskComplete` — dispatches `taskUpdated` CustomEvent instead. Cleaned up unused `eventColorStyle` import.
+  
+  Deleted `src/hooks/useCalendarEvents.ts` — no remaining consumers. The `getDateRange` utility and `useCalendarEventsRange` export are gone; all consumers now filter the ±180-day event window client-side.
+  
+- **Why:** Eliminate 4 independent 30s polling intervals (CalendarView tasks, TodayView tasks, WeeklyCalendar tasks, useCalendarEvents events) that caused redundant API calls, network saturation, and mobile battery drain when multiple views were mounted or tab-switched.
+- **Affected areas:** `src/contexts/SyncContext.tsx` (new), `src/app/layout.tsx`, `src/components/CalendarView.tsx`, `src/components/v2/TodayView.tsx`, `src/components/v2/WeeklyCalendar.tsx`, `src/hooks/useCalendarEvents.ts` (deleted). API unchanged.
+- **Migration needed?:** No DB changes. No env vars.
+- **Testing:** All 131 tests pass. TypeScript clean (no new errors). ESLint clean (no new warnings/errors).
+- **Known trade-offs:**
+  - Optimistic UI updates are gone — task toggle/delete/create now update UI after the API round-trip + refetch, ~200-500ms delay. Acceptable for Phase 1; Phase 2 can re-add optimistic updates with local cache + context merge if needed.
+  - Event window is fixed at ±180 days from today. If user navigates beyond 6 months in month view, events won't appear for those dates (unlikely edge case for personal calendar).
+  - TodayView now fetches all tasks (not just `?due=today`) and filters client-side. Slightly larger payload, but enables future optimizations (delta sync, local caching).
+
+---
+
 ## [2026-06-24] – Toast notification system + fix silent drag-drop failures (BUG-003)
 - **What changed:**
   Created `src/contexts/ToastContext.tsx` — a lightweight toast notification system with `ToastProvider` context, `useToast()` hook, and `showToast(message, type)` API (types: `'success' | 'error' | 'info'`). Toasts auto-dismiss after 4 seconds, render via `createPortal` to `document.body` (fixed bottom-right, z-[10000]), with color-coded variants (green/red/blue), icon, dismiss button, and slide-in animation. Added `ToastProvider` to the root layout wrapping `TaskEditProvider`. Wired all 7 drag-drop/creation `.catch(console.error)` handlers in `CalendarView.tsx` to show error toasts on failure: `handleDropTask` (month/week grid drop), DayView `onDrop` (internal task drag, external sidebar drop, event drag), DayView `onTouchEnd` (touch event drag), and inline task creation (Enter key + blur). The `DayView` component calls `useToast()` directly since it's a separate function component within the same file. The `console.error` calls are retained alongside the toasts for debugging.

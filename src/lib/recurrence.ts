@@ -42,14 +42,12 @@ export async function spawnNextRecurrence(completedTaskId: number): Promise<numb
   await pool.query('UPDATE tasks SET recurrence_rule = NULL WHERE id = $1', [completedTaskId]);
 
   const newTask = await createTask(currentTask.content, nextDate, nextRule);
-  console.log(`[Recurrence] Created next instance for task ${completedTaskId} → ${newTask.id} due ${nextDate}`);
 
   const newUid = uuidv4();
   await pool.query(
     'INSERT INTO task_sync_meta (task_id, caldav_uid, last_synced_at) VALUES ($1, $2, NOW())',
     [newTask.id, newUid]
   );
-  console.log(`[Recurrence] Registered new instance ${newTask.id} for sync (uid: ${newUid})`);
 
   const pageItemsRes = await pool.query(
     'SELECT page_id FROM page_items WHERE child_task_id = $1',

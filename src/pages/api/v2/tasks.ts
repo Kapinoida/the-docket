@@ -17,12 +17,13 @@ export default async function handler(
           if (!task) return res.status(404).json({ error: 'Task not found' });
           return res.status(200).json(task);
         } else {
-          const { due, context, status, sort } = req.query;
+          const { due, context, status, sort, since } = req.query;
           const tasks = await getTasks({
             due: due as 'today' | undefined,
             context: context as 'none' | undefined,
             status: status as 'todo' | 'done' | 'all' | undefined,
             sort: sort as 'dueDate' | 'oldest' | 'newest' | undefined,
+            since: since as string | undefined,
           });
           return res.status(200).json(tasks);
         }

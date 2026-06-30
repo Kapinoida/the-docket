@@ -65,7 +65,6 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
         }
 
         const newTask = await response.json();
-        console.log('Task created successfully:', newTask);
 
         window.dispatchEvent(new CustomEvent('taskCreated', {
           detail: { task: newTask, source: 'modal' }
@@ -83,7 +82,6 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
         }
 
         const updatedTask = await response.json();
-        console.log('Task updated successfully:', updatedTask);
 
         window.dispatchEvent(new CustomEvent('taskUpdated', {
           detail: {
@@ -110,8 +108,6 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
       if (!response.ok) {
         throw new Error(`Failed to delete task: ${response.statusText}`);
       }
-
-      console.log('Task deleted successfully:', taskId);
 
       window.dispatchEvent(new CustomEvent('taskDeleted', {
         detail: { taskId }

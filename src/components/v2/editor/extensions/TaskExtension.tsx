@@ -222,17 +222,17 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
       }
   };
 
-  // Creation effect (Separated for clarity)
+// Creation effect (Separated for clarity)
   useEffect(() => {
-      // If we have content but no ID, create it!
+      // If we have content but no ID, create the task immediately.
+      // Previously this was debounced 500ms, but that created a race with page
+      // auto-save: the v2Task node could be persisted with taskId: null before the
+      // backing task was ever created (BUG-010 Root Cause 3). The isCreating ref
+      // already prevents duplicate creations, so immediate creation is safe.
       if (!taskId && node.textContent.trim().length > 0 && !isCreating.current && (!task || task.id === 0)) {
-           // Debounce creation slightly
-           const timer = setTimeout(() => {
-               createTask({ content: node.textContent });
-           }, 500);
-           return () => clearTimeout(timer);
+            createTask({ content: node.textContent });
       }
-  }, [node.textContent, taskId]);
+  }, [node.textContent, taskId, task]);
 
 
   if (!task && taskId) {

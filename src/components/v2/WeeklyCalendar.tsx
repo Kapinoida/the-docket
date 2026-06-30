@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Task } from '@/types';
-import { CalendarEvent, eventColorStyle, isTrulyAllDay } from '@/lib/calendar';
-import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday } from 'date-fns';
+import { CalendarEvent, isTrulyAllDay } from '@/lib/calendar';
+import { addDays, isSameDay, isBefore, startOfDay, format, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
-import { useCalendarEventsRange } from '@/hooks/useCalendarEvents';
+import { useSync } from '@/contexts/SyncContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import EventDetailModal from '../modals/EventDetailModal';
 
@@ -17,57 +17,21 @@ interface WeeklyCalendarProps {
 }
 
 export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks, events, initialLoading, updateLocalTask } = useSync();
   const [currentStart, setCurrentStart] = useState(startOfDay(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
-  const [tasksLoading, setTasksLoading] = useState(true);
   const { openTaskEdit } = useTaskEdit();
 
   const handleOpenTaskEdit = useCallback((task: Task) => {
     openTaskEdit(task);
   }, [openTaskEdit]);
 
-  const windowEnd = addDays(currentStart, 7);
-  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEventsRange(currentStart, windowEnd);
-  const loading = tasksLoading || eventsLoading;
-
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v2/tasks');
-      if (res.ok) setTasks(await res.json());
-    } catch (e) {
-      console.error('Tasks fetch error:', e);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
-
-  useEffect(() => {
-    const interval = setInterval(() => { fetchTasks(); }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
-
-  // Cross-view sync
-  useEffect(() => {
-    const sync = () => { fetchTasks(); refetchEvents(); };
-    window.addEventListener('taskCreated', sync);
-    window.addEventListener('taskUpdated', sync);
-    window.addEventListener('taskDeleted', sync);
-    return () => {
-      window.removeEventListener('taskCreated', sync);
-      window.removeEventListener('taskUpdated', sync);
-      window.removeEventListener('taskDeleted', sync);
-    };
-  }, [fetchTasks, refetchEvents]);
 
   const handleTaskComplete = async (taskId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    updateLocalTask(taskId, { status: 'done' });
     try {
-      setTasks(prev => prev.filter(t => t.id !== taskId));
       const response = await fetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -75,8 +39,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
       });
       if (response.ok) {
         onTaskComplete?.(taskId);
-      } else {
-        fetchTasks();
+        window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'weeklyCalendar' } }));
       }
     } catch (err) {
       console.error("Failed to complete task", err);
@@ -157,7 +120,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
 
   const selectedItems = getItemsForDay(selectedDay);
 
-  if (loading && tasks.length === 0 && events.length === 0) {
+  if (initialLoading && tasks.length === 0 && events.length === 0) {
     return <div className="h-64 flex items-center justify-center text-gray-400">Loading schedule...</div>;
   }
 

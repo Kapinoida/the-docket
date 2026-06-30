@@ -357,7 +357,7 @@ export default function Sidebar() {
             {isFoldersOpen && (
                 <div className="px-2">
                     <FolderTree 
-                        onFolderSelect={(folder) => console.log('Folder selected:', folder)}
+                        onFolderSelect={() => {}}
                         onPageSelect={(page) => window.location.href = `/page/${page.id}`}
                         onCreateTask={createTask}
                         onCreatePage={openCreateModal}

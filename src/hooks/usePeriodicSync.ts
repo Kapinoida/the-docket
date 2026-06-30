@@ -7,7 +7,6 @@ export function usePeriodicSync(intervalMs: number = 300000) { // Default 5 minu
     // Define the sync function
     const performSync = async () => {
       if (isSyncingRef.current) {
-        console.log('[AutoSync] Sync already in progress, skipping.');
         return;
       }
 
@@ -19,13 +18,10 @@ export function usePeriodicSync(intervalMs: number = 300000) { // Default 5 minu
 
       try {
         isSyncingRef.current = true;
-        console.log('[AutoSync] Starting periodic sync...');
-        
+
         const res = await fetch('/api/caldav/sync', { method: 'POST' });
-        
-        if (res.ok) {
-            console.log('[AutoSync] Sync completed successfully.');
-        } else {
+
+        if (!res.ok) {
             console.warn('[AutoSync] Sync failed with status:', res.status);
         }
       } catch (error) {

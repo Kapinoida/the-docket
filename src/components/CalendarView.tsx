@@ -9,8 +9,8 @@ import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/c
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarSources } from '@/hooks/useCalendarSources';
+import { useSync } from '@/contexts/SyncContext';
 import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -35,19 +35,16 @@ export default function CalendarViewV2() {
     }
     return 'week';
   });
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
+  const { tasks, events, initialLoading, refetch, updateLocalTask } = useSync();
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [isAddCalendarOpen, setIsAddCalendarOpen] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState<{ id: number; name: string; url: string; color: string; mode: 'ical' | 'caldav' } | null>(null);
   const [isUnscheduledPanelOpen, setIsUnscheduledPanelOpen] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const { events, loading: eventsLoading, refetch: refetchEvents } = useCalendarEvents(currentDate, viewType);
   const { calendars, refetch: refetchCalendars } = useCalendarSources();
   const { openTaskEdit } = useTaskEdit();
   const { showToast } = useToast();
-  const loading = eventsLoading || tasksLoading;
 
   const handleOpenTaskEdit = useCallback((task: Task) => {
     openTaskEdit(task);
@@ -58,45 +55,12 @@ export default function CalendarViewV2() {
   useEffect(() => { localStorage.setItem('cal_view_type', viewType); }, [viewType]);
 
   // Fetch tasks
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v2/tasks');
-      if (res.ok) setTasks(await res.json());
-    } catch (e) {
-      console.error('Tasks fetch error:', e);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
-
-  useEffect(() => {
-    const interval = setInterval(() => { fetchTasks(); }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
-
-  // Cross-view sync: refetch when tasks are created/updated/deleted elsewhere
-  useEffect(() => {
-    const sync = () => { fetchTasks(); refetchEvents(); };
-    window.addEventListener('taskCreated', sync);
-    window.addEventListener('taskUpdated', sync);
-    window.addEventListener('taskDeleted', sync);
-    return () => {
-      window.removeEventListener('taskCreated', sync);
-      window.removeEventListener('taskUpdated', sync);
-      window.removeEventListener('taskDeleted', sync);
-    };
-  }, [fetchTasks, refetchEvents]);
-
   const handleRefresh = async () => {
-    setTasksLoading(true);
-    await Promise.all([fetchTasks(), refetchEvents()]);
+    await refetch();
   };
 
   const handleDataChanged = () => {
-    refetchEvents();
-    fetchTasks();
+    refetch();
   };
 
   const navigate = (dir: 'prev' | 'next') => {
@@ -118,21 +82,21 @@ export default function CalendarViewV2() {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     const newStatus = task.status === 'done' ? 'todo' : 'done';
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    updateLocalTask(taskId, { status: newStatus });
     try {
       await fetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-    } catch { fetchTasks(); refetchEvents(); }
+    } catch { refetch(); }
     window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
   };
 
   const handleDropTask = async (taskId: number, targetDay: Date) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: targetDay.toISOString() } : t));
+    updateLocalTask(taskId, { due_date: targetDay.toISOString() });
     try {
       await fetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
@@ -141,10 +105,7 @@ export default function CalendarViewV2() {
       });
     } catch {
       showToast('Failed to move task', 'error');
-      fetchTasks();
     }
-    fetchTasks();
-    refetchEvents();
     window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
   };
 
@@ -241,18 +202,18 @@ export default function CalendarViewV2() {
           {/* Navigation */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             <button onClick={() => navigate('prev')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronLeft size={16} /></button>
-            <div className="text-sm font-semibold text-text-primary min-w-[140px] text-center">
+            <div className="text-sm font-semibold text-text-primary min-w-[100px] md:min-w-[140px] text-center">
               {viewType === 'week' ? format(currentDate, "'Week of' MMM d") : viewType === 'day' ? format(currentDate, 'EEEE, MMMM d, yyyy') : format(currentDate, 'MMMM yyyy')}
             </div>
             <button onClick={() => navigate('next')} className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center"><ChevronRight size={16} /></button>
           </div>
 
-          <button onClick={resetToToday} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm min-h-[36px]">Today</button>
+          <button onClick={resetToToday} className="px-3 md:px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm min-h-[36px]">Today</button>
           <button onClick={() => setIsUnscheduledPanelOpen(v => !v)} className={`px-3 py-2 flex items-center gap-1.5 text-sm rounded-lg transition-colors min-h-[36px] ${isUnscheduledPanelOpen ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-800 text-text-primary hover:bg-gray-200 dark:hover:bg-gray-700'}`} title="Task Panel">
-            <ListTodo size={14} /> Tasks
+            <ListTodo size={14} /> <span className="hidden md:inline">Tasks</span>
           </button>
           <button onClick={() => setIsAddCalendarOpen(true)} className="px-3 py-2 flex items-center gap-1.5 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-primary rounded-lg transition-colors min-h-[36px]" title="Add Calendar Subscription">
-            <Plus size={14} /> Add Calendar
+            <Plus size={14} /> <span className="hidden md:inline">Add Calendar</span>
           </button>
         </div>
       </div>
@@ -402,7 +363,7 @@ export default function CalendarViewV2() {
         </div>
       </PullToRefresh>
 
-      {loading && <div className="text-center py-4 text-text-muted text-sm">Loading calendar...</div>}
+      {initialLoading && <div className="text-center py-4 text-text-muted text-sm">Loading calendar...</div>}
 
       {/* Modals */}
       <AddCalendarModal

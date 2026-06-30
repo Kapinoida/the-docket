@@ -259,10 +259,7 @@ async function updateLocalFromRemote(localId: number, parsed: any, newEtag: stri
 
     if (newStatus === 'done') {
       try {
-        const spawnedId = await spawnNextRecurrence(localId);
-        if (spawnedId) {
-          console.log(`[Sync] Spawned next recurrence instance ${spawnedId} for task ${localId}`);
-        }
+        await spawnNextRecurrence(localId);
       } catch (e) {
         console.error(`[Sync] Failed to spawn recurrence for task ${localId}:`, e);
       }
@@ -294,7 +291,6 @@ export async function syncCalDAV(): Promise<SyncResult> {
 
   // Optimize: Process all configs in parallel
   const promises = configs.map(async (config) => {
-    console.log(`[Sync] Processing '${config.name || 'Unnamed'}' (${config.resource_type})...`);
     try {
       if (config.resource_type === 'event_calendar') {
         return await syncEvents(config);
@@ -350,8 +346,6 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
     const result: SyncResult = {
         addedToRemote: 0, addedToLocal: 0, updatedRemote: 0, updatedLocal: 0, errors: []
     };
-    
-    console.log(`[Sync] Starting Direct iCal Sync: ${config.name} (${url})`);
 
     try {
        const res = await fetch(url);
@@ -360,11 +354,9 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
        const text = await res.text();
        const jcal = ICAL.parse(text);
        const comp = new ICAL.Component(jcal);
-       const vevents = (comp as any).getAllSubcomponents('vevent');
-       
-       console.log(`[Sync] Fetched ${vevents.length} events from iCal feed.`);
-       
-       const activeUids = new Set<string>();
+const vevents = (comp as any).getAllSubcomponents('vevent');
+        
+        const activeUids = new Set<string>();
        
        for (const vevent of vevents) {
            const uid = vevent.getFirstPropertyValue('uid');
@@ -374,7 +366,6 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
             
             // Skip exceptions (recurrence-id) to prevent overwriting the master series
             if (vevent.getFirstPropertyValue('recurrence-id')) {
-                // console.log(`[Sync] Skipping exception for ${uid}`);
                 continue;
             }
 
@@ -404,7 +395,6 @@ async function syncICal(config: CalDAVConfig, url: string): Promise<SyncResult> 
             if (eventObj.isRecurring()) {
                 const recur = eventObj.component.getFirstPropertyValue('rrule');
                 rrule = recur ? recur.toString() : null;
-                // console.log(`[Sync Debug] Event ${summary} has RRULE: ${rrule}`);
             }
 
             // Use hash of data as fake ETag since iCal feeds often lack per-event ETags
@@ -504,8 +494,6 @@ async function syncEvents(config: CalDAVConfig): Promise<SyncResult> {
       throw new Error('No suitable calendar found.');
     }
 
-    console.log(`[Sync] Syncing Events from: ${calendar.displayName} - ${calendar.url}`);
-
     // Time range filter: -1 year to +2 years to cover typical usage
     const now = new Date();
     const start = new Date(now); 
@@ -584,19 +572,14 @@ async function syncEvents(config: CalDAVConfig): Promise<SyncResult> {
     // 1. Try with Time Range Filter
     let xmlText = await fetchEvents(true);
     let remoteObjects = parseXml(xmlText);
-    console.log(`[Sync] Filtered fetch found ${remoteObjects.length} events.`);
 
     // 2. Fallback: Fetch ALL if 0 found (and we expected some?)
     // Some providers fail date-range queries on virtual calendars.
     if (remoteObjects.length === 0) {
-        console.log('[Sync] Filtered fetch returned 0. Attempting Unfiltered (Fetch All)...');
         xmlText = await fetchEvents(false);
         remoteObjects = parseXml(xmlText);
-        console.log(`[Sync] Unfiltered fetch found ${remoteObjects.length} events.`);
     }
 
-    console.log(`[Sync] Fetched ${remoteObjects.length} events using Raw REPORT.`);
-    
     // Track UIDs to handle deletions/orphans for this calendar
     const activeUids = new Set<string>();
 
@@ -696,16 +679,10 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
       result.errors.push('No suitable calendar found on server.');
       return result;
     }
-    
-    console.log(`[Sync] Syncing Tasks using Calendar: ${calendar.displayName} (${calendar.url})`);
 
     // 1.5 Process Tombstones (Delete remote tasks that were deleted locally)
     const tombstonesRes = await pool.query('SELECT caldav_uid FROM deleted_task_sync_log');
     const tombstoneUids = new Set(tombstonesRes.rows.map(r => r.caldav_uid));
-    
-    if (tombstoneUids.size > 0) {
-        console.log(`[Sync] Found ${tombstoneUids.size} deletion tombstones. Processing...`);
-    }
 
     // 2. Fetch Remote Tasks
     let remoteObjects: DAVCalendarObject[] = [];
@@ -724,15 +701,8 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
 
     // FALLBACK: If standard fetch returned 0 items but we suspect there are tasks (or just to be safe with NextCloud)
     if (remoteObjects.length === 0) {
-        // ... (Keep existing Fallback Logic Implementation here, but condensed for brevity in this replace block?)
-        // To be safe, I must include the ORIGINAL fallback source code if I am replacing the whole function block.
-        // Since I'm replacing lines 121-502, I am effectively rewriting the whole syncTasks logic.
-        // I will copy the Fallback logic from source.
-        
-         console.log('[Sync] Standard fetch returned 0 items. Attempting Raw PROPFIND fallback...');
          try {
             const auth = 'Basic ' + Buffer.from(config.username + ':' + config.password).toString('base64');
-            console.log('[Sync Fallback] PROPFIND to:', calendar.url);
             const rawRes = await fetch(calendar.url, {
                 method: 'PROPFIND',
                 headers: {
@@ -749,11 +719,9 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
                        </d:propfind>`
             });
 
-            console.log('[Sync Fallback] PROPFIND status:', rawRes.status, rawRes.statusText);
             if (rawRes.ok) {
                 const xmlText = await rawRes.text();
                 const responseBlocks = xmlText.split(/(?=<response)/);
-                console.log('[Sync Fallback] Response blocks:', responseBlocks.length);
                 let icsBlocks = 0, fetchOk = 0, fetchFail = 0;
                 
                 for (const block of responseBlocks) {
@@ -791,7 +759,6 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
                         }
                     }
                 }
-                console.log(`[Sync Fallback] ICS blocks: ${icsBlocks}, Fetched OK: ${fetchOk}, Failed: ${fetchFail}`);
             } else {
                 console.error('[Sync Fallback] PROPFIND failed:', rawRes.status, await rawRes.text().catch(() => 'no body'));
             }
@@ -799,8 +766,6 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
             console.error('[Sync] Fallback failed:', fallbackErr);
         }
     }
-    
-    console.log(`[Sync] Fetched ${remoteObjects.length} remote objects.`);
 
     // 3. Fetch Local Tasks
     // TODO: We technically need to filter local tasks by "Account" if we ever support multiple task accounts.
@@ -896,11 +861,9 @@ async function syncTasksForConfig(config: CalDAVConfig): Promise<SyncResult> {
             // If Local is NEWER than Remote, we overwrite Remote.
             // Using >= favors Local in ties (my change wins)
             if (localUpdatedTime >= remoteModified) {
-               console.log(`[Sync] Conflict: Local (${local.updated_at}) is newer than Remote (${parsed.lastModified}). Pushing Local.`);
                await pushLocalToRemote(client, config, rObj, local, parsed);
                result.updatedRemote++;
             } else {
-               console.log(`[Sync] Conflict: Remote (${parsed.lastModified}) is newer than Local (${local.updated_at}). Updating Local.`);
                await updateLocalFromRemote(local.id, parsed, rObj.etag);
                result.updatedLocal++;
             }

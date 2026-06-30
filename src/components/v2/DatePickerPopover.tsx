@@ -42,6 +42,7 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
     
     // UI State for Custom Mode
     const [showCustom, setShowCustom] = useState(false);
+    const [showBackdrop, setShowBackdrop] = useState(false);
 
     useEffect(() => {
         if (recurrenceRule) {
@@ -152,47 +153,90 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
     // Compute fixed positioning when triggerRef is provided
     const [fixedStyle, setFixedStyle] = useState<React.CSSProperties>({});
     useEffect(() => {
-        if (triggerRef?.current) {
-            const rect = triggerRef.current.getBoundingClientRect();
+        if (!triggerRef?.current) return;
+
+        const updatePosition = () => {
+            const trigger = triggerRef.current;
+            const popover = popoverRef.current;
+            if (!trigger) return;
+
+            const rect = trigger.getBoundingClientRect();
             const viewportW = window.innerWidth;
-            const popoverW = 340; // w-[340px]
+            const viewportH = window.innerHeight;
+
+            // Mobile: centered overlay with backdrop
+            if (viewportW < 768) {
+                setShowBackdrop(true);
+                setFixedStyle(prev => {
+                    const next = { position: 'fixed' as const, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxHeight: '85vh', zIndex: 9999 };
+                    if (prev.top === next.top && prev.left === next.left && prev.maxHeight === next.maxHeight) return prev;
+                    return next;
+                });
+                return;
+            }
+
+            setShowBackdrop(false);
+
+            // Desktop: flip above/below based on natural content height
+            // scrollHeight gives the unconstrained content height (not affected by maxHeight)
+            const popoverH = popover?.scrollHeight || 400;
+            const popoverW = 340;
             let left = rect.left;
-            // Prevent overflow off the right edge
             if (left + popoverW > viewportW - 8) {
                 left = viewportW - popoverW - 8;
             }
             if (left < 8) left = 8;
-            
-            // Place below trigger if there's room, otherwise above
-            const spaceBelow = window.innerHeight - rect.bottom;
+
+            const spaceBelow = viewportH - rect.bottom;
             const spaceAbove = rect.top;
-            if (spaceBelow >= 380 || spaceBelow >= spaceAbove) {
-                // Show below
-                setFixedStyle({
-                    position: 'fixed',
-                    top: rect.bottom + 4,
-                    left,
-                    zIndex: 9999,
+
+            const maxH = Math.min(spaceBelow - 12, viewportH * 0.85);
+
+            if (spaceBelow >= popoverH || spaceBelow >= spaceAbove) {
+                // Show below — cap maxHeight to available space
+                const top = rect.bottom + 4;
+                setFixedStyle(prev => {
+                    if (prev.top === top && prev.left === left && prev.maxHeight === maxH && prev.position === 'fixed') return prev;
+                    return { position: 'fixed' as const, top, left, maxHeight: maxH, zIndex: 9999 };
                 });
             } else {
-                // Show above
-                setFixedStyle({
-                    position: 'fixed',
-                    bottom: window.innerHeight - rect.top + 4,
-                    left,
-                    zIndex: 9999,
+                // Show above — cap maxHeight to available space
+                const bottom = viewportH - rect.top + 4;
+                const maxHAbove = Math.min(spaceAbove - 12, viewportH * 0.85);
+                setFixedStyle(prev => {
+                    if (prev.bottom === bottom && prev.left === left && prev.maxHeight === maxHAbove && prev.position === 'fixed') return prev;
+                    return { position: 'fixed' as const, bottom, left, maxHeight: maxHAbove, zIndex: 9999 };
                 });
             }
-        }
+        };
+
+        updatePosition();
+
+        // Re-measure when popover content changes (e.g. recurrence editor expands)
+        const ro = new ResizeObserver(updatePosition);
+        if (popoverRef.current) ro.observe(popoverRef.current);
+        window.addEventListener('resize', updatePosition);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            ro.disconnect();
+        };
     }, [triggerRef]);
     
     const popoverContent = (
-        <div 
-            ref={popoverRef}
-            className="absolute z-50 bg-bg-primary border border-border-default rounded-xl shadow-2xl p-4 w-[340px] flex flex-col gap-3"
-            style={triggerRef ? { ...fixedStyle, position: 'fixed' } : (position ? { top: position.top, left: position.left, right: position.right } : {})}
-            onMouseDown={(e) => e.stopPropagation()}
-        >
+        <>
+            {showBackdrop && (
+                <div
+                    className="fixed inset-0 bg-black/30 z-[9998]"
+                    onClick={onClose}
+                />
+            )}
+            <div 
+                ref={popoverRef}
+                className="absolute z-50 bg-bg-primary border border-border-default rounded-xl shadow-2xl p-4 w-[340px] flex flex-col gap-3 overflow-y-auto overscroll-contain"
+                style={triggerRef ? { ...fixedStyle, position: 'fixed' } : (position ? { top: position.top, left: position.left, right: position.right } : {})}
+                onMouseDown={(e) => e.stopPropagation()}
+            >
             <style>{css}</style>
             
             {/* Header */}
@@ -212,13 +256,13 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
 
             {/* Calendar */}
             <div className="border border-border-default rounded-lg p-2 bg-bg-secondary flex justify-center">
-                <DayPicker
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDaySelect}
-                    showOutsideDays
-                />
-            </div>
+                    <DayPicker
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDaySelect}
+                        showOutsideDays
+                    />
+                </div>
 
             {/* Time Selector */}
             {showTime && (
@@ -243,7 +287,7 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             )}
 
             {/* Recurrence Selector */}
-            <div className={`border border-border-default rounded-lg overflow-hidden transition-all duration-200 ${showCustom ? 'bg-bg-secondary' : 'bg-transparent'}`}>
+            <div className={`border border-border-default rounded-lg ${showCustom ? 'bg-bg-secondary' : 'bg-transparent'}`}>
                 {/* Basic Select Mode */}
                 {!showCustom ? (
                     <div className="flex items-center gap-2 p-2" onClick={() => setShowCustom(true)}>
@@ -386,7 +430,8 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                 <button onClick={() => { onSelect(null); onClose(); }} className="text-xs text-text-muted hover:text-red-500 px-2 py-1">Clear Date</button>
                 <button onClick={handleSave} className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-md font-medium shadow-sm">Save</button>
             </div>
-        </div>
+            </div>
+        </>
     );
     
     return triggerRef ? createPortal(popoverContent, document.body) : popoverContent;

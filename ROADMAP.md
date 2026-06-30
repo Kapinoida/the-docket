@@ -7,6 +7,14 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Fix orphaned v2Task nodes after task deletion (BUG-010)** 🟢  
+  Three-part fix: (1) Page deletion now calls `deleteTask()` per orphaned task instead of raw `DELETE FROM tasks`, ensuring CalDAV tombstones + v2Task node cleanup on other pages + `task_sync_meta` cleanup. (2) Removed 500ms debounce from the editor's v2Task creation effect so backing tasks are created immediately when content is typed — eliminates the race with page auto-save that left `taskId: null` ghost checkboxes. (3) PUT handler strips dead v2Task nodes (`taskId: null`, no text content) before persisting. Added `005_clean_orphaned_v2task_nodes.sql` migration to strip existing dead nodes from all pages.
+  *Completed: 2026-06-30*
+
+- [x] **Fix DatePickerPopover overflow on mobile + dynamic positioning (BUG-009 + BUG-011)** 🟢  
+  Added `max-h-[85vh] overflow-y-auto` so the popover scrolls internally instead of overflowing the viewport. On mobile (`< 768px`), the popover renders as a centered overlay with a click-to-close backdrop. Replaced the hardcoded `380px` flip threshold with dynamic `ResizeObserver`-based height measurement, so the popover flips above/below based on its actual height (including when the recurrence editor expands).  
+  *Completed: 2026-06-29*
+
 - [x] **Fix useCalendarEvents re-fetch loop** 🟢  
   Wrapped `getDateRange()` in `useMemo` so `start`/`end` are stable references; changed `useCallback` deps from `.toISOString()` strings to `[start, end]` references. Polling interval no longer tears down/recreates unnecessarily.  
   *Completed: 2026-06-22*
@@ -110,9 +118,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete  
   *Completed: 2026-06-22*
 
-- [ ] **Consolidate 30s polling intervals**  
-  *CalendarView, TodayView, WeeklyCalendar, and useCalendarEvents all run separate 30s intervals. Should be one shared sync mechanism.*  
-  **Status:** 🔴 Not Started  
+- [x] **Consolidate 30s polling intervals** 🟢
+  *Created `src/contexts/SyncContext.tsx` — SyncProvider with single 30s interval, parallel fetch of tasks + ±180-day events window, CustomEvent listeners for immediate refetch. All three views (CalendarView, TodayView, WeeklyCalendar) now consume `useSync()` and filter client-side. Removed `useCalendarEvents.ts` entirely. Eliminated 4 independent 30s pollers → 1 shared poller.*
+  **Status:** 🟢 Complete  
+  *Completed: 2026-06-24*  
   **Context:** Network saturation and battery drain on mobile when multiple views are mounted.
 
 - [x] **Add error state UI for failed operations** 🟢
@@ -130,9 +139,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  
   **Status:** 🔴 Not Started
 
-- [ ] **Remove console.log from production code**  
-  *45+ `console.log` statements in production code (caldav sync, recurrence, contexts).*  
-  **Status:** 🔴 Not Started
+- [x] **Remove console.log from production code** 🟢
+  *Removed all 45 `console.log` statements from production code across 13 files (caldav sync, recurrence, contexts, hooks, components, API routes). Retained `console.error` (117 catch/error handlers) and `console.warn` (7 operational warnings). No functional changes.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-06-30*
 
 - [ ] **Replace `handleDeletePage` / `handleCreatePageSubmit` full page reloads**  
   *Sidebar uses `window.location.href` instead of Next.js router. Should use `useRouter().push()`.*  
