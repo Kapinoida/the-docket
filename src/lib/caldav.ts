@@ -295,8 +295,9 @@ export async function syncCalDAV(): Promise<SyncResult> {
       if (config.resource_type === 'event_calendar') {
         return await syncEvents(config);
       } else {
-         // Default to task_list
-        return await syncTasksForConfig(config);
+        // Task sync over CalDAV is disabled — tasks are local-only now.
+        // Event sync remains active. See BUG-015 / ROADMAP.
+        return { addedToRemote: 0, addedToLocal: 0, updatedRemote: 0, updatedLocal: 0, errors: [] } as SyncResult;
       }
     } catch (e: any) {
       console.error(`[Sync] Error processing config ${config.id}:`, e);

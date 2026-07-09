@@ -35,29 +35,31 @@ describe('parseLocalDateNode', () => {
         expect(result!.getDate()).toBe(3);
     });
 
-    // ── UTC midnight (date-only from DB) ─────────────────
-    it('detects midnight UTC and preserves the correct calendar day', () => {
-        // "2026-05-18T00:00:00.000Z" is 7pm May 17 in Chicago
-        // Must return noon May 18, NOT May 17
-        const result = parseLocalDateNode('2026-05-18T00:00:00.000Z');
-        expect(result!.getFullYear()).toBe(2026);
-        expect(result!.getMonth()).toBe(4);
-        expect(result!.getDate()).toBe(18);
-        expect(result!.getHours()).toBe(12);
+    // ── UTC midnight ISO timestamps (explicit T component) ─
+    // These have an explicit time component and are preserved as-is,
+    // NOT normalized to local noon. A UTC midnight may land on the
+    // previous calendar day in Chicago — that is the correct behavior.
+    const tzOffsetMin = new Date('2026-07-15T00:00:00.000Z').getTimezoneOffset();
+
+    it('preserves UTC midnight ISO timestamp as-is', () => {
+        const input = '2026-05-18T00:00:00.000Z';
+        const result = parseLocalDateNode(input);
+        expect(result).toEqual(new Date(input));
     });
 
-    it('detects midnight UTC without fractional seconds', () => {
-        const result = parseLocalDateNode('2026-01-01T00:00:00Z');
-        expect(result!.getFullYear()).toBe(2026);
-        expect(result!.getMonth()).toBe(0);
-        expect(result!.getDate()).toBe(1);
-        expect(result!.getHours()).toBe(12);
+    it('preserves UTC midnight timestamp without fractional seconds', () => {
+        const input = '2026-01-01T00:00:00Z';
+        const result = parseLocalDateNode(input);
+        expect(result).toEqual(new Date(input));
     });
 
-    it('handles leap year date at midnight UTC', () => {
-        const result = parseLocalDateNode('2024-02-29T00:00:00.000Z');
-        expect(result!.getMonth()).toBe(1);  // February
-        expect(result!.getDate()).toBe(29);
+    it('preserves leap year UTC midnight timestamp as-is', () => {
+        const input = '2024-02-29T00:00:00.000Z';
+        const result = parseLocalDateNode(input);
+        expect(result).toEqual(new Date(input));
+        // Sanity check: month/day depend on the local timezone offset
+        expect(result!.getUTCMonth()).toBe(1);  // February (UTC)
+        expect(result!.getUTCDate()).toBe(29);
     });
 
     // ── UTC timestamps with explicit time (NOT midnight) ─
@@ -102,20 +104,18 @@ describe('parseLocalDateNode', () => {
     });
 
     // ── DST transition edge cases (America/Chicago) ──────
-    it('handles date during CST (winter, UTC-6)', () => {
-        // January 15 — firmly in CST
-        const result = parseLocalDateNode('2026-01-15T00:00:00.000Z');
-        expect(result!.getMonth()).toBe(0);
-        expect(result!.getDate()).toBe(15);
-        expect(result!.getHours()).toBe(12);
+    // UTC midnight timestamps are preserved as-is; the local calendar
+    // day/hour depends on the DST offset. Verify preservation, not noon.
+    it('preserves UTC midnight timestamp during CST (winter, UTC-6)', () => {
+        const input = '2026-01-15T00:00:00.000Z';
+        const result = parseLocalDateNode(input);
+        expect(result).toEqual(new Date(input));
     });
 
-    it('handles date during CDT (summer, UTC-5)', () => {
-        // July 15 — firmly in CDT
-        const result = parseLocalDateNode('2026-07-15T00:00:00.000Z');
-        expect(result!.getMonth()).toBe(6);
-        expect(result!.getDate()).toBe(15);
-        expect(result!.getHours()).toBe(12);
+    it('preserves UTC midnight timestamp during CDT (summer, UTC-5)', () => {
+        const input = '2026-07-15T00:00:00.000Z';
+        const result = parseLocalDateNode(input);
+        expect(result).toEqual(new Date(input));
     });
 
     // ── iso strings without Z (local midnight) ────────────

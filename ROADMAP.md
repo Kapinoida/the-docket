@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Fix BUG-015: flaky task timing + disable CalDAV task sync** 🟢
+  Fixed `normalizeDateToNoon` and `parseLocalDateNode` in `dateUtils.ts` — they were normalizing ALL midnight-UTC values (including ISO timestamps with explicit times from the DB/calendar events) to local noon, clobbering intentional times that landed at 00:00 UTC (e.g., 7 PM CT = next-day 00:00 UTC → shifted 7 hours). Added a guard: strings containing `T` are preserved as-is; only bare date strings (`"2026-05-18"`) are noon-normalized. Disabled CalDAV **task** sync in `caldav.ts` (now returns empty `SyncResult`); event sync is retained. No-op'd `createTombstone` in `db.ts` and removed the `task_sync_meta` insert in `recurrence.ts`. DB tables left in place — no migration needed, no data loss. Tasks are now local-only.
+  *Completed: 2026-07-09*
+
 - [x] **Fix orphaned v2Task nodes after task deletion (BUG-010)** 🟢  
   Three-part fix: (1) Page deletion now calls `deleteTask()` per orphaned task instead of raw `DELETE FROM tasks`, ensuring CalDAV tombstones + v2Task node cleanup on other pages + `task_sync_meta` cleanup. (2) Removed 500ms debounce from the editor's v2Task creation effect so backing tasks are created immediately when content is typed — eliminates the race with page auto-save that left `taskId: null` ghost checkboxes. (3) PUT handler strips dead v2Task nodes (`taskId: null`, no text content) before persisting. Added `005_clean_orphaned_v2task_nodes.sql` migration to strip existing dead nodes from all pages.
   *Completed: 2026-06-30*
@@ -119,9 +123,24 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   
   **Affected files (likely):** `CalendarView.tsx` (day grid rendering, HOUR_START/END, scroll container, drag handlers), `UnscheduledTaskPanel.tsx` (sidebar scroll sync, drop target for unschedule), `DatePickerPopover.tsx` (duration/end-time UI), `TaskItem.tsx` / `EditorTaskItem.tsx` (all-day badge), `src/types/index.ts` (all-day flag, optional end_time on Task), `src/lib/db.ts` (persist end_time), API routes, a migration for the new column.
 
-- [ ] **Disable CalDAV sync** 🔴  
-  *Dave isn't using CalDAV sync at all and it's a likely source of timing interference (BUG-015). The background sync loop may be overwriting local time changes on tasks. Add an `ENABLE_CALDAV_SYNC` env flag (default `false`) and gate the sync hook initialization on it. Also check `usePeriodicSync.ts` and `SyncContext.tsx` for any CalDAV-specific polling that should be behind the flag.*  
+- [ ] **Page editor overhaul** 🔴  
+  *The TipTap editor is functional but needs polish across several surfaces. Dave wants a general tightening of the editing experience.*  
   **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-09 (via Hermes, from Dave)
+  
+  **a) Toolbar cleanup** — BUG-013 (double-click required for toolbar buttons) is the most visible issue — all buttons need `onMouseDown` + `preventDefault()` instead of `onClick`. Beyond that: button sizing/hit targets, icon clarity, responsive behavior (mobile toolbar is cramped), and the table controls strip that appears/disappears awkwardly.
+  
+  **b) Block drag handle & type switcher** — The `GlobalDragHandle` grip icon appears on hover in the left gutter. The positioning can be janky (relies on `posAtCoords` projection). The `BlockTypePopover` (paragraph, heading, list, quote, code, subpage, task) needs visual polish — icon + label alignment, active state indicator, transition smoothness.
+  
+  **c) Editor padding & spacing** — Review the editor's internal padding (`px-4 py-3` etc.) and the vertical rhythm between blocks. The drag handle's offset from the block, cursor behavior when hovering the gutter, and focus ring / selection styling all need a consistent look.
+  
+  **d) Slash command menu** — The `/` command palette (`SlashCommandList.tsx`) for inserting blocks. Check positioning, scroll behavior, keyboard navigation, and whether the command list is complete.
+  
+  **Affected files:** `Editor.tsx`, `EditorToolbar.tsx`, `GlobalDragHandle.tsx`, `BlockTypePopover.tsx`, `SlashCommandList.tsx`, `TagList.tsx`, and related TipTap extensions (`TaskExtension.tsx`, `TagExtension.tsx`, `PageLinkExtension.tsx`, `CollapsibleBlockExtension.tsx`).
+
+- [~] **Disable CalDAV task sync (event sync retained)** 🟢  
+  *CalDAV **task** sync is now disabled — `syncCalDAV()` in `caldav.ts` returns an empty result for the task branch instead of calling `syncTasksForConfig`. `createTombstone` in `db.ts` is a no-op; `recurrence.ts` no longer writes `task_sync_meta`. Event/calendar sync is kept intact. The background sync loop (`usePeriodicSync` / `/api/caldav/sync`) remains and now only syncs events. No env flag was needed — tasks are local-only by default. Resolved:**2026-07-09. (Original request was to gate **all** CalDAV sync behind an env flag; partial completion since event sync is intentionally retained.)*  
+  **Status:** 🟢 Complete (task sync); event sync kept  
   **Reported:** 2026-07-09 (via Hermes, from Dave)
 
 - [x] **Recurrence COUNT/UNTIL end conditions** 🟢  

@@ -75,7 +75,7 @@ describe('TaskItem', () => {
   it('renders due date in MMM d format', () => {
     const taskWithDate: Task = {
       ...mockTask,
-      due_date: '2026-05-18T00:00:00.000Z'
+      due_date: '2026-05-18'
     };
     customRender(
       <TaskItem task={taskWithDate} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
@@ -97,7 +97,7 @@ describe('TaskItem', () => {
   it('shows recurrence clock icon when task has recurrence rule', () => {
     const recurringTask: Task = {
       ...mockTask,
-      due_date: '2026-05-18T00:00:00.000Z',
+      due_date: '2026-05-18',
       recurrence_rule: { type: 'weekly', interval: 1 }
     };
     customRender(

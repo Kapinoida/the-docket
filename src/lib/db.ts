@@ -189,13 +189,9 @@ export async function getFocusTasks() {
 }
 
 // ... (existing code) ...
-export async function createTombstone(taskId: number) {
-  // Check if task interacts with CalDAV
-  const res = await pool.query('SELECT caldav_uid FROM task_sync_meta WHERE task_id = $1', [taskId]);
-  if (res.rows.length > 0) {
-      const uid = res.rows[0].caldav_uid;
-      await pool.query('INSERT INTO deleted_task_sync_log (caldav_uid) VALUES ($1)', [uid]);
-  }
+export async function createTombstone(_taskId: number) {
+  // CalDAV task sync is disabled — tombstones no longer needed.
+  // Kept as a no-op to avoid breaking callers (deleteTask, deleteCompletedTasks).
 }
 
 export async function deleteTaskReferences(taskId: number) {

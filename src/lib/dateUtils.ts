@@ -10,12 +10,13 @@ export const normalizeDateToNoon = (dateVal: any): Date | null => {
     if (!dateVal) return null;
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return null;
-    // Check UTC hours — midnight UTC means date-only (bare date string like "2026-05-30")
+    // ISO timestamps (containing 'T') have an explicit time component — preserve as-is
+    // even if the time happens to be midnight UTC (e.g., 7 PM CT = 00:00 UTC next day)
+    if (typeof dateVal === 'string' && dateVal.includes('T')) return d;
+    // Bare date strings (e.g., "2026-05-30") arrive as midnight UTC — normalize to noon LOCAL
     if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
-        // Reconstruct as noon LOCAL time to prevent day-shift in America/Chicago
         return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0, 0);
     }
-    // Has an explicit time — preserve as-is for timestamptz
     return d;
 };
 
@@ -25,15 +26,8 @@ export const parseLocalDateNode = (dateVal: string | Date | null | undefined): D
     if (typeof dateVal === 'string') {
         // For ISO date-time strings (including UTC)
         if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?$/.test(dateVal)) {
-            // It's an ISO timestamp — parse carefully to avoid timezone shift
-            const dt = new Date(dateVal);
-            // For midnight UTC, preserve the day correctly  
-            if (dt.getUTCHours() === 0 && dt.getUTCMinutes() === 0 && dt.getUTCSeconds() === 0) {
-                // This is a date-only input that became midnight UTC. Represent as local noon to avoid day flip.
-                return new Date(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 12, 0, 0, 0);
-            }
-            // Time-based datetime from DB - just return it
-            return dt;
+            // ISO timestamps have an explicit time component — return as-is
+            return new Date(dateVal);
         }
         // Regular date string like "2026-05-18"  
         const [y, m, d] = dateVal.split('-').map(Number);
