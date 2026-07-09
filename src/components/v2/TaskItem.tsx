@@ -10,7 +10,6 @@ interface TaskItemProps {
   task: Task;
   onToggle: (id: number) => void;
   onUpdate?: (updates: Partial<Task>) => void;
-  isSelectionEnabled?: boolean;
   isSelected?: boolean;
   onSelect?: (id: number, selected: boolean) => void;
   extraActions?: React.ReactNode;
@@ -19,7 +18,7 @@ interface TaskItemProps {
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ 
-    task, onToggle, onUpdate, isSelectionEnabled, isSelected, onSelect, extraActions, onMoveToPage, onDelete
+    task, onToggle, onUpdate, isSelected, onSelect, extraActions, onMoveToPage, onDelete
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -107,8 +106,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     >
       
       {/* Selection Checkbox */}
-      {(onSelect || isSelectionEnabled) && (
-          <div className={`mt-1.5 flex-shrink-0 transition-opacity ${isSelected || isSelectionEnabled ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+      {onSelect && (
+          <div className={`mt-1.5 flex-shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
               <input 
                   type="checkbox"
                   checked={isSelected}
@@ -121,7 +120,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       {/* Completion Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
       >
         {isDone ? (
              <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />
