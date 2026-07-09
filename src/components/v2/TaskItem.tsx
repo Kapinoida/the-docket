@@ -121,7 +121,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       {/* Completion Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="mt-0.5 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-2 -m-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
       >
         {isDone ? (
              <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />
@@ -130,8 +130,36 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </button>
 
-      {/* Metadata / Date Badge */}
-      <div className="flex-shrink-0 flex items-center justify-center mt-0.5" style={{ width: task.due_date ? 'auto' : '28px' }}>
+      {/* Page Context Badge */}
+      {task.page_name && !isDone && (
+        <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 truncate max-w-[80px] sm:max-w-[100px] hidden sm:inline" title={task.page_name}>
+          {task.page_name}
+        </span>
+      )}
+
+      {/* Content Area */}
+      <div className="flex-1 min-w-0 py-0.5">
+          {onUpdate ? (
+              <input
+                  value={isEditing ? editContent : task.content}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={() => setIsEditing(true)}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className={`
+                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0
+                      ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}
+                  `}
+              />
+          ) : (
+              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${isDone ? 'line-through text-text-muted' : ''}`}>
+                  {task.content}
+              </div>
+          )}
+      </div>
+
+      {/* Metadata / Date Badge — on the right */}
+      <div className="flex-shrink-0 flex items-center justify-center mt-0" style={{ width: task.due_date ? 'auto' : '28px' }}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
@@ -174,34 +202,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                      <Calendar size={14} />
                  </button>
              )}
-      </div>
-
-      {/* Page Context Badge */}
-      {task.page_name && !isDone && (
-        <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 truncate max-w-[80px] sm:max-w-[100px] hidden sm:inline" title={task.page_name}>
-          {task.page_name}
-        </span>
-      )}
-
-      {/* Content Area */}
-      <div className="flex-1 min-w-0 py-0.5">
-          {onUpdate ? (
-              <input
-                  value={isEditing ? editContent : task.content}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onFocus={() => setIsEditing(true)}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  className={`
-                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0
-                      ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}
-                  `}
-              />
-          ) : (
-              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${isDone ? 'line-through text-text-muted' : ''}`}>
-                  {task.content}
-              </div>
-          )}
       </div>
 
       {/* Edit Trigger — visible on mobile, hover-only on desktop */}

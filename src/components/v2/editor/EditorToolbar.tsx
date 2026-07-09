@@ -35,7 +35,7 @@ interface EditorToolbarProps {
 
 const ToggleButton = ({ onClick, isActive, icon: Icon, title, className = '' }: any) => (
   <button
-    onClick={onClick}
+    onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); onClick?.(); }}
     className={`min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center ${
       isActive ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
     } ${className}`}
@@ -110,27 +110,27 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
 
   const TableControls = () => (
     <div className="flex items-center gap-1 mr-2 pr-2 border-r border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10 rounded px-1">
-      <button onClick={() => editor.chain().focus().addColumnBefore().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Column Before">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().addColumnBefore().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Column Before">
         <div className="flex items-center"><Plus size={10} /><GripVertical size={14} /></div>
       </button>
-      <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Column After">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().addColumnAfter().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Column After">
         <div className="flex items-center"><GripVertical size={14} /><Plus size={10} /></div>
       </button>
-      <button onClick={() => editor.chain().focus().deleteColumn().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 flex items-center justify-center" title="Delete Column">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().deleteColumn().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 flex items-center justify-center" title="Delete Column">
         <div className="flex items-center"><Trash2 size={10} /><GripVertical size={14} /></div>
       </button>
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-      <button onClick={() => editor.chain().focus().addRowBefore().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Row Before">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().addRowBefore().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Row Before">
         <div className="flex flex-col items-center"><Plus size={10} style={{ marginBottom: -2 }} /><GripHorizontal size={14} /></div>
       </button>
-      <button onClick={() => editor.chain().focus().addRowAfter().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Row After">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().addRowAfter().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Row After">
         <div className="flex flex-col items-center"><GripHorizontal size={14} /><Plus size={10} style={{ marginTop: -2 }} /></div>
       </button>
-      <button onClick={() => editor.chain().focus().deleteRow().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 flex items-center justify-center" title="Delete Row">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().deleteRow().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 flex items-center justify-center" title="Delete Row">
         <div className="flex flex-col items-center"><Trash2 size={10} style={{ marginBottom: -2 }} /><GripHorizontal size={14} /></div>
       </button>
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-      <button onClick={() => editor.chain().focus().deleteTable().run()} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 flex items-center justify-center" title="Delete Table">
+      <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().deleteTable().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 flex items-center justify-center" title="Delete Table">
         <Trash2 size={16} />
       </button>
     </div>
@@ -191,7 +191,7 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
         {/* More button */}
         <div className="relative" ref={moreRef}>
           <button
-            onClick={() => setShowMore(!showMore)}
+            onMouseDown={(e) => { e.preventDefault(); setShowMore(!showMore); }}
             className={`min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 ${showMore ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
             title="More formatting"
           >

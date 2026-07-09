@@ -7,6 +7,8 @@ import RightSidebar from './RightSidebar';
 import BottomTabBar from './BottomTabBar';
 import { Menu, PanelRight, ChevronLeft } from 'lucide-react';
 import { RightSidebarProvider, useRightSidebar } from '../../contexts/RightSidebarContext';
+import { useToast } from '@/contexts/ToastContext';
+import { handleSessionExpired } from '@/lib/api';
 
 import { usePeriodicSync } from '@/hooks/usePeriodicSync';
 
@@ -15,6 +17,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, closeSidebar: closeRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
+  const { showToast } = useToast();
+
+  // Global 401 handling: when any `apiFetch` call receives a 401 it dispatches
+  // `auth:expired`. Show a toast then redirect to /login with the current
+  // path as `?redirect=` so the user returns here after re-authenticating.
+  useEffect(() => {
+    const onAuthExpired = () => {
+      showToast('Session expired — please sign in again', 'info');
+      handleSessionExpired();
+    };
+    window.addEventListener('auth:expired', onAuthExpired);
+    return () => window.removeEventListener('auth:expired', onAuthExpired);
+  }, [showToast]);
 
   // Swipe-to-close for left sidebar
   const touchStartX = useRef(0);

@@ -98,6 +98,32 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started  
   **Context:** Marked as TODO in codebase; users need multiple calendar sources.
 
+- [ ] **Calendar Day View UX overhaul** 🔴  
+  *Dave wants the day view to be a proper time-blocking tool, not just a read-only grid. Several interconnected improvements:*  
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-09 (via Hermes, from Dave)
+  
+  **a) Full-screen scrollable day container** — Confine the day grid to a container that never exceeds viewport height. The time grid scrolls internally. This also means the tasks sidebar (UnscheduledTaskPanel) follows the same scroll container — nothing on the calendar page should be taller than the screen.
+  
+  **b) Truncate off-hours** — Hide or collapse early AM (12am–6am) and late PM (10pm–12am) hours by default. These are rarely used for task scheduling and waste vertical space. `HOUR_START` / `HOUR_END` constants already exist in CalendarView — make them configurable or smarter about which hours to render. Could be a collapsible "show all hours" toggle.
+  
+  **c) All-day events & tasks** — Add an "all day" section at the top of the day view (like Google Calendar / Apple Calendar). Tasks/events marked as all-day don't occupy the time grid. This already has a partial mention under "Rich calendar drag & resize" (Near-term) but needs its own focused implementation.
+  
+  **d) Time-blocking for tasks** — Currently tasks have a single `due_date` timestamp. Add the ability to set a duration or end time so a task occupies a block (e.g., "Work on deck — 10:00 AM to 12:00 PM"). This turns tasks into time-blocked commitments rather than point-in-time deadlines. Requires: UI for setting duration/end time in DatePickerPopover, rendering the block span in DayView, persistence of end time in the DB.
+  
+  **e) Default to today on open** — Calendar should always open to today's date, not the last-viewed date. Rethink how calendar position/date is persisted — likely just drop the saved position and always compute from `new Date()`. If the user navigates away and back, today should be the default.
+  
+  **f) Drag visualization with 15-min snap** — When dragging a task/event on the day grid, show a ghost/indicator of where it will land, snapping to 15-minute intervals. Currently there's no clear visual feedback during drag — the user can't tell exactly which time slot they're dropping into.
+  
+  **g) Drag to unschedule** — Dragging a task off the calendar grid (to the sidebar, or to a "remove time" zone) should strip its due date, converting it back to an unscheduled task. This is the natural inverse of dragging a task onto the calendar.
+  
+  **Affected files (likely):** `CalendarView.tsx` (day grid rendering, HOUR_START/END, scroll container, drag handlers), `UnscheduledTaskPanel.tsx` (sidebar scroll sync, drop target for unschedule), `DatePickerPopover.tsx` (duration/end-time UI), `TaskItem.tsx` / `EditorTaskItem.tsx` (all-day badge), `src/types/index.ts` (all-day flag, optional end_time on Task), `src/lib/db.ts` (persist end_time), API routes, a migration for the new column.
+
+- [ ] **Disable CalDAV sync** 🔴  
+  *Dave isn't using CalDAV sync at all and it's a likely source of timing interference (BUG-015). The background sync loop may be overwriting local time changes on tasks. Add an `ENABLE_CALDAV_SYNC` env flag (default `false`) and gate the sync hook initialization on it. Also check `usePeriodicSync.ts` and `SyncContext.tsx` for any CalDAV-specific polling that should be behind the flag.*  
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-09 (via Hermes, from Dave)
+
 - [x] **Recurrence COUNT/UNTIL end conditions** 🟢  
   Added `count` and `until` fields to `RecurrenceRule`. `spawnNextRecurrence` terminates on COUNT exhaustion or UNTIL date. RRULE round-trip supports COUNT and UNTIL. DatePickerPopover has "Ends" UI (Never/After/On date). 18 new tests.  
   *Completed: 2026-06-15*
@@ -144,10 +170,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete
   *Completed: 2026-06-30*
 
-- [ ] **Replace `handleDeletePage` / `handleCreatePageSubmit` full page reloads**  
-  *Sidebar uses `window.location.href` instead of Next.js router. Should use `useRouter().push()`.*  
-  **Status:** 🔴 Not Started  
-  **Context:** `src/components/v2/Sidebar.tsx` lines 141, 168.
+- [x] **Replace `handleDeletePage` / `handleCreatePageSubmit` full page reloads**  
+  *Replaced 4 `window.location.href` calls with `useRouter()` across `Sidebar.tsx` and `page/[id]/page.tsx`. Deletions use `router.replace()` (no stale history entries); creation/navigation uses `router.push()` (normal forward nav).*
+  **Status:** 🟢 Complete  
+  *Completed: 2026-07-08*
 
 ### Testing & Stability
 - [ ] **Re-enable TypeScript & ESLint in builds**  
@@ -163,6 +189,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🎯 Near‑term (1–3 months)
 
 ### Feature Work
+- [ ] **Dashboard redesign / makeover** 🔴  
+  *The current dashboard (`DashboardView.tsx`) is a basic single-column scroll: 4 stat cards → WeeklyCalendar → RecentNotes. Dave wants a proper makeover — better layout, more visual polish, smarter use of space. Consider: two-column desktop layout (calendar + tasks on one side, notes/quick actions on the other), ambient/stats widgets, quick-capture input, recent activity feed. Mobile: the current single-column scroll works but could use better visual hierarchy. The dashboard is the landing page — it should feel like a command center, not an afterthought.*  
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-08 (via Hermes, from Dave)
+
 - [ ] **Inline page links in editor**  
   *Add autocomplete and proper back‑linking support via the `PageLinkExtension`; show backlinks panel.*  
   **Status:** 🔴 Not Started

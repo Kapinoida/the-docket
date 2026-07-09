@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, ListTodo, Timer, Settings, Hash } from 'lucide-react';
 import { Page } from '../../types';
 import FolderTree from '../../components/FolderTree';
@@ -30,6 +30,7 @@ export default function Sidebar() {
   useEffect(() => setMounted(true), []);
 
   const pathname = usePathname();
+  const router = useRouter();
   const [favorites, setFavorites] = useState<Page[]>([]);
   const [recent, setRecent] = useState<Page[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -139,7 +140,7 @@ export default function Sidebar() {
              setRefreshTrigger(prev => prev + 1);
 
              if (pathname === `/page/${pageId}`) {
-                 window.location.href = '/';
+                 router.replace('/');
              }
          }
      } catch (e) {
@@ -166,7 +167,7 @@ export default function Sidebar() {
       });
       if (res.ok) {
           const newPage = await res.json();
-          window.location.href = `/page/${newPage.id}`;
+          router.push(`/page/${newPage.id}`);
       }
     } catch (e) {
         console.error(e);
@@ -358,7 +359,7 @@ export default function Sidebar() {
                 <div className="px-2">
                     <FolderTree 
                         onFolderSelect={() => {}}
-                        onPageSelect={(page) => window.location.href = `/page/${page.id}`}
+                        onPageSelect={(page) => router.push(`/page/${page.id}`)}
                         onCreateTask={createTask}
                         onCreatePage={openCreateModal}
                         refreshTrigger={refreshTrigger}

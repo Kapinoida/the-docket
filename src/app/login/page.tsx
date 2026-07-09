@@ -43,8 +43,9 @@ function LoginForm() {
         return;
       }
 
-      // Redirect to home — force full page load so middleware sees the cookie
-      window.location.href = '/';
+      // Redirect to the page the user was trying to reach (or home).
+      // Force full page load so middleware sees the new auth cookie.
+      window.location.href = redirect;
     } catch {
       setError('Connection error. Please try again.');
     } finally {

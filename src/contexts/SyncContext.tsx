@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { Task } from '@/types';
 import { CalendarEvent } from '@/lib/calendar';
 import { addDays, startOfDay } from 'date-fns';
+import { apiFetch, AuthError } from '@/lib/api';
 
 interface SyncContextType {
     tasks: Task[];
@@ -50,13 +51,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             const tasksUrl = `/api/v2/tasks${since}`;
             const eventsUrl = `/api/v2/calendar/events?start=${eventStart.toISOString()}&end=${eventEnd.toISOString()}`;
 
-            const [tasksRes, eventsRes] = await Promise.all([
-                fetch(tasksUrl),
-                fetch(eventsUrl),
+            const [tasksData, eventsData] = await Promise.all([
+                apiFetch<Task[]>(tasksUrl).catch(e => { if (!(e instanceof AuthError)) throw e; return null; }),
+                apiFetch<CalendarEvent[]>(eventsUrl).catch(e => { if (!(e instanceof AuthError)) throw e; return null; }),
             ]);
 
-            if (tasksRes.ok) {
-                const tasksData: Task[] = await tasksRes.json();
+            if (tasksData) {
                 if (useDelta && lastFetchTimeRef.current) {
                     setTasks(prev => {
                         const map = new Map(prev.map(t => [t.id, t]));
@@ -69,11 +69,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
                     setTasks(tasksData);
                 }
             }
-            if (eventsRes.ok) {
-                setEvents(await eventsRes.json());
+            if (eventsData) {
+                setEvents(eventsData);
             }
             lastFetchTimeRef.current = now;
         } catch (e) {
+            if (e instanceof AuthError) { return; }
             console.error('Sync fetch error:', e);
         } finally {
             setInitialLoading(false);

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { apiFetch, AuthError } from '@/lib/api';
 
 export function usePeriodicSync(intervalMs: number = 300000) { // Default 5 minutes
   const isSyncingRef = useRef(false);
@@ -19,21 +20,18 @@ export function usePeriodicSync(intervalMs: number = 300000) { // Default 5 minu
       try {
         isSyncingRef.current = true;
 
-        const res = await fetch('/api/caldav/sync', { method: 'POST' });
-
-        if (!res.ok) {
-            console.warn('[AutoSync] Sync failed with status:', res.status);
-        }
+        await apiFetch('/api/caldav/sync', { method: 'POST' });
       } catch (error) {
+        if (error instanceof AuthError) { return; }
         console.error('[AutoSync] Sync error:', error);
       } finally {
         isSyncingRef.current = false;
       }
     };
 
-    // Run once on mount? Maybe not, allow initial load to settle. 
+    // Run once on mount? Maybe not, allow initial load to settle.
     // Or simpler: Just set the interval.
-    
+
     // Actually, often good to run one shortly after load, but let's stick to strict interval for now.
     const timerId = setInterval(performSync, intervalMs);
 

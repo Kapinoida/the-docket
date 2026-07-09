@@ -11,6 +11,7 @@ import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
 import { useSync } from '@/contexts/SyncContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import EventDetailModal from '../modals/EventDetailModal';
+import { apiFetch, AuthError } from '@/lib/api';
 
 interface WeeklyCalendarProps {
   onTaskComplete?: (taskId: number) => void;
@@ -32,16 +33,15 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
     e.stopPropagation();
     updateLocalTask(taskId, { status: 'done' });
     try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' })
       });
-      if (response.ok) {
-        onTaskComplete?.(taskId);
-        window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'weeklyCalendar' } }));
-      }
+      onTaskComplete?.(taskId);
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'weeklyCalendar' } }));
     } catch (err) {
+      if (err instanceof AuthError) { return; }
       console.error("Failed to complete task", err);
     }
   };

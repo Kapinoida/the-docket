@@ -12,6 +12,7 @@ import { parseLocalDateNode } from '@/lib/dateUtils';
 import { TaskListSkeleton } from './Skeleton';
 import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
+import { apiFetch, AuthError } from '@/lib/api';
 
 export default function TodayView() {
   const { tasks, events, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
@@ -30,21 +31,19 @@ export default function TodayView() {
       const dueDate = new Date();
       dueDate.setHours(12, 0, 0, 0);
 
-      const res = await fetch('/api/v2/tasks', {
+      const task = await apiFetch<Task>('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             content: inputValue,
             dueDate: dueDate.toISOString()
         }),
       });
 
-      if (res.ok) {
-        const task = await res.json();
-        setInputValue('');
-        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'todayView' } }));
-      }
+      setInputValue('');
+      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'todayView' } }));
     } catch (error) {
+      if (error instanceof AuthError) { return; }
       console.error('Failed to create task', error);
     }
   };
@@ -53,13 +52,14 @@ export default function TodayView() {
       const task = tasks.find(t => t.id === id);
       const newStatus = task?.status === 'done' ? 'todo' : 'done';
       updateLocalTask(id, { status: newStatus });
-      fetch(`/api/v2/tasks/${id}`, {
+      apiFetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
       }).then(() => {
           window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: newStatus }, source: 'todayView' } }));
       }).catch(err => {
+          if (err instanceof AuthError) { return; }
           console.error("Failed to mark done", err);
       });
   };
@@ -67,13 +67,14 @@ export default function TodayView() {
   const handleUpdate = async (id: number, updates: Partial<Task>) => {
       updateLocalTask(id, updates);
       try {
-          await fetch(`/api/v2/tasks/${id}`, {
+          await apiFetch(`/api/v2/tasks/${id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates)
           });
           window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates, source: 'todayView' } }));
       } catch (error) {
+          if (error instanceof AuthError) { return; }
           console.error('Failed to update task', error);
           refetch();
       }
@@ -82,9 +83,10 @@ export default function TodayView() {
   const handleDelete = async (id: number) => {
       removeLocalTask(id);
       try {
-          await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+          await apiFetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
           window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId: id, source: 'todayView' } }));
       } catch (error) {
+          if (error instanceof AuthError) { return; }
           console.error('Failed to delete task', error);
           refetch();
       }

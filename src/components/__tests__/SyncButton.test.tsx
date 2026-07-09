@@ -1,14 +1,18 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SyncButton } from '../SyncButton'
 import { useRouter } from 'next/navigation'
+import { apiFetch } from '@/lib/api'
 
 // Mock useRouter
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
 
-// Mock fetch
-global.fetch = jest.fn()
+// Mock apiFetch
+jest.mock('@/lib/api', () => ({
+  apiFetch: jest.fn(),
+  AuthError: class AuthError extends Error {},
+}))
 
 describe('SyncButton', () => {
   const mockRefresh = jest.fn()
@@ -27,10 +31,7 @@ describe('SyncButton', () => {
   })
 
   it('calls sync api when clicked', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'success' }),
-    })
+    (apiFetch as jest.Mock).mockResolvedValueOnce({ status: 'success' })
 
     render(<SyncButton />)
     const button = screen.getByRole('button', { name: /sync with caldav/i })
@@ -38,7 +39,7 @@ describe('SyncButton', () => {
     fireEvent.click(button)
     
     await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/caldav/sync', { method: 'POST' })
+        expect(apiFetch).toHaveBeenCalledWith('/api/caldav/sync', { method: 'POST' })
     })
     
     await waitFor(() => {

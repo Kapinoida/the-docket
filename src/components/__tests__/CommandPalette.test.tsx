@@ -1,14 +1,18 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CommandPalette } from '../CommandPalette';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 
 // Mock useRouter
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
 
-// Mock fetch
-global.fetch = jest.fn();
+// Mock apiFetch
+jest.mock('@/lib/api', () => ({
+  apiFetch: jest.fn(),
+  AuthError: class AuthError extends Error {},
+}));
 
 // Mock cmdk to avoid complex DOM structures if needed, but let's try with real one first.
 // If cmdk fails in JSDOM, we might need to mock ResizeObserver.
@@ -45,13 +49,10 @@ describe('CommandPalette', () => {
   });
 
   it('searches and displays results', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { id: 1, title: 'Test Page', type: 'page' },
-        { id: 2, content: 'Test Task', type: 'task', page_title: 'Context' }
-      ],
-    });
+    (apiFetch as jest.Mock).mockResolvedValueOnce([
+      { id: 1, title: 'Test Page', type: 'page' },
+      { id: 2, content: 'Test Task', type: 'task', page_title: 'Context' }
+    ]);
 
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', metaKey: true });
@@ -61,7 +62,7 @@ describe('CommandPalette', () => {
 
     // Wait for debounce and fetch
     await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v2/search?q=Test'));
+        expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining('/api/v2/search?q=Test'));
     });
 
     // Check results
@@ -72,10 +73,7 @@ describe('CommandPalette', () => {
   });
 
   it('navigates to page on selection', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ id: 10, title: 'Target Page', type: 'page' }],
-    });
+    (apiFetch as jest.Mock).mockResolvedValueOnce([{ id: 10, title: 'Target Page', type: 'page' }]);
 
     render(<CommandPalette />);
     fireEvent.keyDown(document, { key: 'k', metaKey: true });

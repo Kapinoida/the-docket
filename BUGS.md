@@ -332,6 +332,237 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ---
 
+## BUG-012: No global 401 handling — app breaks silently when JWT expires
+- **Status:** ✅ Fixed
+- **Severity:** High
+- **Reported:** 2026-07-02 (via Hermes, from Dave)
+- **Description:** When the JWT auth token expires (cookies expire after 7 days), the app breaks silently with no user-facing indication. Dave reports: "If I'm 'logged out' and need to reauthorize, there is no easy way to trigger that — basically have to reload, then go to a new view and it might trigger." There's no visible feedback that the user is logged out — API calls just stop working, data stops loading, and actions fail silently.
+- **Steps to reproduce:**
+  1. Log in to The Docket
+  2. Wait 7+ days for the JWT cookie to expire (or manually delete the `token` cookie in DevTools)
+  3. Stay on a loaded page — observe: data stops updating, task actions silently fail
+  4. No indication you're logged out — no redirect, no toast, no "please log in" message
+  5. Only way to recover: manually reload the page (middleware catches it and redirects to `/login`)
+- **Expected:** When the JWT expires:
+  - Any API call returning 401 should trigger an automatic redirect to `/login?redirect=<current path>`
+  - After successful login, the user returns to the page they were on
+  - A toast or brief message indicating "Session expired, please log in"
+- **Actual:** 
+  - API calls return 401 silently — `SyncContext.fetchData()` only `console.error`s and swallows the error
+  - No global 401 interceptor exists — every raw `fetch()` call handles (or doesn't handle) 401 independently
+  - The app just looks broken: tasks stop updating, actions fail with no feedback
+  - User has to manually reload or navigate to trigger middleware's redirect
+  - **Even when they do reach `/login`, the redirect param is ignored on success** — `login/page.tsx:47` hardcodes `window.location.href = '/'` instead of using the `redirect` searchParam
+- **Affected files:**
+  - `src/contexts/SyncContext.tsx` lines 40-82 — `fetchData()` catches all errors but doesn't check for 401; silently fails
+  - `src/contexts/TaskEditContext.tsx` — task CRUD operations use raw `fetch()` with no 401 handling
+  - `src/app/login/page.tsx` line 47 — `window.location.href = '/'` hardcodes redirect, ignoring the `redirect` query param set by middleware (line 38, 51 of `middleware.ts`)
+  - `src/middleware.ts` lines 38, 51 — correctly sets `?redirect=<path>` but it's never consumed on successful login
+  - ~20+ component files with raw `fetch()` calls — none check for 401 (CalendarView, TodayView, FolderTree, FocusTaskSidebar, CommandPalette, etc.)
+- **Hermes notes:** 
+  This is really two bugs that compound each other:
+
+  **Root Cause 1 — No 401 interceptor for API calls:**
+  The middleware correctly returns 401 for API requests with expired tokens (line 35, 48), but the client has zero awareness. The `SyncContext` is the central data fetcher — it polls every 30s for tasks + events and handles all `CustomEvent`-triggered refetches. But its `fetchData` function checks `res.ok` and falls through to `catch` for errors. A 401 is just a failed fetch — no different from a network error.
+
+  Every other fetch call in the app is raw and unguarded — there's no shared `apiFetch()` wrapper, no `AuthContext`, no global `window.addEventListener('unhandledrejection')` handler.
+
+  **Root Cause 2 — Login page ignores redirect param on success:**
+  Even if we fix #1 and redirect to `/login?redirect=/calendar`, the login form on line 47 does `window.location.href = '/'` — it **always** sends you to the home page, completely ignoring the `redirect` query param. The middleware sets `?redirect=<path>` (lines 38, 51), the login form reads it for the auto-redirect on mount (line 19: `searchParams?.get('redirect') || '/'`), but on successful login submission it's hardcoded to `'/'`.
+
+  **Fix approach:**
+
+  **Part A — Centralized 401 handling:**
+  Two viable strategies:
+  1. **(Simpler) Global fetch wrapper** — Create `src/lib/api.ts` with an `apiFetch()` wrapper that checks `res.status === 401` and redirects to `/login?redirect=${window.location.pathname}`. Replace raw `fetch()` calls with `apiFetch()`. The `SyncContext` already centralizes the two biggest fetchers (tasks + events) — wrapping just those two would catch the majority of auth failures.
+  2. **(More robust) AuthContext** — Create an `AuthContext` with an `authenticated` state. `SyncContext` checks for 401 and sets auth state. A global effect watches for auth changes and redirects. More plumbing but gives all components awareness of auth state (useful for conditional UI).
+
+  **Recommended:** Start with Option 1 (fetch wrapper) for `SyncContext` + `TaskEditContext` — those cover 90%+ of API calls. The wrapper checks `res.status`, and on 401 sets `window.location.href = '/login?redirect=' + window.location.pathname`. All other raw fetches get the same treatment opportunistically.
+
+  **Part B — Fix login redirect:**
+  Change `login/page.tsx:47` from `window.location.href = '/'` to `window.location.href = redirect` (where `redirect` is already read from `searchParams` on line 26).
+
+  **Part C — UX polish (optional):**
+  Instead of a cold redirect, show a brief "Session expired — redirecting to login..." toast/message before redirecting. This gives the user context for why they're suddenly on the login page.
+
+  **Verification:** After deploying, delete the `token` cookie in DevTools and try any action — should redirect to `/login?redirect=<current path>`. Login should return you to that path, not `/`.
+- **Fixed in:** TBD (pending deploy)
+- **Fix:**
+  - **Part A — Centralized 401 handling (`apiFetch`):** Created `src/lib/api.ts` with an `apiFetch()` wrapper that checks `res.status === 401` on every API call. On 401, it dispatches a global `auth:expired` CustomEvent on `window` and throws an `AuthError` (so callers' catch blocks exit cleanly without silently continuing). On other non-2xx responses, throws an `ApiError` with `status` + `statusText`. Returns parsed JSON on 2xx (or `undefined` for 204). A module-level `redirectingRef` guard ensures rapid successive 401s (e.g. parallel `Promise.all` of tasks + events) only trigger one redirect. Migrated all raw `fetch()` calls across 13 files to `apiFetch`: `SyncContext.tsx` (2 fetches), `TaskEditContext.tsx` (3), `CalendarView.tsx` (9 — task toggle, drag-drop handlers, event drag, inline creation), `TodayView.tsx` (4), `WeeklyCalendar.tsx` (1), `AllTasksView.tsx` (4), `UnscheduledTaskPanel.tsx` (2), `CommandPalette.tsx` (1), `SearchDialog.tsx` (1), `SyncButton.tsx` (1), `usePeriodicSync.ts` (1). Each call site now catches `AuthError` and returns/throws cleanly — no UI error noise on session expiry.
+  - **Part B — Global `auth:expired` listener with toast + redirect:** Wired `LayoutWrapper.tsx` to listen for the `auth:expired` CustomEvent. On expiry, shows a toast ("Session expired — please sign in again") via `useToast()`, then calls `handleSessionExpired()` which redirects to `/login?redirect=<current_path>` (preserving the page the user was on). The `redirectingRef` guard in `api.ts` prevents cascading redirects from parallel failed fetches.
+  - **Part C — Login page respects `redirect` param:** Changed `src/app/login/page.tsx:47` from `window.location.href = '/'` to `window.location.href = redirect` (where `redirect` is already read from `searchParams` on line 26). After successful login, the user now returns to the page they were on when their session expired, instead of always landing on `/`. The `window.location.href` (full page load) is retained so middleware sees the new auth cookie.
+  - **Tests:** Updated `SyncButton.test.tsx` and `CommandPalette.test.tsx` to mock `apiFetch` (from `@/lib/api`) instead of `global.fetch`, since the components now use the wrapper. Mock returns data directly (no `res.ok`/`res.json()` chain). All 131 tests pass.
+- **Related ROADMAP:** N/A (bug, not planned feature)
+
+---
+## BUG-013: Toolbar buttons require double-click — editor loses focus on mousedown
+
+- **Status:** ✅ Fixed
+- **Severity:** Medium
+- **Reported:** 2026-07-08 (via Hermes, from Dave)
+- **Description:** When clicking toolbar buttons — especially the "Insert Table" button and table edit controls (Add Row, Add Column, Delete Row, etc.) — the action doesn't fire on the first click. The user has to click a second time for it to work. Dave reports: "When I try to make a table, or use a button to edit the table, I seem to have to click on things twice."
+
+  This affects ALL toolbar buttons, not just table controls. The table buttons are simply the most noticeable because the `TableControls` strip conditionally appears/disappears based on `isTableActive`, compounding the focus issue.
+
+- **Steps to reproduce:**
+  1. Open any page with the TipTap editor
+  2. Click outside the editor to ensure it's not focused
+  3. Click any toolbar button (Bold, Italic, Insert Table, etc.)
+  4. Observe: the button highlights briefly, but the action doesn't take effect
+  5. Click the same button again — it works on the second click
+  6. Table-specific: insert a table, then try the Add Row / Add Column buttons — same double-click behavior
+
+- **Expected:** All toolbar buttons execute their command on the first click, regardless of whether the editor was focused beforehand.
+
+- **Actual:** First click is "consumed" by refocusing the editor; the command only executes on the second click. This is because the browser's native button-focus behavior steals focus from the editor on `mousedown`, before the `onClick` handler's `chain().focus()` can restore it.
+
+- **Affected files:**
+  - `src/components/v2/editor/EditorToolbar.tsx` — all buttons use `onClick` instead of `onMouseDown` with `preventDefault()` (lines 36-46 ToggleButton, lines 113-135 TableControls, lines 139-146 ToolbarButton, lines 158-178 desktop buttons)
+  - The `ToggleButton` component (lines 36-46) is the shared button wrapper used by all toolbar actions
+
+- **Hermes notes:** Root cause confirmed via TipTap documentation. From their migration guide and "Keep the focus" docs:
+
+  > *"When you click on the button, the browser focuses that DOM element and the editor loses focus."*
+
+  The correct pattern (from TipTap's migration guide) is:
+
+  ```tsx
+  <Button
+    onMouseDown={(event) => {
+      event.preventDefault()  // prevents browser from stealing focus
+      toggleMark(editor, 'bold')
+    }}
+  >
+  ```
+
+  **Current code uses `onClick`** — the browser's native `mousedown` handler focuses the `<button>` element, which fires a `blur` event on the editor. By the time `onClick` fires and `chain().focus()` runs, the editor has already lost its selection state. The `focus()` in the chain restores it, but there's a race condition — the ProseMirror transaction may not apply correctly because the editor was briefly unfocused.
+
+  **Why table buttons are most affected:** The `TableControls` component (lines 111-137) conditionally renders based on `editor.isActive('table')`. When the table is active, clicking a button causes:
+  1. Browser focuses button → editor blur
+  2. `onClick` → `chain().focus().addRowBefore().run()`
+  3. Transaction triggers `forceUpdate()` → component re-renders
+  4. During this render cycle, `isTableActive` may briefly be `false` (because the editor lost focus)
+  5. The `TableControls` strip disappears and reappears, potentially losing the click target
+
+  **Fix approach:** Convert ALL toolbar buttons from `onClick` to `onMouseDown` with `event.preventDefault()`:
+
+  1. **`ToggleButton` component (line 36-46):** Change `onClick={onClick}` to `onMouseDown={(e) => { e.preventDefault(); onClick(); }}`
+  2. **`TableControls` buttons (lines 113-135):** Change all 7 `onClick` handlers to `onMouseDown` with `e.preventDefault()`
+  3. **Desktop undo/redo/export buttons (lines 158-178):** Change to `onMouseDown` with `e.preventDefault()`
+  4. **Mobile More dropdown buttons (lines 193-228):** Change `onClick` to `onMouseDown` for the More toggle and all buttons inside the popup
+
+  The `e.preventDefault()` on `mousedown` prevents the browser from focusing the `<button>` element, so the editor never loses focus in the first place. The `chain().focus()` calls in each action become redundant (but harmless) — the editor already has focus.
+
+  **No API or backend changes needed.** This is purely a frontend event-handling fix.
+
+- **Related ROADMAP:** N/A (bug, not planned feature)
+- **Fix:** Converted all `onClick` handlers to `onMouseDown` with `e.preventDefault()` in `src/components/v2/editor/EditorToolbar.tsx`. The `preventDefault()` on `mousedown` stops the browser from focusing the `<button>` element, so the editor never loses focus in the first place. Changes: (1) `ToggleButton` component (line 38) — the shared wrapper used by all toolbar items, undo/redo, and export buttons; (2) 7 raw `<button>` elements in `TableControls` (Add Column Before/After, Delete Column, Add Row Before/After, Delete Row, Delete Table); (3) Mobile "More" dropdown toggle button. Total: 9 `onClick` → `onMouseDown` conversions. The existing `chain().focus()` calls in action handlers are now redundant (editor already has focus) but harmless. No API or backend changes — purely a frontend event-handling fix.
+
+---
+
+## BUG-014: Inline task checkbox misaligned — sits lower than text; date badge on left pushes text around
+
+- **Status:** 🔧 In Progress (partial fix deployed — vertical alignment needs more refinement)
+- **Severity:** Medium
+- **Reported:** 2026-07-09 (via Hermes, from Dave)
+- **Description:** The completion checkbox bubble sits visibly lower than the task text it sits next to. When a date badge or tag is present, the extra elements don't line up properly with the text. The date badge being positioned on the left of the text (between checkbox and content) also shifts the task text to the right and breaks visual flow — especially when the date string is wide (e.g., "Jul 9 5:00 PM").
+
+- **Steps to reproduce:**
+  1. Open TodayView or any page with task items
+  2. Observe the checkbox circle relative to the first line of task text — it sits lower
+  3. Add a due date to a task — the date badge pushes the text to the right
+  4. Compare to standard task apps (Todoist, Things) where date sits on the right
+
+- **Expected:** Checkbox icon visually centered on the first line's x-height. Date badge sits to the right of the task text (or below it), not between the checkbox and text. Consistent vertical rhythm across all inline elements.
+
+- **Actual:**
+  1. **Checkbox vertical misalignment:** `TaskItem.tsx` uses `p-2 -m-2` on the checkbox button — the 44px touch target adds 12px of dead space above the 20px icon, pushing the circle's visual center to ~24px from row top. Meanwhile, the text's first line center is at ~13px (`py-0.5` + half of `text-sm leading-relaxed`). The checkbox appears ~10px lower than the text.
+  2. **Date badge on left:** Both `TaskItem.tsx` and `EditorTaskItem.tsx` place the date badge DOM node *before* the content area in the flex row: `[checkbox] [date] [content]`. This shifts all text to the right when a date is set. Convention in most task apps is `[checkbox] [content] [date on right]`.
+  3. **Inconsistent spacing:** `TaskItem` uses `mt-0.5` / `py-0.5` while `EditorTaskItem` uses `mt-1` / `py-1`. Both should use the same values.
+
+- **Affected files:**
+  - `src/components/v2/TaskItem.tsx` lines 102-205 — checkbox (122-131), date badge (134-177), content (187-205)
+  - `src/components/v2/EditorTaskItem.tsx` lines 61-148 — checkbox (65-75), date badge (78-122), content (125-133)
+
+- **Hermes notes:**
+  **Root Cause 1 — Checkbox `p-2 -m-2` hack:**
+  The checkbox button uses `p-2 -m-2 min-w-[44px] min-h-[44px]` to create a 44×44 WCAG touch target. The `p-2` (8px padding) pushes the visual icon down; the `-m-2` (-8px negative margin) compensates externally but doesn't fix the internal offset. The 20px `<Circle>` icon sits at `padding-top(8px) + flex-center-offset(12px) = 20px` from the button's top edge. With `mt-0.5` (+2px), the icon's top edge is at 22px from the container top. The text's first line (14px font, 22.75px line-height with `py-0.5`) has its glyph center at ~13.4px. **The checkbox icon center is ~10px lower than the text center.**
+
+  Fix: Remove `p-2 -m-2`, use `p-1` (4px) for comfortable padding. Icon center = 4 + 10 = 14px. Text center ≈ 13.4px. Difference < 1px — imperceptible. Keep `min-w-[44px] min-h-[44px]` for accessibility (the flex layout will center the smaller icon within the 44px box, adding dead space evenly above and below — but that dead space is transparent so the visual alignment is maintained).
+
+  **Root Cause 2 — Date badge DOM order:**
+  Both components render in order: `[selection checkbox?] → [completion checkbox] → [date badge] → [content area] → [edit button]`. The date badge block-sits between the checkbox and text, pushing the text right. Standard task app pattern: `[checkbox] → [text + inline tags] → [date badge on right]`.
+
+  Fix: Move the date badge JSX block to AFTER the content area, before the edit button. Add `ml-2` for spacing. The `flex-1` on the content area will absorb space between text and date, keeping the date right-aligned.
+
+  **Root Cause 3 — Inconsistent spacing:**
+  Standardize on these values across both components:
+  - Checkbox: `mt-0 p-1` (removes the old `mt-0.5`/`mt-1` variance)
+  - Date badge: `mt-0` (was `mt-0.5`/`mt-1`)
+  - Content: `py-0.5` (was `py-0.5`/`py-1`)
+
+  **No backend changes needed.** Pure CSS/DOM-order fix. No API, DB, or type changes.
+
+- **Fixed in:** Partially deployed 2026-07-09 (date badge moved to right, spacing standardized, checkbox `p-2 -m-2` → `p-1 mt-0`). Dave reviewed the deployed fix via screenshot and confirms: date badges correctly on the right ✅, vertical spacing between tasks is good ✅. 
+
+**Remaining issues from screenshot review (2026-07-09):**
+
+1. **Checkbox still slightly too high** — The `min-h-[44px]` on the completion button creates ~16px of dead space. The 20px icon inside a 44px flex-centered box puts the icon center at ~22px from row top, while the text center (`py-0.5` + half of `text-sm leading-relaxed`) is at ~13px. The `p-1` padding adds another 4px. Net effect: icon center ~8-9px below text center — but visually it reads as "slightly too high" because the circle's top edge aligns near the text top rather than the text's optical center. 
+   **Fix options for OpenCode:**
+   - (a) Drop `min-h-[44px]` to `min-h-[32px]` — reduces dead space from 16px to 4px, icon center moves to ~18px (closer but still off)
+   - (b) Shrink icon to `w-4 h-4` (16px) — easier to center with `text-sm`, matches Apple HIG for checklist rows
+   - (c) Use `translateY` micro-adjustment, e.g. `translate-y-[1px]` on the icon
+   - (d) Switch flex container from `items-start` to `items-center` — quick fix for single-line tasks but breaks multi-line text (checkbox would float in the middle of a wrapped paragraph). Could conditionally use `items-center` with a `max-h` clamp
+   - (e) Remove `min-h-[44px]` entirely, use a CSS `::after` pseudo-element for the 44px touch target without shifting the icon
+
+2. **Square checkbox anomaly on "Start on French cleat"** — The selection checkbox (`<input type="checkbox">`, square) from the `isSelectionEnabled` flow rendered on one task but not others. This also made the edit pencil icon always visible on that task (bypassing `md:opacity-0 md:group-hover:opacity-100`). Root cause likely in the view that passes `isSelectionEnabled` or `onSelect` — check TodayView/InboxView/AllTasksView for inconsistent prop passing.
+
+3. **Edit button only visible on one task** — The pencil icon appeared on the French cleat task but was hidden on all others. Expected: edit button should be consistently hidden on desktop until hover (per `md:opacity-0 md:group-hover:opacity-100`), or consistently visible on mobile. The one-task anomaly suggests a hover state or selection state is leaking.
+
+---
+
+## BUG-015: Flaky task creation and timing in Calendar Day View
+
+- **Status:** 🐛 Open
+- **Severity:** Medium
+- **Reported:** 2026-07-09 (via Hermes, from Dave)
+- **Description:** Creating tasks by clicking on the day view time grid is inconsistent — the task sometimes appears at the wrong time slot or position. After a task has a due time set, there are odd timing issues (wrong hour displayed, time shifts after save). Dave suspects a sync issue may be interfering — possibly CalDAV sync or the `normalizeDateToNoon` function clobbering set times.
+
+- **Steps to reproduce:**
+  1. Go to Calendar → Day View
+  2. Click an empty time slot to create a task
+  3. Type a task name and press Enter
+  4. Observe: the task may appear at a different time than clicked
+  5. Edit a task that already has a due time — the time may shift unexpectedly
+
+- **Expected:** Click-to-create places the task at the exact time slot clicked. Due times persist correctly and don't shift on their own.
+
+- **Actual:** Position and timing are inconsistent. Possible causes:
+  - Click-to-create handler may miscalculate the time from the click Y position
+  - `normalizeDateToNoon` in `dateUtils.ts` may be normalizing times that already have intentional hour/minute values
+  - CalDAV sync may be overwriting local time changes (Dave isn't using sync at all)
+  - Timezone handling may be inconsistent between client and server
+
+- **Affected files (likely):**
+  - `CalendarView.tsx` — click-to-create handler, task positioning on grid
+  - `src/lib/dateUtils.ts` — `normalizeDateToNoon` may interfere with timed tasks
+  - `src/lib/caldav.ts` — sync may be mutating task times unnecessarily
+  - `src/contexts/SyncContext.tsx` — periodic refetch may overwrite local state
+  - `src/hooks/usePeriodicSync.ts` — background CalDAV sync
+
+- **Hermes notes:**
+  Dave reports the day view task creation is "flaky in where it made the task and the timing it set it in." He also notes "odd issues with the timing of a task once it's set." 
+
+  **Recommendation: disable CalDAV sync as first step.** Dave confirmed he's not using it. It's a likely source of timing interference — if the sync loop fires after a local time change, it could overwrite the user's set time. Disabling sync eliminates a major variable and simplifies debugging. Check for a config flag; if none exists, add one (`ENABLE_CALDAV_SYNC=false`) or comment out the sync hook initialization.
+
+  **Investigation needed on `normalizeDateToNoon`:** This function converts date-only strings to noon UTC. If it's being applied to dates that already have specific times set (e.g., "2026-07-10T14:00:00Z"), it could clobber the hour/minute. Check all call sites — is there a guard for "already has a time component"?
+
+- **Related ROADMAP:** "Disable CalDAV sync" (to be added), "Calendar Day View UX overhaul"
+
+- **Fixed in:** TBD
+
+---
+
 ## Template for new bugs
 
 ```
