@@ -7,6 +7,7 @@ import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useSync } from '@/contexts/SyncContext';
+import { apiFetch, AuthError } from '@/lib/api';
 
 interface UnscheduledTaskPanelProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     }
 
     try {
-      const res = await fetch('/api/v2/tasks', {
+      await apiFetch('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,12 +49,11 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
           ...(quickAddDate !== 'none' ? { dueDate: dueDate.toISOString() } : {}),
         }),
       });
-      if (res.ok) {
-        setQuickAddValue('');
-        inputRef.current?.focus();
-        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
-      }
+      setQuickAddValue('');
+      inputRef.current?.focus();
+      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
     } catch (e) {
+      if (e instanceof AuthError) { return; }
       console.error('Failed to create task', e);
     }
   };
@@ -64,13 +64,14 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     const newStatus = task.status === 'done' ? 'todo' : 'done';
     updateLocalTask(taskId, { status: newStatus });
     try {
-      await fetch(`/api/v2/tasks/${taskId}`, {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
-    } catch {
+    } catch (e) {
+      if (e instanceof AuthError) { return; }
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
     }
   };

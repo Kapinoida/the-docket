@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Task } from '@/types';
 import TaskEditModal from '@/components/TaskEditModal';
+import { apiFetch, AuthError } from '@/lib/api';
 
 interface TaskEditContextType {
   openTaskEdit: (task: Task) => void;
@@ -54,34 +55,22 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
 
     try {
       if (isCreating) {
-        const response = await fetch('/api/v2/tasks', {
+        const newTask = await apiFetch<Task>('/api/v2/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create task: ${response.statusText}`);
-        }
-
-        const newTask = await response.json();
 
         window.dispatchEvent(new CustomEvent('taskCreated', {
           detail: { task: newTask, source: 'modal' }
         }));
       } else {
         const taskId = (editingTask as Task).id;
-        const response = await fetch(`/api/v2/tasks/${taskId}`, {
+        const updatedTask = await apiFetch<Task>(`/api/v2/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to update task: ${response.statusText}`);
-        }
-
-        const updatedTask = await response.json();
 
         window.dispatchEvent(new CustomEvent('taskUpdated', {
           detail: {
@@ -101,18 +90,15 @@ export function TaskEditProvider({ children }: TaskEditProviderProps) {
     if (isCreating) return;
 
     try {
-      const response = await fetch(`/api/v2/tasks/${taskId}`, {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'DELETE',
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete task: ${response.statusText}`);
-      }
 
       window.dispatchEvent(new CustomEvent('taskDeleted', {
         detail: { taskId }
       }));
     } catch (error) {
+      if (error instanceof AuthError) { throw error; }
       console.error('Failed to delete task:', error);
       throw error;
     }

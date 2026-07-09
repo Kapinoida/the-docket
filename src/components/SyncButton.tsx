@@ -3,6 +3,11 @@
 import { useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { apiFetch, AuthError } from '@/lib/api';
+
+interface SyncResponse {
+  error?: string;
+}
 
 export function SyncButton() {
   const [syncing, setSyncing] = useState(false);
@@ -11,15 +16,11 @@ export function SyncButton() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch('/api/caldav/sync', { method: 'POST' });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Sync failed');
-      }
+      await apiFetch<SyncResponse>('/api/caldav/sync', { method: 'POST' });
 
       router.refresh(); // Refresh data on page
     } catch (error) {
+      if (error instanceof AuthError) { return; }
       console.error('Sync Error:', error);
       alert('Sync failed. Check console for details.');
     } finally {

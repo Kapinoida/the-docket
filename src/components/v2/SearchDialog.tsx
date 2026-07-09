@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, FileText, CheckSquare, Hash } from 'lucide-react';
+import { apiFetch, AuthError } from '@/lib/api';
 
 // Simplified type for search results
 interface SearchResult {
@@ -41,12 +42,10 @@ export function SearchDialog() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v2/search?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-        }
+        const data = await apiFetch<SearchResult[]>(`/api/v2/search?q=${encodeURIComponent(query)}`);
+        setResults(data);
       } catch (err) {
+        if (err instanceof AuthError) { return; }
         console.error(err);
       }
     }, 300);

@@ -14,6 +14,7 @@ import { useSync } from '@/contexts/SyncContext';
 import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch, AuthError } from '@/lib/api';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
@@ -84,12 +85,12 @@ export default function CalendarViewV2() {
     const newStatus = task.status === 'done' ? 'todo' : 'done';
     updateLocalTask(taskId, { status: newStatus });
     try {
-      await fetch(`/api/v2/tasks/${taskId}`, {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-    } catch { refetch(); }
+    } catch (e) { if (e instanceof AuthError) { return; } refetch(); }
     window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
   };
 
@@ -98,12 +99,13 @@ export default function CalendarViewV2() {
     if (!task) return;
     updateLocalTask(taskId, { due_date: targetDay.toISOString() });
     try {
-      await fetch(`/api/v2/tasks/${taskId}`, {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ due_date: targetDay.toISOString() }),
       });
-    } catch {
+    } catch (e) {
+      if (e instanceof AuthError) { return; }
       showToast('Failed to move task', 'error');
     }
     window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
@@ -371,7 +373,7 @@ export default function CalendarViewV2() {
         isOpen={isAddCalendarOpen}
         editCalendar={editingCalendar ?? undefined}
         onClose={() => { setIsAddCalendarOpen(false); setEditingCalendar(null); }}
-        onSuccess={() => { handleDataChanged(); fetch('/api/caldav/sync', { method: 'POST' }).catch(console.error); }}
+        onSuccess={() => { handleDataChanged(); apiFetch('/api/caldav/sync', { method: 'POST' }).catch(e => { if (!(e instanceof AuthError)) console.error(e); }); }}
       />
       <EventDetailModal
         isOpen={!!selectedEvent}
@@ -679,22 +681,22 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
              const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
              const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
 
-             if (dragTask) {
-               // Dropping a task → set its due time
-               const newDue = new Date(day);
-               newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+if (dragTask) {
+                // Dropping a task → set its due time
+                const newDue = new Date(day);
+                newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
 
-               fetch(`/api/v2/tasks/${dragTask.id}`, {
-                 method: 'PUT',
-                 headers: { 'Content-Type': 'application/json' },
+                apiFetch(`/api/v2/tasks/${dragTask.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ due_date: newDue.toISOString() }),
-                }).catch(err => { console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
+                 }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
 
-               setDragTask(null);
-               setDragOffsetY(0);
-               setTimeout(() => onEventMoved?.(), 500);
-               return;
-             }
+                setDragTask(null);
+                setDragOffsetY(0);
+                setTimeout(() => onEventMoved?.(), 500);
+                return;
+              }
 
               if (!dragEvent) {
                 // Handle external task drop from sidebar (no state set)
@@ -709,19 +711,19 @@ body: JSON.stringify({ due_date: newDue.toISOString() }),
                     taskId = parseInt(appData);
                   }
                 }
-                if (taskId !== null) {
-                  const task = tasks.find(t => t.id === taskId);
-                  if (task) {
-                    const newDue = new Date(day);
-                    newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
-                    fetch(`/api/v2/tasks/${taskId}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
+if (taskId !== null) {
+                   const task = tasks.find(t => t.id === taskId);
+                   if (task) {
+                     const newDue = new Date(day);
+                     newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+                     apiFetch(`/api/v2/tasks/${taskId}`, {
+                       method: 'PUT',
+                       headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ due_date: newDue.toISOString() }),
-                     }).catch(err => { console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
-                    setTimeout(() => onEventMoved?.(), 500);
-                  }
-                }
+                      }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
+                     setTimeout(() => onEventMoved?.(), 500);
+                   }
+                 }
                 return;
               }
 
@@ -734,15 +736,15 @@ body: JSON.stringify({ due_date: newDue.toISOString() }),
              newStart.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
              const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
 
-             // Optimistic: fire PATCH, parent will re-fetch on next poll
-             fetch(`/api/v2/calendar/events/${dragEvent.id}`, {
-               method: 'PATCH',
-               headers: { 'Content-Type': 'application/json' },
+// Optimistic: fire PATCH, parent will re-fetch on next poll
+              apiFetch(`/api/v2/calendar/events/${dragEvent.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-                  start_time: newStart.toISOString(),
-                  end_time: newEnd.toISOString(),
-                }),
-              }).catch(err => { console.error('Drag update failed:', err); showToast('Failed to update event', 'error'); });
+                   start_time: newStart.toISOString(),
+                   end_time: newEnd.toISOString(),
+                 }),
+               }).catch(err => { if (err instanceof AuthError) { return; } console.error('Drag update failed:', err); showToast('Failed to update event', 'error'); });
 
              setDragEvent(null);
              setDragOffsetY(0);
@@ -835,11 +837,11 @@ body: JSON.stringify({
                 newStart.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
                 const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
 
-                fetch(`/api/v2/calendar/events/${event.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ start_time: newStart.toISOString(), end_time: newEnd.toISOString() }),
-                }).catch(err => { console.error('Touch drag update failed:', err); showToast('Failed to update event', 'error'); });
+apiFetch(`/api/v2/calendar/events/${event.id}`, {
+                   method: 'PATCH',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ start_time: newStart.toISOString(), end_time: newEnd.toISOString() }),
+                 }).catch(err => { if (err instanceof AuthError) { return; } console.error('Touch drag update failed:', err); showToast('Failed to update event', 'error'); });
 
                 setDragEvent(null);
                 setDragOffsetY(0);
@@ -923,13 +925,13 @@ body: JSON.stringify({
                 onChange={(e) => setCreatingValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && creatingValue.trim()) {
-                    fetch('/api/v2/tasks', {
+                    apiFetch('/api/v2/tasks', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
-                      .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
-                      .catch(err => { console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
+                      .then(() => { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); })
+                      .catch(err => { if (err instanceof AuthError) { return; } console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
                     setCreatingAt(null);
                     setCreatingValue('');
                   } else if (e.key === 'Escape') {
@@ -939,13 +941,13 @@ body: JSON.stringify({
                 }}
                 onBlur={() => {
                   if (creatingValue.trim()) {
-                    fetch('/api/v2/tasks', {
+                    apiFetch('/api/v2/tasks', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ content: creatingValue.trim(), dueDate: creatingAt.time.toISOString() }),
                     })
-                      .then(res => { if (res.ok) { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); } })
-                      .catch(err => { console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
+                      .then(() => { onEventMoved?.(); window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'calendar' } })); })
+                      .catch(err => { if (err instanceof AuthError) { return; } console.error('Task creation failed:', err); showToast('Failed to create task', 'error'); });
                   }
                   setCreatingAt(null);
                   setCreatingValue('');

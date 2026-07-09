@@ -7,6 +7,7 @@ import { ListTodo, Plus, CheckCircle2, Circle } from 'lucide-react';
 import { useSync } from '@/contexts/SyncContext';
 
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { apiFetch, AuthError } from '@/lib/api';
 import { usePersistedState } from '../../lib/usePersistedState';
 import { TaskListSkeleton } from './Skeleton';
 
@@ -57,17 +58,16 @@ export default function AllTasksView() {
     if (!inputValue.trim()) return;
 
     try {
-      const res = await fetch('/api/v2/tasks', {
+      await apiFetch('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: inputValue }),
       });
 
-      if (res.ok) {
-        setInputValue('');
-        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'allTasksView' } }));
-      }
+      setInputValue('');
+      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'allTasksView' } }));
     } catch (error) {
+      if (error instanceof AuthError) { return; }
       console.error('Failed to create task', error);
     }
   };
@@ -77,22 +77,23 @@ export default function AllTasksView() {
       const newStatus = task?.status === 'done' ? 'todo' : 'done';
       updateLocalTask(id, { status: newStatus });
 
-      fetch(`/api/v2/tasks/${id}`, {
+      apiFetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ status: newStatus })
-      }).catch(() => refetch());
+      }).catch(err => { if (!(err instanceof AuthError)) refetch(); });
   };
 
   const handleUpdate = async (id: number, updates: Partial<Task>) => {
       updateLocalTask(id, updates);
       try {
-          await fetch(`/api/v2/tasks/${id}`, {
+          await apiFetch(`/api/v2/tasks/${id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates)
           });
       } catch (error) {
+          if (error instanceof AuthError) { return; }
           console.error('Failed to update task', error);
           refetch();
       }
@@ -131,7 +132,7 @@ export default function AllTasksView() {
       setSelectedTaskIds(new Set());
 
       await Promise.all(idsToDelete.map(id =>
-          fetch(`/api/v2/tasks?id=${id}`, { method: 'DELETE' })
+          apiFetch(`/api/v2/tasks?id=${id}`, { method: 'DELETE' }).catch(e => { if (!(e instanceof AuthError)) throw e; })
       ));
       window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { source: 'allTasksView' } }));
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
@@ -24,6 +24,7 @@ interface PageWithTags extends Page {
 export default function PageView() {
   const params = useParams();
   const id = params?.id;
+  const router = useRouter();
   
   const [page, setPage] = useState<PageWithTags | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export default function PageView() {
       try {
           const res = await fetch(`/api/v2/pages?id=${page.id}`, { method: 'DELETE' });
           if (res.ok) {
-              window.location.href = '/';
+              router.replace('/');
           }
       } catch (err) {
           console.error("Failed to delete page", err);

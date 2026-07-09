@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, FileText, CheckCircle, Home, Calendar, Hash } from 'lucide-react';
 import { Page, Task } from '@/types';
+import { apiFetch, AuthError } from '@/lib/api';
 
 // Helper interface for the flat API response
 interface SearchResultItem {
@@ -52,16 +53,14 @@ export function CommandPalette() {
 
         setLoading(true);
         try {
-            const res = await fetch(`/api/v2/search?q=${encodeURIComponent(search)}`);
-            if (res.ok) {
-                const data: SearchResultItem[] = await res.json();
-                // The API returns a flat array. Filter by type.
-                // Note: The API tries to normalize title/content into 'title', but let's be safe.
-                setPages(data.filter(item => item.type === 'page'));
-                setTasks(data.filter(item => item.type === 'task'));
-                setTags(data.filter(item => item.type === 'tag'));
-            }
+            const data: SearchResultItem[] = await apiFetch<SearchResultItem[]>(`/api/v2/search?q=${encodeURIComponent(search)}`);
+            // The API returns a flat array. Filter by type.
+            // Note: The API tries to normalize title/content into 'title', but let's be safe.
+            setPages(data.filter(item => item.type === 'page'));
+            setTasks(data.filter(item => item.type === 'task'));
+            setTags(data.filter(item => item.type === 'tag'));
         } catch (e) {
+            if (e instanceof AuthError) { return; }
             console.error(e);
         } finally {
             setLoading(false);

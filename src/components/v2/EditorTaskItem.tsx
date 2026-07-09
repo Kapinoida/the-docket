@@ -64,7 +64,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       {/* Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="mt-1 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none"
+        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1"
         contentEditable={false}
       >
         {task.status === 'done' ? (
@@ -74,8 +74,19 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
         )}
       </button>
 
-      {/* Metadata / Date Badge - Now on Left */}
-      <div className="flex-shrink-0 flex items-center justify-center mt-1" style={{ width: task.due_date ? 'auto' : '24px' }} contentEditable={false}>
+      {/* Page Context Badge */}
+      <div className="flex-1 min-w-0">
+          <NodeViewContent 
+            className={`
+                outline-none text-sm leading-relaxed min-h-[1.5em] py-0.5
+                prose-p:m-0 prose-p:leading-relaxed
+                ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
+            `} 
+          />
+      </div>
+
+      {/* Metadata / Date Badge — on the right */}
+      <div className="flex-shrink-0 flex items-center justify-center mt-0" style={{ width: task.due_date ? 'auto' : '24px' }} contentEditable={false}>
              {(task.due_date || showDatePicker) ? (
                 <div className="relative">
                     <button 
@@ -119,17 +130,6 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                      <Calendar size={14} />
                  </button>
              )}
-      </div>
-
-      {/* Page Context Badge */}
-      <div className="flex-1 min-w-0">
-          <NodeViewContent 
-            className={`
-                outline-none text-sm leading-relaxed min-h-[1.5em] py-1
-                prose-p:m-0 prose-p:leading-relaxed
-                ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
-            `} 
-          />
       </div>
 
       {/* Edit Trigger - Only visible on hover */}

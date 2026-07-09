@@ -10,6 +10,47 @@ Use this format:
 
 ---
 
+## [2026-07-09] – Fix toolbar buttons requiring double-click (BUG-013)
+- **What changed:**
+  Converted all toolbar button handlers in `src/components/v2/editor/EditorToolbar.tsx` from `onClick` to `onMouseDown` with `e.preventDefault()`. This prevents the browser from stealing focus from the TipTap editor on `mousedown`, which was causing the first click to only refocus the editor (without executing the command) and requiring a second click for the action to fire. Changes: (1) `ToggleButton` component (line 38) — shared wrapper used by all toolbar items, undo/redo, and export buttons across desktop and mobile; (2) 7 raw `<button>` elements in `TableControls` (Add Column Before/After, Delete Column, Add Row Before/After, Delete Row, Delete Table); (3) Mobile "More" dropdown toggle button. Total: 9 `onClick` → `onMouseDown` conversions. The existing `chain().focus()` calls remain (harmless redundancy).
+- **Why:**
+  BUG-013 — browser's native button-focus behavior on `mousedown` stole focus from the editor before `onClick` could fire. By the time the `onClick` handler's `chain().focus()` restored focus, the editor had already lost its selection state, and the ProseMirror transaction either didn't apply or applied to a stale selection. The second click worked because the editor was already focused from the first click's `focus()` call. The fix prevents the focus loss entirely by calling `e.preventDefault()` on `mousedown` — the button never receives focus, so the editor keeps it throughout.
+- **Affected areas:** `src/components/v2/editor/EditorToolbar.tsx` only. No API, DB, or type changes.
+- **Migration needed?** No.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors). ESLint clean (no new warnings/errors — EditorToolbar.tsx findings are all pre-existing: unused `ChevronDown` import, `any` type on ToggleButton, `@ts-ignore` comments).
+
+---
+
+## [2026-07-08] – Replace full page reloads with client-side navigation
+- **What changed:**
+  Replaced 4 `window.location.href` calls (full page reloads) with Next.js `useRouter()` client-side navigation across 2 files:
+  - **`src/components/v2/Sidebar.tsx`:** Added `useRouter` import + `const router = useRouter()`. Three replacements: (1) `handleDeletePage` line 142 — `window.location.href = '/'` → `router.replace('/')` (replace so deleted page isn't in browser history); (2) `handleCreatePageSubmit` line 170 — `window.location.href = \`/page/${newPage.id}\`` → `router.push(\`/page/${newPage.id}\`)` (push for normal forward nav); (3) FolderTree `onPageSelect` callback line 361 — `window.location.href = \`/page/${page.id}\`` → `router.push(\`/page/${page.id}\`)`.
+  - **`src/app/page/[id]/page.tsx`:** Added `useRouter` import + `const router = useRouter()`. One replacement: `handleDelete` line 59 — `window.location.href = '/'` → `router.replace('/')` (replace, same reasoning).
+  - `router.replace` used for deletions so the back button doesn't navigate to a deleted page (would 404 or show stale data). `router.push` used for creation/navigation to preserve normal forward navigation.
+  - Intentionally untouched: `src/app/login/page.tsx:48` (`window.location.href = redirect` — must do full page load so middleware sees the new auth cookie) and `src/lib/api.ts:41` (`handleSessionExpired` — same reason for session-expiry redirect).
+- **Why:**
+  Full page reloads on page creation/deletion/navigation were unnecessarily slow — they reload the entire app, re-fetch all client-side state, and cause a visible flash. Client-side navigation via Next.js router is instant, preserves component state, and is the idiomatic pattern.
+- **Affected areas:** `src/components/v2/Sidebar.tsx`, `src/app/page/[id]/page.tsx`.
+- **Migration needed?** No.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors).
+
+---
+
+## [2026-07-08] – Fix global 401 handling + login redirect (BUG-012)
+- **What changed:**
+  Three-part fix for BUG-012 — the app broke silently when the JWT token expired, with no user-facing feedback and no way to return to the page after re-authenticating.
+  - **Part A — `apiFetch` wrapper with 401 handling:** Created `src/lib/api.ts` with a centralized `apiFetch()` function that wraps `fetch()`, checks for 401 responses, dispatches a global `auth:expired` CustomEvent, and throws an `AuthError` (so callers exit cleanly). Also throws `ApiError` for other non-2xx responses. A module-level `redirectingRef` guard prevents cascading redirects from parallel failed fetches. Migrated all raw `fetch()` calls across 13 files to `apiFetch`: `SyncContext.tsx`, `TaskEditContext.tsx`, `CalendarView.tsx`, `TodayView.tsx`, `WeeklyCalendar.tsx`, `AllTasksView.tsx`, `UnscheduledTaskPanel.tsx`, `CommandPalette.tsx`, `SearchDialog.tsx`, `SyncButton.tsx`, `usePeriodicSync.ts`. Each call site now catches `AuthError` and returns/throws cleanly.
+  - **Part B — Global `auth:expired` listener:** Wired `LayoutWrapper.tsx` to listen for the `auth:expired` CustomEvent, show a toast ("Session expired — please sign in again"), and call `handleSessionExpired()` which redirects to `/login?redirect=<current_path>`.
+  - **Part C — Login page respects `redirect` param:** Changed `src/app/login/page.tsx:47` from `window.location.href = '/'` to `window.location.href = redirect` (the `redirect` variable is already read from `searchParams` on line 26). After successful login, the user returns to the page they were on when their session expired.
+  - **Tests:** Updated `SyncButton.test.tsx` and `CommandPalette.test.tsx` to mock `apiFetch` instead of `global.fetch` (since components now use the wrapper). All 131 tests pass.
+- **Why:**
+  When the JWT cookie expired (after 7 days), the app silently broke — API calls returned 401 but the client swallowed errors, data stopped updating, and task actions failed with no feedback. The user had to manually reload to trigger middleware's redirect. Even when they reached `/login`, the hardcoded `window.location.href = '/'` ignored the `?redirect=<path>` param, always sending them home instead of back to their page.
+- **Affected areas:** `src/lib/api.ts` (new), `src/app/login/page.tsx`, `src/components/v2/LayoutWrapper.tsx`, `src/contexts/SyncContext.tsx`, `src/contexts/TaskEditContext.tsx`, `src/components/CalendarView.tsx`, `src/components/v2/TodayView.tsx`, `src/components/v2/WeeklyCalendar.tsx`, `src/components/v2/AllTasksView.tsx`, `src/components/v2/SearchDialog.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`, `src/components/CommandPalette.tsx`, `src/components/SyncButton.tsx`, `src/hooks/usePeriodicSync.ts`, `src/components/__tests__/SyncButton.test.tsx`, `src/components/__tests__/CommandPalette.test.tsx`.
+- **Migration needed?** No.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors).
+
+---
+
 ## [2026-06-30] – Fix mobile sidebar hidden behind BottomTabBar + calendar header compactness (BUG-008)
 - **What changed:**
   - **Sidebar container fix:** Added `pb-[calc(52px+env(safe-area-inset-bottom,8px))] md:pb-0` to the mobile sidebar container div in `src/components/v2/LayoutWrapper.tsx:68`. On mobile, the sidebar's bottom edge now ends above the BottomTabBar (52px tab height + safe-area inset). On desktop (`md:`), `md:pb-0` resets the padding. The sidebar's `mt-auto` footer (Settings + Sync) naturally repositions above the padding — no Sidebar.tsx internals needed changing.
