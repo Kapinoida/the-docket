@@ -557,7 +557,7 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 - **Fix:** Added a guard in both functions to preserve as-is any string containing `T` (explicit time component); only bare date strings (`"2026-05-18"`) are still noon-normalized. Disabled CalDAV task sync in `caldav.ts` (`syncCalDAV` now returns an empty result for tasks), no-op'd `createTombstone` in `db.ts`, and removed the `task_sync_meta` insert in `recurrence.ts`. DB tables and event sync are retained. Updated affected tests to assert the corrected behavior.
 
-- **Fixed in:** 144471e
+- **Fixed in:** 5a23119
 
 ---
 
