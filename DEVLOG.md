@@ -10,6 +10,19 @@ Use this format:
 
 ---
 
+## [2026-07-09] – Fix BUG-015: flaky task timing + disable CalDAV task sync
+- **What changed:**
+  - **`normalizeDateToNoon` / `parseLocalDateNode` (`src/lib/dateUtils.ts`):** Added a guard preserving as-is any string containing `T` (ISO timestamp with explicit time component). Previously, any value landing at midnight UTC — including timestamps from the DB and calendar events — was normalized to local noon, clobbering intentional times that happened to land at 00:00 UTC (e.g., 7 PM CT = next-day 00:00 UTC → shifted 7 hours). Bare date strings (`"2026-05-18"`) are still noon-normalized — that behavior is unchanged.
+  - **Disabled CalDAV task sync:** `syncCalDAV()` in `src/lib/caldav.ts` now returns an empty `SyncResult` for tasks instead of calling `syncTasksForConfig`. Event sync is retained. `createTombstone` in `src/lib/db.ts` is now a no-op (removed CalDAV tombstone queries). `recurrence.ts` no longer inserts into `task_sync_meta` (and dropped the unused `uuidv4` import). DB tables (`caldav_configs`, `task_sync_meta`, `deleted_task_sync_log`, `calendar_events`) are left in place — harmless, no migration needed, no data loss.
+  - **Tests:** Updated `src/lib/__tests__/dateUtils.test.ts` (5 midnight-UTC tests now assert raw `new Date(input)` preservation instead of local noon) and `src/components/v2/__tests__/TaskItem.test.tsx` (2 tests using `'2026-05-18T00:00:00.000Z'` switched to bare `'2026-05-18'` since the intent was a date-only task).
+- **Why:**
+  BUG-015. Dave reported click-to-create tasks in Calendar Day View appearing at the wrong time slot and existing timed tasks shifting unexpectedly. CalDAV task sync was a likely source of timing interference — each cycle overwrote local times. The midnight-UTC-to-noon normalization was the deeper root cause: any time landing at 00:00 UTC was silently clobbered to local noon. Tasks are now local-only; events still sync via CalDAV.
+- **Affected areas:** `src/lib/dateUtils.ts`, `src/lib/caldav.ts`, `src/lib/db.ts`, `src/lib/recurrence.ts`, `src/lib/__tests__/dateUtils.test.ts`, `src/components/v2/__tests__/TaskItem.test.tsx`.
+- **Migration needs? No.** No new migrations; DB tables retained.
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors — none new).
+
+---
+
 ## [2026-07-09] – Fix inline task checkbox alignment + remove dead selection prop (BUG-014)
 - **What changed:**
   - **Checkbox vertical alignment:** Reduced the completion button's `min-w-[44px] min-h-[44px]` → `min-w-[32px] min-h-[32px]` in `TaskItem.tsx`. The 44px forced height was flex-centering the 20px icon at ~22px from row top, while the adjacent text center is at ~13px — a 9px visual offset. With 32px, the icon center moves to ~16px, bringing the offset down to ~3px (imperceptible). Also added `min-w-[32px] min-h-[32px]` to `EditorTaskItem.tsx` checkbox (previously had no min dimensions — sized to content at 28px) for consistency.

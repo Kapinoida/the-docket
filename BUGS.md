@@ -517,7 +517,7 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ## BUG-015: Flaky task creation and timing in Calendar Day View
 
-- **Status:** 🐛 Open
+- **Status:** ✅ Fixed
 - **Severity:** Medium
 - **Reported:** 2026-07-09 (via Hermes, from Dave)
 - **Description:** Creating tasks by clicking on the day view time grid is inconsistent — the task sometimes appears at the wrong time slot or position. After a task has a due time set, there are odd timing issues (wrong hour displayed, time shifts after save). Dave suspects a sync issue may be interfering — possibly CalDAV sync or the `normalizeDateToNoon` function clobbering set times.
@@ -551,9 +551,13 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
   **Investigation needed on `normalizeDateToNoon`:** This function converts date-only strings to noon UTC. If it's being applied to dates that already have specific times set (e.g., "2026-07-10T14:00:00Z"), it could clobber the hour/minute. Check all call sites — is there a guard for "already has a time component"?
 
-- **Related ROADMAP:** "Disable CalDAV sync" (to be added), "Calendar Day View UX overhaul"
+- **Related ROADMAP:** "Disable CalDAV task sync", "Calendar Day View UX overhaul"
 
-- **Fixed in:** TBD
+- **Root cause:** `normalizeDateToNoon` and `parseLocalDateNode` in `dateUtils.ts` normalized ANY midnight-UTC value (including ISO timestamps from the DB and calendar events) to local noon, clobbering intentional times that happened to land at 00:00 UTC (e.g., 7 PM CT = next-day 00:00 UTC). CalDAV task sync also overwrote local task times on each sync cycle.
+
+- **Fix:** Added a guard in both functions to preserve as-is any string containing `T` (explicit time component); only bare date strings (`"2026-05-18"`) are still noon-normalized. Disabled CalDAV task sync in `caldav.ts` (`syncCalDAV` now returns an empty result for tasks), no-op'd `createTombstone` in `db.ts`, and removed the `task_sync_meta` insert in `recurrence.ts`. DB tables and event sync are retained. Updated affected tests to assert the corrected behavior.
+
+- **Fixed in:** 144471e
 
 ---
 
