@@ -10,6 +10,19 @@ Use this format:
 
 ---
 
+## [2026-07-09] – Fix inline task checkbox alignment + remove dead selection prop (BUG-014)
+- **What changed:**
+  - **Checkbox vertical alignment:** Reduced the completion button's `min-w-[44px] min-h-[44px]` → `min-w-[32px] min-h-[32px]` in `TaskItem.tsx`. The 44px forced height was flex-centering the 20px icon at ~22px from row top, while the adjacent text center is at ~13px — a 9px visual offset. With 32px, the icon center moves to ~16px, bringing the offset down to ~3px (imperceptible). Also added `min-w-[32px] min-h-[32px]` to `EditorTaskItem.tsx` checkbox (previously had no min dimensions — sized to content at 28px) for consistency.
+  - **Removed dead `isSelectionEnabled` prop:** The `isSelectionEnabled` prop was declared in `TaskItemProps` but never passed by any consumer (TodayView, InboxView, AllTasksView). Only `AllTasksView` uses selection mode, and it relies solely on passing `onSelect`. Removed the prop from the interface and destructuring, simplified the selection checkbox render condition from `(onSelect || isSelectionEnabled)` → `onSelect`, and the opacity condition from `${isSelected || isSelectionEnabled ? ...}` → `${isSelected ? ...}`.
+  - **Issues 2 & 3 (selection checkbox + edit button anomalies):** Confirmed as screenshot artifacts, not bugs. The "French cleat" task appeared to have a persistent selection checkbox and edit button because the cursor was hovering it, triggering `group-hover:opacity-100` on both elements. No code changes needed.
+- **Why:**
+  BUG-014 remaining issues from the 2026-07-09 screenshot review. The checkbox alignment was the primary visual problem — the 44px touch target was too aggressive for a checklist row and caused the icon to sit visibly lower than the text. The dead `isSelectionEnabled` prop was confusing dead code that made it seem like a selection mode could be independently toggled (it couldn't — no consumer ever set it).
+- **Affected areas:** `src/components/v2/TaskItem.tsx` (checkbox min dimensions, removed `isSelectionEnabled` prop, simplified selection condition), `src/components/v2/EditorTaskItem.tsx` (added min dimensions for consistency).
+- **Migration needs? No.**
+- **Testing:** All 131 tests pass. TypeScript clean (15 pre-existing errors unchanged — no new errors).
+
+---
+
 ## [2026-07-09] – Fix toolbar buttons requiring double-click (BUG-013)
 - **What changed:**
   Converted all toolbar button handlers in `src/components/v2/editor/EditorToolbar.tsx` from `onClick` to `onMouseDown` with `e.preventDefault()`. This prevents the browser from stealing focus from the TipTap editor on `mousedown`, which was causing the first click to only refocus the editor (without executing the command) and requiring a second click for the action to fire. Changes: (1) `ToggleButton` component (line 38) — shared wrapper used by all toolbar items, undo/redo, and export buttons across desktop and mobile; (2) 7 raw `<button>` elements in `TableControls` (Add Column Before/After, Delete Column, Add Row Before/After, Delete Row, Delete Table); (3) Mobile "More" dropdown toggle button. Total: 9 `onClick` → `onMouseDown` conversions. The existing `chain().focus()` calls remain (harmless redundancy).

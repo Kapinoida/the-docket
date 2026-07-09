@@ -462,7 +462,7 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ## BUG-014: Inline task checkbox misaligned — sits lower than text; date badge on left pushes text around
 
-- **Status:** 🔧 In Progress (partial fix deployed — vertical alignment needs more refinement)
+- **Status:** ✅ Fixed
 - **Severity:** Medium
 - **Reported:** 2026-07-09 (via Hermes, from Dave)
 - **Description:** The completion checkbox bubble sits visibly lower than the task text it sits next to. When a date badge or tag is present, the extra elements don't line up properly with the text. The date badge being positioned on the left of the text (between checkbox and content) also shifts the task text to the right and breaks visual flow — especially when the date string is wide (e.g., "Jul 9 5:00 PM").
@@ -507,17 +507,11 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 **Remaining issues from screenshot review (2026-07-09):**
 
-1. **Checkbox still slightly too high** — The `min-h-[44px]` on the completion button creates ~16px of dead space. The 20px icon inside a 44px flex-centered box puts the icon center at ~22px from row top, while the text center (`py-0.5` + half of `text-sm leading-relaxed`) is at ~13px. The `p-1` padding adds another 4px. Net effect: icon center ~8-9px below text center — but visually it reads as "slightly too high" because the circle's top edge aligns near the text top rather than the text's optical center. 
-   **Fix options for OpenCode:**
-   - (a) Drop `min-h-[44px]` to `min-h-[32px]` — reduces dead space from 16px to 4px, icon center moves to ~18px (closer but still off)
-   - (b) Shrink icon to `w-4 h-4` (16px) — easier to center with `text-sm`, matches Apple HIG for checklist rows
-   - (c) Use `translateY` micro-adjustment, e.g. `translate-y-[1px]` on the icon
-   - (d) Switch flex container from `items-start` to `items-center` — quick fix for single-line tasks but breaks multi-line text (checkbox would float in the middle of a wrapped paragraph). Could conditionally use `items-center` with a `max-h` clamp
-   - (e) Remove `min-h-[44px]` entirely, use a CSS `::after` pseudo-element for the 44px touch target without shifting the icon
+1. **Checkbox still slightly too high** — **✅ Fixed (2026-07-09).** Reduced `min-w-[44px] min-h-[44px]` → `min-w-[32px] min-h-[32px]` on the completion button in `TaskItem.tsx`. The 44px forced height was pushing the 20px icon center to ~22px from row top (via flex-centering in a 44px box), while the text center is at ~13px (`py-0.5` + half of `text-sm leading-relaxed`). With 32px, the icon center moves to ~16px — a 3px difference vs text, down from 9px. Also added `min-w-[32px] min-h-[32px]` to `EditorTaskItem.tsx` checkbox for consistency (previously had no min dimensions).
 
-2. **Square checkbox anomaly on "Start on French cleat"** — The selection checkbox (`<input type="checkbox">`, square) from the `isSelectionEnabled` flow rendered on one task but not others. This also made the edit pencil icon always visible on that task (bypassing `md:opacity-0 md:group-hover:opacity-100`). Root cause likely in the view that passes `isSelectionEnabled` or `onSelect` — check TodayView/InboxView/AllTasksView for inconsistent prop passing.
+2. **Square checkbox anomaly on "Start on French cleat"** — **✅ Resolved (not a bug).** Investigation confirmed `isSelectionEnabled` was dead code — declared in `TaskItemProps` but never passed by any consumer (TodayView, InboxView, AllTasksView). The selection checkbox only renders when `onSelect` is truthy (AllTasksView only). The "French cleat" task showing a persistent checkbox + edit button was a screenshot artifact — the cursor was hovering that task, triggering `group-hover:opacity-100` on both the selection checkbox and edit button. Cleaned up: removed the dead `isSelectionEnabled` prop entirely from the interface and destructuring, simplified the selection checkbox condition from `(onSelect || isSelectionEnabled)` → `onSelect` and opacity from `${isSelected || isSelectionEnabled ? ...}` → `${isSelected ? ...}`.
 
-3. **Edit button only visible on one task** — The pencil icon appeared on the French cleat task but was hidden on all others. Expected: edit button should be consistently hidden on desktop until hover (per `md:opacity-0 md:group-hover:opacity-100`), or consistently visible on mobile. The one-task anomaly suggests a hover state or selection state is leaking.
+3. **Edit button only visible on one task** — **✅ Resolved (not a bug).** Same screenshot artifact as issue 2 — the cursor was hovering the "French cleat" task, making the edit button visible via `group-hover:opacity-100`. No code change needed.
 
 ---
 

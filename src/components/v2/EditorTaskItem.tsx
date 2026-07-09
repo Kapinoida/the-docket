@@ -64,7 +64,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       {/* Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1"
+        className="mt-0 flex-shrink-0 transition-colors text-text-muted hover:text-accent-green select-none p-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
         contentEditable={false}
       >
         {task.status === 'done' ? (

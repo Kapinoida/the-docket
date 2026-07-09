@@ -21,6 +21,7 @@ You are running on the host machine with OrbStack (Docker). Run `bash update.sh`
 - RRULE sync: `rruleToRecurrenceRule()` and `recurrenceRuleToRrule()` in `recurrenceCalc.ts` handle CalDAV RRULE ↔ Docket conversion
 - Always update DEVLOG.md and ROADMAP.md when completing non-trivial changes
 - Bug fixes: check BUGS.md for reported issues. When you fix one, update its status to `✅ Fixed` and add the commit/PR reference. Hermes adds bugs with investigation notes — you bring the code fixes.
+- After finalizing work (tests pass, lint/typecheck clean, BUGS.md/DEVLOG.md/ROADMAP.md updated), commit your changes with a descriptive message before deploying. The deploy script (`update.sh`) runs `git pull` — uncommitted changes won't be in the build.
 
 ## Database Migrations
 - **Create**: `npm run migrate:create migration_name` — generates a timestamped SQL file in `src/migrations/`
