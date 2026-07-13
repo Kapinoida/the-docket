@@ -2,8 +2,6 @@ import { renderHook, act } from '@testing-library/react';
 import useAmbience from '../useAmbience';
 
 // Mock Web Audio API
-const mockVerify = jest.fn();
-
 class MockAudioNode {
   connect() {}
   disconnect() {}
@@ -38,6 +36,8 @@ class MockBiquadFilterNode extends MockAudioNode {
 
 class MockAudioBufferSourceNode extends MockAudioScheduledSourceNode {}
 
+class MockMediaElementSourceNode extends MockAudioNode {}
+
 class MockAudioContext {
   state = 'suspended';
   resume = jest.fn().mockResolvedValue(undefined);
@@ -51,10 +51,24 @@ class MockAudioContext {
     getChannelData: jest.fn(() => new Float32Array(88200)),
   }));
   createBufferSource = jest.fn(() => new MockAudioBufferSourceNode());
+  createMediaElementSource = jest.fn(() => new MockMediaElementSourceNode());
 }
 
 // @ts-ignore
 window.AudioContext = MockAudioContext;
+
+// Mock HTMLAudioElement
+class MockAudioElement {
+  crossOrigin = '';
+  src = '';
+  loop = false;
+  preload = '';
+  play = jest.fn().mockResolvedValue(undefined);
+  pause = jest.fn();
+}
+
+// @ts-ignore
+global.Audio = MockAudioElement;
 
 describe('useAmbience', () => {
     beforeEach(() => {
@@ -65,15 +79,8 @@ describe('useAmbience', () => {
         const { result } = renderHook(() => useAmbience());
 
         act(() => {
-            result.current.start('rays');
+            result.current.start('brown-noise');
         });
-
-        // We can't easily check the internal refs of the hook, but we can verify the mock methods were called.
-        // The AudioContext.prototype methods are on the instances.
-        // But since we create new instances inside, we need to spy on the class or check effects.
-        // Actually, we can spy on window.AudioContext constructor?
-        
-        // Let's assume if it doesn't crash, it's mostly working, but better to spy.
     });
 
     it('starts specific mode (orbit)', () => {
@@ -82,22 +89,81 @@ describe('useAmbience', () => {
         act(() => {
             result.current.start('orbit');
         });
+    });
+
+    it('starts specific mode (rain)', () => {
+        const { result } = renderHook(() => useAmbience());
         
-        // This implicitly tests that 'orbit' logic runs without erroring on missing nodes
+        act(() => {
+            result.current.start('rain');
+        });
+    });
+
+    it('starts specific mode (snow)', () => {
+        const { result } = renderHook(() => useAmbience());
+        
+        act(() => {
+            result.current.start('snow');
+        });
     });
 
     it('stops playback gracefully', () => {
         const { result } = renderHook(() => useAmbience());
         
         act(() => {
-            result.current.start('rays');
+            result.current.start('brown-noise');
         });
 
         act(() => {
             result.current.stop();
         });
-        
-        // Ideally we check if gain ramp down was called, but with current mock setup it's hard to get the specific instance.
-        // We can improve the mock if needed, but for now this verifies "runs without crashing".
+    });
+
+    it('starts and stops a stream (AzuraCast)', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.startStream('https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3');
+        });
+
+        act(() => {
+            result.current.stopStream();
+        });
+    });
+
+    it('startMusicSource dispatches to startMusic for pentatonic', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.startMusicSource('pentatonic');
+        });
+
+        act(() => {
+            result.current.stopMusicAndStream();
+        });
+    });
+
+    it('startMusicSource dispatches to startStream for runtime_loop', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.startMusicSource('runtime_loop');
+        });
+
+        act(() => {
+            result.current.stopMusicAndStream();
+        });
+    });
+
+    it('startMusicSource dispatches to startStream for warm_boot', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.startMusicSource('warm_boot');
+        });
+
+        act(() => {
+            result.current.stopMusicAndStream();
+        });
     });
 });

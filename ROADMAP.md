@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Focus page AzuraCast integration + sound system rework** 🟢
+  Replaced binary ambience/music toggles with a `SoundDropdown` popover containing two sections — Ambience (Brown Noise, Rain, Snow, Orbit, Off) and Music (Pentatonic, Runtime Loop, Warm Boot, Off). Added `startStream(url)` / `stopStream()` to `useAmbience` for AzuraCast radio streaming via `<audio>` + Web Audio API `MediaElementSource`. Decoupled ambience from visualization mode — ambience is now an independent selector. Migrated `useFocusPreferences` from booleans (`isAmbienceEnabled`/`isMusicEnabled`) to string selectors (`ambienceMode`/`musicSource`) with backward-compatible localStorage migration. AzuraCast streams at `https://radio.dcplaskett.com/listen/{station}/radio.mp3` (192kbps MP3, discovered via `/api/stations`). 6 new tests added (137 total).
+  *Completed: 2026-07-13*
+
 - [x] **Fix BUG-015: flaky task timing + disable CalDAV task sync** 🟢
   Fixed `normalizeDateToNoon` and `parseLocalDateNode` in `dateUtils.ts` — they were normalizing ALL midnight-UTC values (including ISO timestamps with explicit times from the DB/calendar events) to local noon, clobbering intentional times that landed at 00:00 UTC (e.g., 7 PM CT = next-day 00:00 UTC → shifted 7 hours). Added a guard: strings containing `T` are preserved as-is; only bare date strings (`"2026-05-18"`) are noon-normalized. Disabled CalDAV **task** sync in `caldav.ts` (now returns empty `SyncResult`); event sync is retained. No-op'd `createTombstone` in `db.ts` and removed the `task_sync_meta` insert in `recurrence.ts`. DB tables left in place — no migration needed, no data loss. Tasks are now local-only.
   *Completed: 2026-07-09*
@@ -208,6 +212,43 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🎯 Near‑term (1–3 months)
 
 ### Feature Work
+- [x] **Focus page AzuraCast integration + sound system rework** 🟢  
+  *Replaced binary toggles with dropdown selectors. Music: Pentatonic (procedural) + AzuraCast streams (Runtime Loop, Warm Boot). Ambience: Brown Noise, Rain, Snow, Orbit, Off — decoupled from visualization mode. Stream URLs discovered via AzuraCast API.*
+  **Status:** 🟢 Complete  
+  **Reported:** 2026-07-11 (via Hermes, from Dave)  
+  *Completed: 2026-07-13*
+
+  **What exists now:**
+  - `useAmbience` hook — procedural Web Audio API generator. Ambience modes (brown noise, pink noise/rain, snow, orbit drones) tied to the visualization mode. Music mode is a C Major Pentatonic sine-wave melody generator (random sparse notes). Both are simple on/off toggles in the header.
+  - `useSoundEffects` hook — procedural UI click/chime sounds (separate from ambience).
+  - AzuraCast running on Ambrosia at `azuracast.dcplaskett.com` with 3 stations: `azuratest_radio`, `runtime_loop`, `warm_boot`. Each has a public stream URL (likely MP3/AAC via Icecast on port 8000 or proxied through NPM).
+
+  **What needs to happen:**
+  - **a) Music source dropdown** — Replace the binary Music toggle with a `<select>` or popover that lists:
+    - "Pentatonic" (existing procedural generator)
+    - "AzuraCast — AzuraTest Radio" (stream URL)
+    - "AzuraCast — Runtime Loop" (stream URL)
+    - "AzuraCast — Warm Boot" (stream URL)
+    Selecting a stream creates an `<audio>` element (or uses the Web Audio API `MediaElementAudioSourceNode`) pointing to the station's public stream URL. Selecting "Pentatonic" uses the existing procedural `startMusic`/`stopMusic`.
+  - **b) Ambience dropdown** — Replace the binary Ambience toggle with a dropdown listing the procedural modes: "Brown Noise" (default), "Rain", "Snow", "Orbit", "None / Off". Selecting a mode calls `startAmbience(mode)` with that visualization mode. "None" calls `stopAmbience()`. This decouples ambience from the visualization mode — the user can have rain sounds with the constellation visualizer if they want.
+  - **c) UI placement** — The current ambience/music toggle pills in the header become a single "Sound" dropdown or two compact dropdowns. Keep the header compact — this is a phone-first PWA. Consider a small popover with both dropdowns inside, triggered by a speaker/music icon button.
+  - **d) Stream URL discovery** — Determine the public stream URLs for the AzuraCast stations. AzuraCast typically exposes streams at `https://azuracast.dcplaskett.com/radio/8000/{station_shortcode}.mp3` or similar. Fetch the station list from AzuraCast's API (`/api/stations`) or hardcode the URLs. Since the stations rarely change, hardcoding is fine for now.
+  - **e) Persist user selections** — Use `useFocusPreferences` (localStorage-backed) to remember the user's music source and ambience selection across sessions. Existing `isAmbienceEnabled`/`isMusicEnabled` booleans become `ambienceMode: string | null` and `musicSource: string` (e.g., `'pentatonic' | 'azuratest_radio' | 'runtime_loop' | 'warm_boot'`).
+
+  **Affected files (likely):**
+  - `src/app/focus/page.tsx` — replace toggle buttons with dropdown(s)
+  - `src/hooks/useAmbience.ts` — add `startStream(url)` / `stopStream()` for AzuraCast audio elements; export `startAmbience` as-is, decouple from viz mode
+  - `src/hooks/useFocusPreferences.ts` — migrate from booleans to string selections
+  - `src/components/focus/VisualizationDropdown.tsx` — reference for building the new dropdown component (or create `SoundDropdown.tsx`)
+  - New: `src/components/focus/SoundDropdown.tsx` — popover with music source selector + ambience selector
+
+  **Pitfalls to watch for:**
+  - `<audio>` elements need `crossOrigin="anonymous"` if you want to connect them to the Web Audio API for visualization/volume control.
+  - AzuraCast streams may be HTTPS through the NPM proxy. Verify the stream URLs work in a browser before wiring them into the app.
+  - Mobile browsers require a user gesture to play audio. The existing timer start button handles this — ensure stream playback is triggered in the same gesture chain.
+  - If an AzuraCast station is offline, the `<audio>` element will fail silently. Add `onerror` handling with a toast notification.
+  - The procedural music generator (`playNote`) uses `setTimeout` recursion. Make sure `stopMusic()` clears the timeout when switching to a stream source.
+
 - [ ] **Dashboard redesign / makeover** 🔴  
   *The current dashboard (`DashboardView.tsx`) is a basic single-column scroll: 4 stat cards → WeeklyCalendar → RecentNotes. Dave wants a proper makeover — better layout, more visual polish, smarter use of space. Consider: two-column desktop layout (calendar + tasks on one side, notes/quick actions on the other), ambient/stats widgets, quick-capture input, recent activity feed. Mobile: the current single-column scroll works but could use better visual hierarchy. The dashboard is the landing page — it should feel like a command center, not an afterthought.*  
   **Status:** 🔴 Not Started  
