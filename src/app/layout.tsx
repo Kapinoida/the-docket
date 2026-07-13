@@ -55,12 +55,14 @@ import { ThemeProvider } from "../components/ThemeProvider";
 import { TaskEditProvider } from "../contexts/TaskEditContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { SyncProvider } from "../contexts/SyncContext";
+import { SoundProvider } from "../contexts/SoundContext";
 import { CommandPalette } from "../components/CommandPalette";
 
 import LayoutWrapper from "../components/v2/LayoutWrapper";
 
 import { SearchDialog } from '@/components/v2/SearchDialog';
 import PwaRegister from '@/components/PwaRegister';
+import FloatingSoundIndicator from '../components/focus/FloatingSoundIndicator';
 
 export default function RootLayout({
   children,
@@ -79,6 +81,7 @@ export default function RootLayout({
             disableTransitionOnChange
         >
 <ToastProvider>
+                <SoundProvider>
                 <SyncProvider>
                 <TaskEditProvider>
                     <PwaRegister />
@@ -86,8 +89,10 @@ export default function RootLayout({
                     <LayoutWrapper>
                         {children}
                     </LayoutWrapper>
+                    <FloatingSoundIndicator />
                 </TaskEditProvider>
                 </SyncProvider>
+                </SoundProvider>
             </ToastProvider>
         </ThemeProvider>
       </body>

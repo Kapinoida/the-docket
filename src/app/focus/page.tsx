@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
 import { usePomodoroSettings } from '@/hooks/usePomodoroSettings';
 import TimerControls from '@/components/focus/TimerControls';
@@ -8,8 +8,8 @@ import FocusVisualizer, { VisualizationMode } from '@/components/focus/FocusVisu
 import VisualizationDropdown from '@/components/focus/VisualizationDropdown';
 import FocusSettingsModal from '@/components/focus/FocusSettingsModal';
 import useSoundEffects from '@/hooks/useSoundEffects';
-import useAmbience from '@/hooks/useAmbience';
 import { useFocusPreferences } from '@/hooks/useFocusPreferences';
+import { useSound } from '@/contexts/SoundContext';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
 import SoundDropdown from '@/components/focus/SoundDropdown';
 import { Task } from '@/types';
@@ -25,38 +25,13 @@ export default function FocusPage() {
     onBreakComplete: playBreakComplete
   });
 
-  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusicAndStream } = useAmbience();
-  const { 
-      visualMode, 
-      ambienceMode, 
-      musicSource,
-      setVisualMode, 
-      setAmbienceMode,
-      setMusicSource
-  } = useFocusPreferences();
+  const { visualMode, setVisualMode } = useFocusPreferences();
+  const { ambienceMode, musicSource, setAmbienceMode, setMusicSource } = useSound();
   
   // Task Integration
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // Ambience Effect
-  useEffect(() => {
-    if (timer.isActive && ambienceMode !== 'none') {
-      startAmbience(ambienceMode);
-    } else {
-      stopAmbience();
-    }
-  }, [timer.isActive, ambienceMode, startAmbience, stopAmbience]);
-
-  // Music Effect
-  useEffect(() => {
-    if (timer.isActive && musicSource !== 'none') {
-      startMusicSource(musicSource);
-    } else {
-      stopMusicAndStream();
-    }
-  }, [timer.isActive, musicSource, startMusicSource, stopMusicAndStream]);
 
   const handleModeChange = (mode: VisualizationMode) => {
     playClick();
