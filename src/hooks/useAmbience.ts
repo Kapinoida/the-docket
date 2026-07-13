@@ -218,14 +218,22 @@ export default function useAmbience() {
 
   const stopStream = useCallback(() => {
     const ctx = contextRef.current;
-    if (!streamAudioRef.current) return;
+    const audio = streamAudioRef.current;
+    const source = streamSourceRef.current;
+    const gain = streamGainRef.current;
+    if (!audio) return;
+
+    // Null refs immediately so a subsequent startStream doesn't see stale refs
+    streamAudioRef.current = null;
+    streamSourceRef.current = null;
+    streamGainRef.current = null;
 
     // Fade out over 2s
-    if (streamGainRef.current && ctx) {
+    if (gain && ctx) {
       const now = ctx.currentTime;
-      streamGainRef.current.gain.cancelScheduledValues(now);
-      streamGainRef.current.gain.setValueAtTime(streamGainRef.current.gain.value, now);
-      streamGainRef.current.gain.linearRampToValueAtTime(0, now + 2);
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0, now + 2);
     }
 
     // Clear any pending stop timeout
@@ -234,15 +242,10 @@ export default function useAmbience() {
     }
 
     streamStopTimeoutRef.current = setTimeout(() => {
-      if (streamAudioRef.current) {
-        streamAudioRef.current.pause();
-        streamAudioRef.current.src = '';
-        streamAudioRef.current = null;
-      }
-      try { streamSourceRef.current?.disconnect(); } catch(e) {}
-      try { streamGainRef.current?.disconnect(); } catch(e) {}
-      streamSourceRef.current = null;
-      streamGainRef.current = null;
+      audio.pause();
+      audio.src = '';
+      try { source?.disconnect(); } catch(e) {}
+      try { gain?.disconnect(); } catch(e) {}
       streamStopTimeoutRef.current = null;
     }, 2100);
   }, []);
@@ -327,12 +330,16 @@ export default function useAmbience() {
   };
 
   const startMusicSource = useCallback((source: MusicSource) => {
+    // Stop whatever was playing before (music or stream) to avoid overlap
+    stopMusic();
+    stopStream();
+
     if (source === 'pentatonic') {
       startMusic();
     } else if (source in STREAM_URLS) {
       startStream(STREAM_URLS[source]);
     }
-  }, [startMusic, startStream]);
+  }, [startMusic, stopMusic, startStream, stopStream]);
 
   const stopMusicAndStream = useCallback(() => {
     stopMusic();
