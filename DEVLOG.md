@@ -10,6 +10,21 @@ Use this format:
 
 ---
 
+## [2026-07-13] – Global sound context + persistent audio across pages + floating indicator
+- **What changed:**
+  - **`src/contexts/SoundContext.tsx` (new):** Global React context that owns the audio lifecycle. Internally uses `useAmbience` and manages `ambienceMode`, `musicSource`, and `isPlaying` state. On mount, restores saved selections from localStorage but does NOT auto-play (user must explicitly select). On selection, starts audio immediately — no longer gated by `timer.isActive`. Persists selections to the same localStorage key as `useFocusPreferences`. **No cleanup on React unmount** — audio persists across SPA page navigation. Cleanup only via `beforeunload` event listener (tab close). Exports `SoundProvider`, `useSound()` hook with `{ ambienceMode, musicSource, setAmbienceMode, setMusicSource, isPlaying, stopAll }`.
+  - **`src/components/focus/FloatingSoundIndicator.tsx` (new):** Fixed-position floating pill (`bottom-4 left-4 z-50`) that appears on all pages when `isPlaying` is true. Shows `Volume2` icon + current label (e.g., `"Rain + Runtime Loop"`). X button calls `stopAll()`. Clicking the pill opens a full popover with ambience/music radio-style selectors — same options and styling as `SoundDropdown`. Hidden when not playing. `pb-[52px] md:pb-0` offset to clear the mobile `BottomTabBar`.
+  - **`src/app/focus/page.tsx`:** Removed `useAmbience` import and both timer-gated `useEffect` blocks (ambience + music). Now consumes `useSound()` context for `ambienceMode`/`musicSource`/setters and `useFocusPreferences` for `visualMode` only. Sounds now play immediately on selection — no timer needed.
+  - **`src/app/layout.tsx`:** Wrapped the provider tree with `<SoundProvider>` (inside `ToastProvider`, outside `SyncProvider`). Added `<FloatingSoundIndicator />` after `LayoutWrapper` so it overlays page content on all routes.
+  - **Bug fixed:** Previously, ambience kept playing but music stopped when navigating away from Focus page. Root cause: `useAmbience`'s cleanup effect called `stopMusic()`/`stopStream()` on unmount but ambience had no cleanup. Now all audio is managed by the global context which never unmounts during SPA navigation, so both persist consistently.
+- **Why:**
+  Dave wanted to play sounds/music on the Focus page without starting a timer, and have the audio continue when navigating to other pages. A floating indicator with full dropdown controls was requested so sounds can be managed from any page.
+- **Affected areas:** `src/contexts/SoundContext.tsx` (new), `src/components/focus/FloatingSoundIndicator.tsx` (new), `src/app/focus/page.tsx`, `src/app/layout.tsx`.
+- **Migration needed? No.** (Same localStorage key, same format. `SoundContext` reads/restores `ambienceMode`/`musicSource` on mount. No DB changes.)
+- **Testing:** All 137 tests pass. TypeScript clean (15 pre-existing errors — none new).
+
+---
+
 ## [2026-07-13] – Focus page AzuraCast integration + sound system rework
 - **What changed:**
   - **`src/hooks/useAmbience.ts`:** Added streaming support for AzuraCast radio stations. New `startStream(url)` creates an `<audio>` element with `crossOrigin="anonymous"`, connects it to the Web Audio API via `createMediaElementSource` → `GainNode` → `destination` with a 3s fade-in. `stopStream()` fades out over 2s then pauses/cleans up. New `startMusicSource(source)` dispatcher routes `'pentatonic'` to the existing procedural generator and station shortcodes (`'runtime_loop'`, `'warm_boot'`) to `startStream`. New `stopMusicAndStream()` stops both. Exported new `AmbienceMode` and `MusicSource` types. Removed the `VisualizationMode` import — `start()` now accepts `AmbienceMode` strings (`'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none'`) directly, decoupling ambience from the visualizer.

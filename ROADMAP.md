@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Persistent ambient audio across pages + floating sound indicator** 🟢
+  Moved audio management from the Focus page into a global `SoundContext` provider at the root layout level. Sounds now play immediately on selection (no timer needed) and persist across SPA page navigation — the provider never unmounts. Added a `FloatingSoundIndicator` component (fixed bottom-left, `z-50`) that appears on all pages when audio is active, showing current ambience + music label with a full dropdown popover for quick controls and an X button to stop all. Fixed a bug where ambience persisted but music stopped on navigation (ambience had no cleanup effect, music did). `SoundContext` reads/restores saved selections from localStorage on mount but does not auto-play; cleanup is handled via `beforeunload` (tab close) only.
+  *Completed: 2026-07-13*
+
 - [x] **Focus page AzuraCast integration + sound system rework** 🟢
   Replaced binary ambience/music toggles with a `SoundDropdown` popover containing two sections — Ambience (Brown Noise, Rain, Snow, Orbit, Off) and Music (Pentatonic, Runtime Loop, Warm Boot, Off). Added `startStream(url)` / `stopStream()` to `useAmbience` for AzuraCast radio streaming via `<audio>` + Web Audio API `MediaElementSource`. Decoupled ambience from visualization mode — ambience is now an independent selector. Migrated `useFocusPreferences` from booleans (`isAmbienceEnabled`/`isMusicEnabled`) to string selectors (`ambienceMode`/`musicSource`) with backward-compatible localStorage migration. AzuraCast streams at `https://radio.dcplaskett.com/listen/{station}/radio.mp3` (192kbps MP3, discovered via `/api/stations`). 6 new tests added (137 total).
   *Completed: 2026-07-13*
