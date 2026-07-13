@@ -1,8 +1,11 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { VisualizationMode } from '@/components/focus/FocusVisualizer';
+
+export type AmbienceMode = 'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none';
+
+export type MusicSource = 'pentatonic' | 'runtime_loop' | 'warm_boot' | 'none';
 
 interface SoundLayer {
-  mode: VisualizationMode;
+  mode: AmbienceMode;
   gainNode: GainNode;
   sources: AudioScheduledSourceNode[];
   startTime: number;
@@ -11,6 +14,10 @@ interface SoundLayer {
 export default function useAmbience() {
   const contextRef = useRef<AudioContext | null>(null);
   const activeLayersRef = useRef<SoundLayer[]>([]);
+  const streamAudioRef = useRef<HTMLAudioElement | null>(null);
+  const streamSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const streamGainRef = useRef<GainNode | null>(null);
+  const streamStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initAudio = () => {
     if (!contextRef.current) {
@@ -67,7 +74,7 @@ export default function useAmbience() {
       return noise;
   };
 
-  const start = useCallback((mode: VisualizationMode = 'rays') => {
+  const start = useCallback((mode: AmbienceMode = 'brown-noise') => {
     const ctx = initAudio();
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
@@ -75,10 +82,6 @@ export default function useAmbience() {
     // Check if the requested mode is already the most recent active layer
     const currentLayer = activeLayersRef.current[activeLayersRef.current.length - 1];
     if (currentLayer && currentLayer.mode === mode) {
-        // Already playing this mode, ensure it's fully faded in just in case? 
-        // For simplicity, just return. 
-        // Actually, if it was fading out (e.g. quick switch back), we should restore it.
-        // But let's assume standard usage for now.
         return;
     }
 
@@ -127,13 +130,14 @@ export default function useAmbience() {
         const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 1.0;
         noise.connect(bp); bp.connect(noiseGain); noiseGain.connect(layerGain);
         noise.start(); sources.push(noise);
-    } else if (mode === 'orbit' || mode === 'constellation') {
+    } else if (mode === 'orbit') {
         const osc1 = ctx.createOscillator(); osc1.type = 'sine'; osc1.frequency.value = 110;
         const osc2 = ctx.createOscillator(); osc2.type = 'sine'; osc2.frequency.value = 164.81;
         const oscMixedGain = ctx.createGain(); oscMixedGain.gain.value = 0.05;
         osc1.connect(oscMixedGain); osc2.connect(oscMixedGain); oscMixedGain.connect(layerGain);
         osc1.start(); osc2.start(); sources.push(osc1, osc2);
     } else {
+        // brown-noise (default)
         const noise = createBrownNoise(ctx);
         const noiseGain = ctx.createGain(); noiseGain.gain.value = 0.4;
         const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 200;
@@ -173,12 +177,82 @@ export default function useAmbience() {
     activeLayersRef.current = [];
   }, []);
 
+  /* --- Stream Logic (AzuraCast) --- */
+  const startStream = useCallback((url: string) => {
+    const ctx = initAudio();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    // Stop any existing stream first
+    if (streamAudioRef.current) {
+      stopStream();
+    }
+
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous';
+    audio.src = url;
+    audio.loop = false; // Live stream, no loop needed
+    audio.preload = 'none';
+
+    let mediaSource: MediaElementAudioSourceNode;
+    try {
+      mediaSource = ctx.createMediaElementSource(audio);
+    } catch (e) {
+      console.error('Failed to create media element source', e);
+      return;
+    }
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3); // Fade in over 3s
+
+    mediaSource.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    streamAudioRef.current = audio;
+    streamSourceRef.current = mediaSource;
+    streamGainRef.current = gainNode;
+
+    audio.play().catch(e => console.error('Stream playback failed', e));
+  }, []);
+
+  const stopStream = useCallback(() => {
+    const ctx = contextRef.current;
+    if (!streamAudioRef.current) return;
+
+    // Fade out over 2s
+    if (streamGainRef.current && ctx) {
+      const now = ctx.currentTime;
+      streamGainRef.current.gain.cancelScheduledValues(now);
+      streamGainRef.current.gain.setValueAtTime(streamGainRef.current.gain.value, now);
+      streamGainRef.current.gain.linearRampToValueAtTime(0, now + 2);
+    }
+
+    // Clear any pending stop timeout
+    if (streamStopTimeoutRef.current) {
+      clearTimeout(streamStopTimeoutRef.current);
+    }
+
+    streamStopTimeoutRef.current = setTimeout(() => {
+      if (streamAudioRef.current) {
+        streamAudioRef.current.pause();
+        streamAudioRef.current.src = '';
+        streamAudioRef.current = null;
+      }
+      try { streamSourceRef.current?.disconnect(); } catch(e) {}
+      try { streamGainRef.current?.disconnect(); } catch(e) {}
+      streamSourceRef.current = null;
+      streamGainRef.current = null;
+      streamStopTimeoutRef.current = null;
+    }, 2100);
+  }, []);
+
   /* --- Music Logic --- */
   // C Major Pentatonic Scale
   // C4, D4, E4, G4, A4, C5, D5, E5
   const NOTES = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
   
-  const musicTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const musicTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const musicActiveRef = useRef(false);
 
   const playNote = (ctx: AudioContext) => {
@@ -245,12 +319,33 @@ export default function useAmbience() {
     }
   }, []);
 
-  // Ensure cleanup on unmount for music too
+  /* --- Unified Music Source Dispatcher --- */
+  // Stream URL mapping for AzuraCast stations
+  const STREAM_URLS: Record<string, string> = {
+    runtime_loop: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+    warm_boot: 'https://radio.dcplaskett.com/listen/warm_boot/radio.mp3',
+  };
+
+  const startMusicSource = useCallback((source: MusicSource) => {
+    if (source === 'pentatonic') {
+      startMusic();
+    } else if (source in STREAM_URLS) {
+      startStream(STREAM_URLS[source]);
+    }
+  }, [startMusic, startStream]);
+
+  const stopMusicAndStream = useCallback(() => {
+    stopMusic();
+    stopStream();
+  }, [stopMusic, stopStream]);
+
+  // Ensure cleanup on unmount for music + streams
   useEffect(() => {
       return () => {
           stopMusic();
+          stopStream();
       };
-  }, [stopMusic]);
+  }, [stopMusic, stopStream]);
 
-  return { start, stop, startMusic, stopMusic };
+  return { start, stop, startMusic, stopMusic, startStream, stopStream, startMusicSource, stopMusicAndStream };
 }

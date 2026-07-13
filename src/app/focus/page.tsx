@@ -11,8 +11,9 @@ import useSoundEffects from '@/hooks/useSoundEffects';
 import useAmbience from '@/hooks/useAmbience';
 import { useFocusPreferences } from '@/hooks/useFocusPreferences';
 import FocusTaskSidebar from '@/components/focus/FocusTaskSidebar';
+import SoundDropdown from '@/components/focus/SoundDropdown';
 import { Task } from '@/types';
-import { Target, X, ListTodo, Settings, Zap, Brain, Music } from 'lucide-react';
+import { Target, X, ListTodo, Settings, Zap, Brain } from 'lucide-react';
 
 export default function FocusPage() {
   const { playClick, playWorkComplete, playBreakComplete } = useSoundEffects();
@@ -24,14 +25,14 @@ export default function FocusPage() {
     onBreakComplete: playBreakComplete
   });
 
-  const { start: startAmbience, stop: stopAmbience, startMusic, stopMusic } = useAmbience();
+  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusicAndStream } = useAmbience();
   const { 
       visualMode, 
-      isAmbienceEnabled, 
-      isMusicEnabled,
+      ambienceMode, 
+      musicSource,
       setVisualMode, 
-      setIsAmbienceEnabled,
-      setIsMusicEnabled
+      setAmbienceMode,
+      setMusicSource
   } = useFocusPreferences();
   
   // Task Integration
@@ -41,22 +42,21 @@ export default function FocusPage() {
 
   // Ambience Effect
   useEffect(() => {
-    if (timer.isActive && isAmbienceEnabled) {
-      startAmbience(visualMode);
+    if (timer.isActive && ambienceMode !== 'none') {
+      startAmbience(ambienceMode);
     } else {
       stopAmbience();
     }
-    // Cleanup on unmount handled by hook, but explicit stop is good for toggle responsiveness
-  }, [timer.isActive, isAmbienceEnabled, visualMode, startAmbience, stopAmbience]);
+  }, [timer.isActive, ambienceMode, startAmbience, stopAmbience]);
 
   // Music Effect
   useEffect(() => {
-    if (timer.isActive && isMusicEnabled) {
-      startMusic();
+    if (timer.isActive && musicSource !== 'none') {
+      startMusicSource(musicSource);
     } else {
-      stopMusic();
+      stopMusicAndStream();
     }
-  }, [timer.isActive, isMusicEnabled, startMusic, stopMusic]);
+  }, [timer.isActive, musicSource, startMusicSource, stopMusicAndStream]);
 
   const handleModeChange = (mode: VisualizationMode) => {
     playClick();
@@ -113,27 +113,13 @@ export default function FocusPage() {
               onModeChange={handleModeChange}
             />
             
-            {/* Ambience & Music — compact */}
-            <div className="flex items-center gap-0.5 bg-white/10 rounded-full p-0.5 border border-white/5">
-                <button 
-                    onClick={() => { playClick(); setIsAmbienceEnabled(!isAmbienceEnabled); }}
-                    className={`p-1.5 sm:p-2 rounded-full transition-all ${
-                        isAmbienceEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
-                    }`}
-                    title="Toggle Ambience"
-                >
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>{!isAmbienceEnabled && <line x1="2" y1="2" x2="22" y2="22"></line>}</svg>
-                </button>
-                <button 
-                    onClick={() => { playClick(); setIsMusicEnabled(!isMusicEnabled); }}
-                    className={`p-1.5 sm:p-2 rounded-full transition-all ${
-                        isMusicEnabled ? 'bg-white/20 text-white' : 'bg-transparent text-white/40 hover:text-white/80'
-                    }`}
-                    title="Toggle Music"
-                >
-                     <Music size={16} className={`sm:w-5 sm:h-5 ${!isMusicEnabled ? "opacity-50" : ""}`} />
-                </button>
-            </div>
+            {/* Ambience & Music — Sound Dropdown */}
+            <SoundDropdown
+              ambienceMode={ambienceMode}
+              musicSource={musicSource}
+              onAmbienceChange={(mode) => { playClick(); setAmbienceMode(mode); }}
+              onMusicChange={(source) => { playClick(); setMusicSource(source); }}
+            />
             
             <button 
                 onClick={() => setIsSettingsOpen(true)}

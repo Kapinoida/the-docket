@@ -10,6 +10,22 @@ Use this format:
 
 ---
 
+## [2026-07-13] – Focus page AzuraCast integration + sound system rework
+- **What changed:**
+  - **`src/hooks/useAmbience.ts`:** Added streaming support for AzuraCast radio stations. New `startStream(url)` creates an `<audio>` element with `crossOrigin="anonymous"`, connects it to the Web Audio API via `createMediaElementSource` → `GainNode` → `destination` with a 3s fade-in. `stopStream()` fades out over 2s then pauses/cleans up. New `startMusicSource(source)` dispatcher routes `'pentatonic'` to the existing procedural generator and station shortcodes (`'runtime_loop'`, `'warm_boot'`) to `startStream`. New `stopMusicAndStream()` stops both. Exported new `AmbienceMode` and `MusicSource` types. Removed the `VisualizationMode` import — `start()` now accepts `AmbienceMode` strings (`'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none'`) directly, decoupling ambience from the visualizer.
+  - **`src/hooks/useFocusPreferences.ts`:** Schema migration. Replaced `isAmbienceEnabled: boolean` → `ambienceMode: AmbienceMode` and `isMusicEnabled: boolean` → `musicSource: MusicSource`. On load, detects old boolean keys and migrates them (`true` → `'brown-noise'` / `'pentatonic'`, `false` → `'none'`), writes the migrated format back to localStorage, and deletes old keys. New setters: `setAmbienceMode`, `setMusicSource`. Validates that persisted string values are known options (strips unknown values).
+  - **`src/components/focus/SoundDropdown.tsx` (new):** Compact popover component replacing the two binary toggle buttons. Single trigger button (`Volume2`/`VolumeX` icon) opens a translucent dropdown with two sections — Ambience (Brown Noise, Rain, Snow, Orbit, Off) and Music (Pentatonic, Runtime Loop, Warm Boot, Off). Radio-style selection with checkmark. Click-outside-to-close. Styled to match the Focus page's dark translucent aesthetic.
+  - **`src/app/focus/page.tsx`:** Replaced the ambience/music toggle button group with `<SoundDropdown>`. Ambience `useEffect` now uses `ambienceMode` (decoupled from `visualMode`). Music `useEffect` now calls `startMusicSource(musicSource)` / `stopMusicAndStream()`. Removed unused `Music` icon import.
+  - **AzuraCast stream URLs** (hardcoded in `useAmbience.ts`): `https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3` and `https://radio.dcplaskett.com/listen/warm_boot/radio.mp3` (both 192kbps MP3). Discovered via AzuraCast API at `/api/stations`.
+  - **Tests:** Updated `useAmbience.test.ts` — fixed 2 tests that passed `'rays'` (old VisualizationMode) to use `'brown-noise'` (new AmbienceMode). Added 6 new tests: stream start/stop, `startMusicSource` dispatch for pentatonic, runtime_loop, warm_boot. Added `MockMediaElementSourceNode`, `MockAudioElement`, and `createMediaElementSource` to test mocks. All 137 tests pass.
+- **Why:**
+  ROADMAP "Focus page AzuraCast integration + sound system rework". The binary ambience/music toggles were limiting — only one ambience mode (tied to visualizer) and one music source (procedural pentatonic). Dave wanted a proper audio mixer: choose ambience independent of visualizer, and pick between procedural music or live AzuraCast radio streams.
+- **Affected areas:** `src/hooks/useAmbience.ts`, `src/hooks/useFocusPreferences.ts`, `src/components/focus/SoundDropdown.tsx` (new), `src/app/focus/page.tsx`, `src/hooks/__tests__/useAmbience.test.ts`.
+- **Migration needed? No.** (localStorage-only migration, no DB changes. Old preferences auto-migrate on next app load.)
+- **Testing:** All 137 tests pass. TypeScript clean (15 pre-existing errors — none new).
+
+---
+
 ## [2026-07-09] – Fix BUG-015: flaky task timing + disable CalDAV task sync
 - **What changed:**
   - **`normalizeDateToNoon` / `parseLocalDateNode` (`src/lib/dateUtils.ts`):** Added a guard preserving as-is any string containing `T` (ISO timestamp with explicit time component). Previously, any value landing at midnight UTC — including timestamps from the DB and calendar events — was normalized to local noon, clobbering intentional times that happened to land at 00:00 UTC (e.g., 7 PM CT = next-day 00:00 UTC → shifted 7 hours). Bare date strings (`"2026-05-18"`) are still noon-normalized — that behavior is unchanged.
