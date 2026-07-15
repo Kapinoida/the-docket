@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const platypi = {
-  variable: "--font-platypi",
-  // We'll load Platypi from Google Fonts via CSS import
+const bitter = {
+  variable: "--font-bitter",
+  // We'll load Bitter from Google Fonts via CSS import
 };
 
 const nunito = {
@@ -60,7 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${platypi.variable} ${nunito.variable} ${jetbrainsMono.variable} antialiased flex h-screen overflow-hidden bg-gray-950 text-gray-100`}
+        className={`${geistSans.variable} ${geistMono.variable} ${bitter.variable} ${nunito.variable} ${jetbrainsMono.variable} antialiased flex h-screen overflow-hidden bg-gray-950 text-gray-100`}
       >
         <ProvidersWrapper>
           {children}
