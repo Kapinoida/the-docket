@@ -177,6 +177,16 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-06-24*  
   **Context:** Network saturation and battery drain on mobile when multiple views are mounted.
 
+- [ ] **Cross-device auto-refresh via visibility API** 🔴
+  *When the browser tab regains focus (user switches back from phone to laptop), trigger an immediate delta fetch so task lists auto-update without waiting for the next 30s poll tick. The SyncContext already handles polling, delta merging, and auto-re-rendering of subscribing views — the only missing piece is the `visibilitychange` event listener.*
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-15 (via Hermes, from Dave)  
+  **What needs to happen:**
+  - **a) Add `visibilitychange` listener to SyncContext** — When `document.visibilityState === 'visible'`, call `fetchData(true)` (delta mode — only fetch tasks changed since last poll). This is ~4 lines in `src/contexts/SyncContext.tsx`.
+  - **b) Verify existing delta endpoint works cross-device** — The `/api/v2/tasks?since=<ISO>` endpoint already filters by `updated_at > $1`. Ensure `updated_at` is bumped on all task mutations (it already is — `updateTask` sets `updated_at = NOW()`). No server changes needed.
+  - **c) No banner or user action needed** — Unlike the editor's protective "page has been updated" banner (which guards unsaved drafts), task lists and calendar views have no unsaved state. Views re-render automatically when SyncContext's `tasks`/`events` state updates.
+  **Affected files:** `src/contexts/SyncContext.tsx` (add ~4-line event listener)
+
 - [x] **Add error state UI for failed operations** 🟢
   *Created ToastProvider context + useToast() hook with showToast(message, type) API. Toasts auto-dismiss after 4s, render via portal, color-coded (success/error/info). Wired into all 7 CalendarView drag-drop/creation handlers. Reusable — other components can adopt trivially.*
   **Status:** 🟢 Complete  
@@ -188,6 +198,17 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-06-24*
 
 ### Code Quality
+- [ ] **Typography overhaul: Bitter for content, Nunito for chrome** 🔴
+  *Replace the unused Platypi font with Bitter (a warm, readable serif Dave enjoys). Split typography into two lanes: Bitter for reading/writing surfaces (editor content, task descriptions, journal entries) and Nunito for UI chrome (sidebar, buttons, nav, headers). JetBrains Mono stays for code blocks.*
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-15 (via Hermes, from Dave)
+  **What needs to happen:**
+  - **a) Swap font imports** — Replace Platypi `@import` in `globals.css` with Bitter. Point `--font-serif` to Bitter.
+  - **b) Apply `font-serif` to content areas** — Editor (`ProseMirror`), task content in list views (`TaskItem`, `EditorTaskItem`), and journal entries.
+  - **c) Keep Nunito for chrome** — Body default stays Nunito. No changes needed to sidebar, buttons, nav, headers, labels.
+  - **d) Remove Platypi dead code** — Already unused throughout the app; just clean up the import and CSS variable.
+  **Affected files:** `globals.css` (import + variable), `Editor.tsx` or ProseMirror CSS, `TaskItem.tsx`, `EditorTaskItem.tsx`
+
 - [ ] **Move constants out of component functions**  
   *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  
   **Status:** 🔴 Not Started
@@ -216,6 +237,44 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🎯 Near‑term (1–3 months)
 
 ### Feature Work
+- [ ] **App icon redesign** 🔴
+  *The current icon (white clipboard + green checkmark on navy blue) has been the same since initial PWA setup. It's clean but generic — every Docket/app icon in Dave's launcher is some variation of a clipboard with a checkmark. Time for something distinct. The icon should reflect a dark-mode native aesthetic (the app is dark-only, `bg-gray-950`) and feel like it belongs on a home screen next to Things, Fantastical, and Obsidian — not like a stock placeholder.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-07-13 (via Hermes, from Dave)
+
+  **What needs to happen:**
+  - **a) New icon design** — Create a new icon that's distinct from the clipboard+checkmark trope. The Docket is a dark-mode task+notes+calendar app. The icon should feel premium, minimal, and recognizable at app-icon sizes (not just a smaller version of a detailed illustration). Consider glyphs that suggest planning, time, or structured thought — not just a checklist.
+  - **b) All 5 icon files** — Generate consistent versions across all required sizes:
+    - `public/icon-192.png` (192×192, PWA)
+    - `public/icon-512.png` (512×512, PWA)
+    - `public/apple-touch-icon.png` (180×180 preferred, Apple)
+    - `public/favicon.png` (32×32 or 64×64, browser tab)
+    - `src/app/favicon.ico` (multi-size ICO, legacy browser support)
+  - **c) Manifest cleanup** — Update `manifest.json`: `theme_color` to `#030712` (matches the dark-only app's viewport themeColor), `background_color` to `#030712` (currently `#ffffff` — a white flash on dark PWA launch). The `name`, `short_name`, and `description` are fine.
+  - **d) Layout metadata** — `src/app/layout.tsx` already references `favicon.png` and `apple-touch-icon.png` in the `icons` metadata. Just replacing the files is sufficient — no code changes needed unless the filenames change.
+  - **e) Maskable icon safety** — The manifest declares `"purpose": "any maskable"`. Ensure the new icon has adequate safe zone padding (the central glyph should fit within ~60% of the canvas) so Android adaptive icon masking doesn't clip it. The current icon likely doesn't — the clipboard fills most of the canvas.
+
+  **Design direction options to explore:**
+  - A single distinctive glyph (stylized "D", an abstract mark, a geometric composition) on a dark background
+  - Something that reads well at 48×48dp (launcher size) — not a detailed illustration
+  - Could incorporate subtle gradients or a glow effect since the app is dark-mode — but must still work as a flat PNG
+  - The green checkmark is the only color accent in the current icon; consider whether to keep it, shift it, or drop it entirely
+
+  **Affected files:**
+  - `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`, `public/favicon.png` — replace
+  - `src/app/favicon.ico` — replace
+  - `public/manifest.json` — update `theme_color` and `background_color`
+  - `src/app/layout.tsx` — no changes needed (already points to correct filenames) unless filenames change
+
+  **Verification:**
+  ```bash
+  # Manifest
+  curl -s https://docket.dcplaskett.com/manifest.json | python3 -m json.tool
+  # Icons
+  curl -sI https://docket.dcplaskett.com/icon-192.png
+  curl -sI https://docket.dcplaskett.com/apple-touch-icon.png
+  # PWA install test on phone — icon should appear correctly in launcher
+  ```
 - [x] **Focus page AzuraCast integration + sound system rework** 🟢  
   *Replaced binary toggles with dropdown selectors. Music: Pentatonic (procedural) + AzuraCast streams (Runtime Loop, Warm Boot). Ambience: Brown Noise, Rain, Snow, Orbit, Off — decoupled from visualization mode. Stream URLs discovered via AzuraCast API.*
   **Status:** 🟢 Complete  

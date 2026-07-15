@@ -37,6 +37,9 @@ export function handleSessionExpired(): void {
     if (redirectingRef) return;
     redirectingRef = true;
     if (typeof window === 'undefined') return;
+    // Guard: already on the login page — don't redirect to self (prevents infinite loop
+    // when providers/components on the login page trigger API calls that return 401).
+    if (window.location.pathname === '/login') return;
     const target = window.location.pathname + window.location.search;
     window.location.href = `/login?redirect=${encodeURIComponent(target)}`;
 }

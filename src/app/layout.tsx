@@ -50,19 +50,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-import { ThemeProvider } from "../components/ThemeProvider";
-
-import { TaskEditProvider } from "../contexts/TaskEditContext";
-import { ToastProvider } from "../contexts/ToastContext";
-import { SyncProvider } from "../contexts/SyncContext";
-import { SoundProvider } from "../contexts/SoundContext";
-import { CommandPalette } from "../components/CommandPalette";
-
-import LayoutWrapper from "../components/v2/LayoutWrapper";
-
-import { SearchDialog } from '@/components/v2/SearchDialog';
-import PwaRegister from '@/components/PwaRegister';
-import FloatingSoundIndicator from '../components/focus/FloatingSoundIndicator';
+import ProvidersWrapper from '@/components/ProvidersWrapper';
 
 export default function RootLayout({
   children,
@@ -74,27 +62,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${platypi.variable} ${nunito.variable} ${jetbrainsMono.variable} antialiased flex h-screen overflow-hidden bg-gray-950 text-gray-100`}
       >
-        <ThemeProvider
-            attribute="class"
-            forcedTheme="dark"
-            enableSystem={false}
-            disableTransitionOnChange
-        >
-<ToastProvider>
-                <SoundProvider>
-                <SyncProvider>
-                <TaskEditProvider>
-                    <PwaRegister />
-                    <CommandPalette />
-                    <LayoutWrapper>
-                        {children}
-                    </LayoutWrapper>
-                    <FloatingSoundIndicator />
-                </TaskEditProvider>
-                </SyncProvider>
-                </SoundProvider>
-            </ToastProvider>
-        </ThemeProvider>
+        <ProvidersWrapper>
+          {children}
+        </ProvidersWrapper>
       </body>
     </html>
   );
