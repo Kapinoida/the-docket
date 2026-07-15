@@ -78,7 +78,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       <div className="flex-1 min-w-0">
           <NodeViewContent 
             className={`
-                outline-none text-sm leading-relaxed min-h-[1.5em] py-0.5
+                outline-none text-sm leading-relaxed min-h-[1.5em] py-0.5 font-serif
                 prose-p:m-0 prose-p:leading-relaxed
                 ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
             `} 
