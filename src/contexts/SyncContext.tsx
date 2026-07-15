@@ -104,6 +104,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         };
     }, [fetchData]);
 
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') {
+                fetchData(true);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [fetchData]);
+
     const refetch = useCallback(() => {
         return fetchData(false);
     }, [fetchData]);

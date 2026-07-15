@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-07-15] – Cross-device auto-refresh via visibility API
+- **What changed:**
+  - **`src/contexts/SyncContext.tsx`:** Added a `visibilitychange` event listener that triggers `fetchData(true)` (delta mode — only tasks changed since last poll) when `document.visibilityState === 'visible'`. This ensures task lists and calendar views auto-update when the user switches back to the Docket tab from another app or device, without waiting for the next 30s poll tick.
+- **Why:**
+  ROADMAP "Cross-device auto-refresh via visibility API" — Dave switches between phone and laptop throughout the day. Previously, tasks created/completed on one device wouldn't appear on the other until the next 30s poll interval. Now they sync within the fetch round-trip (~200-500ms) as soon as the tab regains focus.
+- **Affected areas:** `src/contexts/SyncContext.tsx` (~5-line effect added).
+- **Migration needed? No.** No DB changes, no API changes, no env vars. The existing delta sync (`/api/v2/tasks?since=<ISO>`) and `updated_at = NOW()` on all task mutations already handle this.
+- **Testing:** All 140 tests pass. TypeScript clean (15 pre-existing errors — none new).
+
+---
+
 ## [2026-07-13] – Global sound context + persistent audio across pages + floating indicator
 - **What changed:**
   - **`src/contexts/SoundContext.tsx` (new):** Global React context that owns the audio lifecycle. Internally uses `useAmbience` and manages `ambienceMode`, `musicSource`, and `isPlaying` state. On mount, restores saved selections from localStorage but does NOT auto-play (user must explicitly select). On selection, starts audio immediately — no longer gated by `timer.isActive`. Persists selections to the same localStorage key as `useFocusPreferences`. **No cleanup on React unmount** — audio persists across SPA page navigation. Cleanup only via `beforeunload` event listener (tab close). Exports `SoundProvider`, `useSound()` hook with `{ ambienceMode, musicSource, setAmbienceMode, setMusicSource, isPlaying, stopAll }`.

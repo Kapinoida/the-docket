@@ -177,15 +177,15 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-06-24*  
   **Context:** Network saturation and battery drain on mobile when multiple views are mounted.
 
-- [ ] **Cross-device auto-refresh via visibility API** 🔴
+- [x] **Cross-device auto-refresh via visibility API** 🟢
   *When the browser tab regains focus (user switches back from phone to laptop), trigger an immediate delta fetch so task lists auto-update without waiting for the next 30s poll tick. The SyncContext already handles polling, delta merging, and auto-re-rendering of subscribing views — the only missing piece is the `visibilitychange` event listener.*
-  **Status:** 🔴 Not Started  
-  **Reported:** 2026-07-15 (via Hermes, from Dave)  
-  **What needs to happen:**
-  - **a) Add `visibilitychange` listener to SyncContext** — When `document.visibilityState === 'visible'`, call `fetchData(true)` (delta mode — only fetch tasks changed since last poll). This is ~4 lines in `src/contexts/SyncContext.tsx`.
-  - **b) Verify existing delta endpoint works cross-device** — The `/api/v2/tasks?since=<ISO>` endpoint already filters by `updated_at > $1`. Ensure `updated_at` is bumped on all task mutations (it already is — `updateTask` sets `updated_at = NOW()`). No server changes needed.
-  - **c) No banner or user action needed** — Unlike the editor's protective "page has been updated" banner (which guards unsaved drafts), task lists and calendar views have no unsaved state. Views re-render automatically when SyncContext's `tasks`/`events` state updates.
-  **Affected files:** `src/contexts/SyncContext.tsx` (add ~4-line event listener)
+  **Status:** 🟢 Complete  
+  **Completed:** 2026-07-15  
+  **What happened:**
+  - **a)** Added `visibilitychange` listener to `SyncContext.tsx` — calls `fetchData(true)` when tab becomes visible. ~5-line effect added alongside the existing CustomEvent listener.
+  - **b)** Delta endpoint verified — `/api/v2/tasks?since=<ISO>` already filters by `updated_at > $1`, and `updateTask` sets `updated_at = NOW()` on all mutations. No server changes needed.
+  - **c)** No banner or user action needed — views re-render automatically from SyncContext state.
+  **Affected files:** `src/contexts/SyncContext.tsx`
 
 - [x] **Add error state UI for failed operations** 🟢
   *Created ToastProvider context + useToast() hook with showToast(message, type) API. Toasts auto-dismiss after 4s, render via portal, color-coded (success/error/info). Wired into all 7 CalendarView drag-drop/creation handlers. Reusable — other components can adopt trivially.*
