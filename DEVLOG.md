@@ -10,20 +10,6 @@ Use this format:
 
 ---
 
-## [2026-07-15] – Typography overhaul: Bitter for content, Nunito for chrome
-- **What changed:**
-  - **`src/app/globals.css`:** Replaced Platypi `@import` with Bitter (`ital,wght@0,100..900;1,100..900`). Renamed `--font-platypi` → `--font-bitter` (with `'Georgia', 'Times New Roman'` fallbacks). Updated `@theme` mapping `--font-serif: var(--font-bitter)`. Changed `.ProseMirror` from `font-family: inherit` to `font-family: var(--font-serif)` — this applies Bitter to both the page editor (`Editor.tsx`) and the journal editor (`DailyJournalEditor.tsx`) since they both use the `.ProseMirror` class.
-  - **`src/app/layout.tsx`:** Renamed `platypi` stub object to `bitter` (`variable: "--font-bitter"`), updated CSS variable class on `<body>`.
-  - **`src/components/v2/TaskItem.tsx`:** Added `font-serif` class to both the editable input and the display `<div>` for task content in list views.
-  - **`src/components/v2/EditorTaskItem.tsx`:** Added `font-serif` class to `NodeViewContent` for inline task content within the editor.
-- **Why:**
-  ROADMAP "Typography overhaul: Bitter for content, Nunito for chrome". Platypi was dead code — declared but never used anywhere in the UI. Bitter is a warm, readable serif Dave wanted for reading/writing surfaces (editor content, task descriptions, journal entries). Nunito remains the body default for all UI chrome (sidebar, buttons, nav, headers, labels). JetBrains Mono unchanged for code/mono.
-- **Affected areas:** `src/app/globals.css`, `src/app/layout.tsx`, `src/components/v2/TaskItem.tsx`, `src/components/v2/EditorTaskItem.tsx`.
-- **Migration needed? No.** (Purely CSS class changes, no DB or API changes.)
-- **Testing:** All 140 tests pass. TypeScript clean (15 pre-existing errors — none new).
-
----
-
 ## [2026-07-15] – Cross-device auto-refresh via visibility API
 - **What changed:**
   - **`src/contexts/SyncContext.tsx`:** Added a `visibilitychange` event listener that triggers `fetchData(true)` (delta mode — only tasks changed since last poll) when `document.visibilityState === 'visible'`. This ensures task lists and calendar views auto-update when the user switches back to the Docket tab from another app or device, without waiting for the next 30s poll tick.

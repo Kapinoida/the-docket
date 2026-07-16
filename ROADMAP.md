@@ -7,14 +7,6 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
-- [x] **Typography overhaul: Bitter for content, Nunito for chrome** 🟢
-  Replaced the unused Platypi font with Bitter (a warm, readable serif). Split typography into two lanes: Bitter for reading/writing surfaces (editor content via `.ProseMirror`, task content in `TaskItem` and `EditorTaskItem`) and Nunito for UI chrome (sidebar, buttons, nav, headers, labels). JetBrains Mono stays for code blocks. Platypi was dead code — declared but never applied anywhere in the UI. All references removed.
-  *Completed: 2026-07-15*
-
-- [x] **Cross-device auto-refresh via visibility API** 🟢
-  Added a `visibilitychange` event listener to `SyncContext` that triggers an immediate delta fetch when the browser tab regains focus. Tasks/calendar views now auto-update within ~200-500ms of switching back to The Docket, instead of waiting for the next 30s poll tick. Delta endpoint and `updated_at` bumps were already in place — no server changes needed.
-  *Completed: 2026-07-15*
-
 - [x] **Persistent ambient audio across pages + floating sound indicator** 🟢
   Moved audio management from the Focus page into a global `SoundContext` provider at the root layout level. Sounds now play immediately on selection (no timer needed) and persist across SPA page navigation — the provider never unmounts. Added a `FloatingSoundIndicator` component (fixed bottom-left, `z-50`) that appears on all pages when audio is active, showing current ambience + music label with a full dropdown popover for quick controls and an X button to stop all. Fixed a bug where ambience persisted but music stopped on navigation (ambience had no cleanup effect, music did). `SoundContext` reads/restores saved selections from localStorage on mount but does not auto-play; cleanup is handled via `beforeunload` (tab close) only.
   *Completed: 2026-07-13*
@@ -206,16 +198,16 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-06-24*
 
 ### Code Quality
-- [x] **Typography overhaul: Bitter for content, Nunito for chrome** 🟢
+- [ ] **Typography overhaul: Bitter for content, Nunito for chrome** 🔴
   *Replace the unused Platypi font with Bitter (a warm, readable serif Dave enjoys). Split typography into two lanes: Bitter for reading/writing surfaces (editor content, task descriptions, journal entries) and Nunito for UI chrome (sidebar, buttons, nav, headers). JetBrains Mono stays for code blocks.*
-  **Status:** 🟢 Complete  
-  **Completed:** 2026-07-15  
-  **What happened:**
-  - **a)** Swapped Platypi `@import` in `globals.css` for Bitter (`ital,wght@0,100..900;1,100..900`). Renamed `--font-platypi` → `--font-bitter`, updated `@theme` mapping `--font-serif: var(--font-bitter)`.
-  - **b)** Applied `font-serif` to content areas: `.ProseMirror` in `globals.css` (covers both page editor and journal editor), `TaskItem.tsx` content spans, `EditorTaskItem.tsx` `NodeViewContent`.
-  - **c)** Nunito unchanged — body default stays Nunito for all UI chrome. No changes to sidebar, buttons, nav, headers, labels.
-  - **d)** Removed all Platypi dead code — `@import`, CSS variable, and `layout.tsx` stub all replaced/renamed.
-  **Affected files:** `globals.css`, `layout.tsx`, `TaskItem.tsx`, `EditorTaskItem.tsx`
+  **Status:** 🔴 Not Started  
+  **Reported:** 2026-07-15 (via Hermes, from Dave)
+  **What needs to happen:**
+  - **a) Swap font imports** — Replace Platypi `@import` in `globals.css` with Bitter. Point `--font-serif` to Bitter.
+  - **b) Apply `font-serif` to content areas** — Editor (`ProseMirror`), task content in list views (`TaskItem`, `EditorTaskItem`), and journal entries.
+  - **c) Keep Nunito for chrome** — Body default stays Nunito. No changes needed to sidebar, buttons, nav, headers, labels.
+  - **d) Remove Platypi dead code** — Already unused throughout the app; just clean up the import and CSS variable.
+  **Affected files:** `globals.css` (import + variable), `Editor.tsx` or ProseMirror CSS, `TaskItem.tsx`, `EditorTaskItem.tsx`
 
 - [ ] **Move constants out of component functions**  
   *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  
