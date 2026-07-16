@@ -145,13 +145,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   onFocus={() => setIsEditing(true)}
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
-className={`
-                       w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0 font-serif
-                       ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}
-                   `}
+                  className={`
+                      w-full bg-transparent border-none outline-none text-sm leading-relaxed py-0
+                      ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}
+                  `}
               />
           ) : (
-              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words font-serif ${isDone ? 'line-through text-text-muted' : ''}`}>
+              <div className={`text-sm leading-relaxed py-0 text-text-primary break-words ${isDone ? 'line-through text-text-muted' : ''}`}>
                   {task.content}
               </div>
           )}
