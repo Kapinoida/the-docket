@@ -198,16 +198,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-06-24*
 
 ### Code Quality
-- [ ] **Typography overhaul: Bitter for content, Nunito for chrome** 🔴
+- [ ] **Typography overhaul: Bitter for content, Nunito for chrome** 🙅
   *Replace the unused Platypi font with Bitter (a warm, readable serif Dave enjoys). Split typography into two lanes: Bitter for reading/writing surfaces (editor content, task descriptions, journal entries) and Nunito for UI chrome (sidebar, buttons, nav, headers). JetBrains Mono stays for code blocks.*
-  **Status:** 🔴 Not Started  
+  **Status:** 🙅 Won't Fix — tried Bitter, didn't hit as expected. Reverted to original Nunito-everywhere setup. Platypi remains dead code.
   **Reported:** 2026-07-15 (via Hermes, from Dave)
-  **What needs to happen:**
-  - **a) Swap font imports** — Replace Platypi `@import` in `globals.css` with Bitter. Point `--font-serif` to Bitter.
-  - **b) Apply `font-serif` to content areas** — Editor (`ProseMirror`), task content in list views (`TaskItem`, `EditorTaskItem`), and journal entries.
-  - **c) Keep Nunito for chrome** — Body default stays Nunito. No changes needed to sidebar, buttons, nav, headers, labels.
-  - **d) Remove Platypi dead code** — Already unused throughout the app; just clean up the import and CSS variable.
-  **Affected files:** `globals.css` (import + variable), `Editor.tsx` or ProseMirror CSS, `TaskItem.tsx`, `EditorTaskItem.tsx`
+  **Attempted:** 2026-07-15 — implemented and deployed, reverted same day after Dave reviewed.
 
 - [ ] **Move constants out of component functions**  
   *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  

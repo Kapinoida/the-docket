@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-07-16] – Revert typography overhaul (Bitter)
+- **What changed:**
+  Reverted commit `2802294` (Typography overhaul: Bitter for content, Nunito for chrome). Restored Platypi `@import` + `--font-platypi` CSS variable, `.ProseMirror` `font-family: inherit`, and removed `font-serif` classes from `TaskItem.tsx` and `EditorTaskItem.tsx`. All typography is back to Nunito (body default) everywhere.
+- **Why:**
+  Dave reviewed the Bitter serif on content surfaces and didn't like it — "not hitting like I thought it would." Reverted to the original Nunito-everywhere setup. Platypi remains dead code (declared but unused); the ROADMAP item is marked 🙅 Won't Fix.
+- **Affected areas:** Revert touched `globals.css`, `layout.tsx`, `TaskItem.tsx`, `EditorTaskItem.tsx`, `DEVLOG.md`, `ROADMAP.md`.
+- **Migration needed? No.**
+- **Testing:** 140 tests pass. TypeScript clean.
+
+---
+
 ## [2026-07-15] – Cross-device auto-refresh via visibility API
 - **What changed:**
   - **`src/contexts/SyncContext.tsx`:** Added a `visibilitychange` event listener that triggers `fetchData(true)` (delta mode — only tasks changed since last poll) when `document.visibilityState === 'visible'`. This ensures task lists and calendar views auto-update when the user switches back to the Docket tab from another app or device, without waiting for the next 30s poll tick.
