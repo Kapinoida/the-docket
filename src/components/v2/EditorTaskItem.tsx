@@ -121,14 +121,14 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                     )}
                 </div>
              ) : (
-                 /* Implicit Add Button */
-                 <button 
-                    onClick={() => setShowDatePicker(true)}
-                    className="md:opacity-0 md:group-hover:opacity-100 text-text-muted hover:text-text-secondary transition-opacity p-1"
-                    title="Add Due Date"
-                 >
-                     <Calendar size={14} />
-                 </button>
+/* Implicit Add Button */
+                  <button 
+                     onClick={() => setShowDatePicker(true)}
+                     className="md:opacity-0 md:group-hover:opacity-100 opacity-60 text-text-muted hover:text-text-secondary transition-opacity p-1"
+                     title="Add Due Date"
+                  >
+                      <Calendar size={14} />
+                  </button>
              )}
       </div>
 
@@ -136,7 +136,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       <div className="md:opacity-0 md:group-hover:opacity-100 absolute right-0 top-1" contentEditable={false}>
           <button
             onClick={handleEdit}
-            className="p-1 text-text-muted hover:text-blue-500 transition-all bg-white dark:bg-gray-800 rounded shadow-sm border border-gray-200 dark:border-gray-700"
+            className="p-1 text-text-muted hover:text-blue-500 transition-all bg-bg-primary rounded shadow-sm border border-border-default"
             title="Edit Task"
           >
             <Edit2 size={12} />

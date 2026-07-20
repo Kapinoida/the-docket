@@ -25,12 +25,22 @@ import {
   GripHorizontal,
   Download,
   MoreHorizontal,
-  ChevronDown
 } from 'lucide-react';
 
 interface EditorToolbarProps {
   editor: Editor | null;
   pageTitle?: string;
+}
+
+type ToolbarGroup = 'format' | 'headings' | 'lists' | 'blocks' | 'align' | 'insert';
+
+interface ToolbarItem {
+  id: string;
+  icon: any;
+  title: string;
+  group: ToolbarGroup;
+  action: (e: Editor) => void;
+  isActive: (e: Editor) => boolean;
 }
 
 const ToggleButton = ({ onClick, isActive, icon: Icon, title, className = '' }: any) => (
@@ -45,39 +55,59 @@ const ToggleButton = ({ onClick, isActive, icon: Icon, title, className = '' }: 
   </button>
 );
 
-// Primary buttons visible on all screen sizes
-const PRIMARY_ACTIONS = ['bold', 'italic', 'list', 'heading', 'check'];
+const GroupSeparator = () => (
+  <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 flex-shrink-0" />
+);
 
-// All toolbar button definitions
-const TOOLBAR_ITEMS = [
-  { id: 'bold', icon: Bold, title: 'Bold', action: (e: Editor) => e.chain().focus().toggleBold().run(), isActive: (e: Editor) => e.isActive('bold') },
-  { id: 'italic', icon: Italic, title: 'Italic', action: (e: Editor) => e.chain().focus().toggleItalic().run(), isActive: (e: Editor) => e.isActive('italic') },
-  { id: 'strike', icon: Strikethrough, title: 'Strikethrough', action: (e: Editor) => e.chain().focus().toggleStrike().run(), isActive: (e: Editor) => e.isActive('strike') },
-  { id: 'highlight', icon: Highlighter, title: 'Highlight', action: (e: Editor) => e.chain().focus().toggleHighlight().run(), isActive: (e: Editor) => e.isActive('highlight') },
-  { id: 'link', icon: LinkIcon, title: 'Link', action: (e: Editor) => {
-    const previousUrl = e.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
-    if (url === null) return;
-    if (url === '') { e.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
-    e.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-  }, isActive: (e: Editor) => e.isActive('link') },
-  { id: 'heading1', icon: Heading1, title: 'Heading 1', action: (e: Editor) => e.chain().focus().toggleHeading({ level: 1 }).run(), isActive: (e: Editor) => e.isActive('heading', { level: 1 }) },
-  { id: 'heading2', icon: Heading2, title: 'Heading 2', action: (e: Editor) => e.chain().focus().toggleHeading({ level: 2 }).run(), isActive: (e: Editor) => e.isActive('heading', { level: 2 }) },
-  { id: 'list', icon: List, title: 'Bullet List', action: (e: Editor) => e.chain().focus().toggleBulletList().run(), isActive: (e: Editor) => e.isActive('bulletList') },
-  { id: 'orderedList', icon: ListOrdered, title: 'Ordered List', action: (e: Editor) => e.chain().focus().toggleOrderedList().run(), isActive: (e: Editor) => e.isActive('orderedList') },
-  { id: 'check', icon: CheckSquare, title: 'Task List', action: (e: Editor) => e.chain().focus().toggleTaskList().run(), isActive: (e: Editor) => e.isActive('taskList') },
-  { id: 'quote', icon: Quote, title: 'Quote', action: (e: Editor) => e.chain().focus().toggleBlockquote().run(), isActive: (e: Editor) => e.isActive('blockquote') },
-  { id: 'code', icon: Code, title: 'Code Block', action: (e: Editor) => e.chain().focus().toggleCodeBlock().run(), isActive: (e: Editor) => e.isActive('codeBlock') },
-  { id: 'alignLeft', icon: AlignLeft, title: 'Align Left', action: (e: Editor) => e.chain().focus().setTextAlign('left').run(), isActive: (e: Editor) => e.isActive({ textAlign: 'left' }) },
-  { id: 'alignCenter', icon: AlignCenter, title: 'Align Center', action: (e: Editor) => e.chain().focus().setTextAlign('center').run(), isActive: (e: Editor) => e.isActive({ textAlign: 'center' }) },
-  { id: 'alignRight', icon: AlignRight, title: 'Align Right', action: (e: Editor) => e.chain().focus().setTextAlign('right').run(), isActive: (e: Editor) => e.isActive({ textAlign: 'right' }) },
-  { id: 'table', icon: TableIcon, title: 'Insert Table', action: (e: Editor) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => false },
+function exportMarkdown(editor: Editor, pageTitle?: string) {
+  // @ts-expect-error - tiptap-markdown storage is untyped
+  const markdownOutput = editor.storage.markdown.getMarkdown();
+  const blob = new Blob([markdownOutput], { type: 'text/markdown;charset=utf-8' });
+  let title = 'Note';
+  const firstHeadingMatch = markdownOutput.match(/^#\s+(.*)/m);
+  if (firstHeadingMatch && firstHeadingMatch[1]) title = firstHeadingMatch[1].trim();
+  else title = pageTitle || 'Untitled Note';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${title}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Primary buttons IDs visible on all screen sizes
+const PRIMARY_IDS = ['bold', 'italic', 'list', 'heading1', 'check'];
+
+const TOOLBAR_ITEMS: ToolbarItem[] = [
+  { id: 'bold', icon: Bold, title: 'Bold', group: 'format', action: (e) => e.chain().focus().toggleBold().run(), isActive: (e) => e.isActive('bold') },
+  { id: 'italic', icon: Italic, title: 'Italic', group: 'format', action: (e) => e.chain().focus().toggleItalic().run(), isActive: (e) => e.isActive('italic') },
+  { id: 'strike', icon: Strikethrough, title: 'Strikethrough', group: 'format', action: (e) => e.chain().focus().toggleStrike().run(), isActive: (e) => e.isActive('strike') },
+  { id: 'highlight', icon: Highlighter, title: 'Highlight', group: 'format', action: (e) => e.chain().focus().toggleHighlight().run(), isActive: (e) => e.isActive('highlight') },
+  { id: 'heading1', icon: Heading1, title: 'Heading 1', group: 'headings', action: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(), isActive: (e) => e.isActive('heading', { level: 1 }) },
+  { id: 'heading2', icon: Heading2, title: 'Heading 2', group: 'headings', action: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(), isActive: (e) => e.isActive('heading', { level: 2 }) },
+  { id: 'list', icon: List, title: 'Bullet List', group: 'lists', action: (e) => e.chain().focus().toggleBulletList().run(), isActive: (e) => e.isActive('bulletList') },
+  { id: 'orderedList', icon: ListOrdered, title: 'Ordered List', group: 'lists', action: (e) => e.chain().focus().toggleOrderedList().run(), isActive: (e) => e.isActive('orderedList') },
+  { id: 'check', icon: CheckSquare, title: 'Task List', group: 'lists', action: (e) => e.chain().focus().toggleTaskList().run(), isActive: (e) => e.isActive('taskList') },
+  { id: 'quote', icon: Quote, title: 'Quote', group: 'blocks', action: (e) => e.chain().focus().toggleBlockquote().run(), isActive: (e) => e.isActive('blockquote') },
+  { id: 'code', icon: Code, title: 'Code Block', group: 'blocks', action: (e) => e.chain().focus().toggleCodeBlock().run(), isActive: (e) => e.isActive('codeBlock') },
+  { id: 'alignLeft', icon: AlignLeft, title: 'Align Left', group: 'align', action: (e) => e.chain().focus().setTextAlign('left').run(), isActive: (e) => e.isActive({ textAlign: 'left' }) },
+  { id: 'alignCenter', icon: AlignCenter, title: 'Align Center', group: 'align', action: (e) => e.chain().focus().setTextAlign('center').run(), isActive: (e) => e.isActive({ textAlign: 'center' }) },
+  { id: 'alignRight', icon: AlignRight, title: 'Align Right', group: 'align', action: (e) => e.chain().focus().setTextAlign('right').run(), isActive: (e) => e.isActive({ textAlign: 'right' }) },
+  { id: 'table', icon: TableIcon, title: 'Insert Table', group: 'insert', action: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => false },
 ];
+
+const GROUP_ORDER: ToolbarGroup[] = ['format', 'headings', 'lists', 'blocks', 'align', 'insert'];
+
+function itemsByGroup(items: ToolbarItem[]) {
+  return GROUP_ORDER.map(g => ({ group: g, items: items.filter(i => i.group === g) })).filter(g => g.items.length > 0);
+}
 
 export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
   const [showMore, setShowMore] = React.useState(false);
+  const [showLinkInput, setShowLinkInput] = React.useState(false);
+  const [linkUrl, setLinkUrl] = React.useState('');
   const moreRef = React.useRef<HTMLDivElement>(null);
+  const linkInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (!editor) return;
@@ -90,7 +120,6 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
     };
   }, [editor]);
 
-  // Close "More" menu when clicking outside
   React.useEffect(() => {
     if (!showMore) return;
     const handleClick = (e: MouseEvent) => {
@@ -102,14 +131,55 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showMore]);
 
+  React.useEffect(() => {
+    if (showLinkInput && linkInputRef.current) {
+      linkInputRef.current.focus();
+      linkInputRef.current.select();
+    }
+  }, [showLinkInput]);
+
   if (!editor) return null;
 
   const isTableActive = editor.isActive('table');
-  const primaryItems = TOOLBAR_ITEMS.filter(i => PRIMARY_ACTIONS.includes(i.id));
-  const secondaryItems = TOOLBAR_ITEMS.filter(i => !PRIMARY_ACTIONS.includes(i.id));
+  const primaryItems = TOOLBAR_ITEMS.filter(i => PRIMARY_IDS.includes(i.id));
+
+  const handleLinkAction = () => {
+    const previousUrl = editor.getAttributes('link').href || '';
+    setLinkUrl(previousUrl);
+    setShowLinkInput(true);
+  };
+
+  const applyLink = () => {
+    const url = linkUrl.trim();
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    }
+    setShowLinkInput(false);
+    setLinkUrl('');
+  };
+
+  const cancelLink = () => {
+    setShowLinkInput(false);
+    setLinkUrl('');
+    editor.chain().focus().run();
+  };
+
+  // Link item uses a custom action
+  const linkItem: ToolbarItem = {
+    id: 'link',
+    icon: LinkIcon,
+    title: 'Link',
+    group: 'format',
+    action: handleLinkAction,
+    isActive: (e: Editor) => e.isActive('link'),
+  };
+
+  const allItems = [linkItem, ...TOOLBAR_ITEMS.filter(i => i.id !== 'link')];
 
   const TableControls = () => (
-    <div className="flex items-center gap-1 mr-2 pr-2 border-r border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10 rounded px-1">
+    <div className="flex items-center gap-1 mr-2 pr-2 border-r border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/10 rounded px-1 animate-in fade-in slide-in-from-top-1 duration-150">
       <button onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().addColumnBefore().run(); }} className="min-w-[44px] min-h-[44px] p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center" title="Add Column Before">
         <div className="flex items-center"><Plus size={10} /><GripVertical size={14} /></div>
       </button>
@@ -136,7 +206,7 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
     </div>
   );
 
-  const ToolbarButton = ({ item }: { item: typeof TOOLBAR_ITEMS[0] }) => (
+  const ToolbarButton = ({ item }: { item: ToolbarItem }) => (
     <ToggleButton
       onClick={() => item.action(editor)}
       isActive={item.isActive(editor)}
@@ -145,33 +215,56 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
     />
   );
 
+  const renderGrouped = (items: ToolbarItem[]) => {
+    const groups = itemsByGroup(items);
+    return groups.map((g, gi) => (
+      <React.Fragment key={g.group}>
+        {gi > 0 && <GroupSeparator />}
+        {g.items.map(item => <ToolbarButton key={item.id} item={item} />)}
+      </React.Fragment>
+    ));
+  };
+
+  const LinkInput = () => {
+    if (!showLinkInput) return null;
+    return (
+      <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-1">
+        <input
+          ref={linkInputRef}
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelLink(); }
+          }}
+          onBlur={applyLink}
+          placeholder="https://..."
+          className="text-sm px-2 py-1 w-48 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder:text-gray-400"
+        />
+        <button
+          onMouseDown={(e) => { e.preventDefault(); applyLink(); }}
+          className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+        >
+          Apply
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4 flex-wrap">
       {isTableActive && <TableControls />}
 
-      {/* Desktop: all buttons visible */}
+      {showLinkInput && <LinkInput />}
+
+      {/* Desktop: all buttons visible, grouped */}
       <div className="hidden md:flex items-center gap-1 flex-wrap">
-        {TOOLBAR_ITEMS.map(item => (
-          <ToolbarButton key={item.id} item={item} />
-        ))}
-        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+        {renderGrouped(allItems)}
+        <GroupSeparator />
         <ToggleButton onClick={() => editor.chain().focus().undo().run()} isActive={false} icon={Undo} title="Undo" />
         <ToggleButton onClick={() => editor.chain().focus().redo().run()} isActive={false} icon={Redo} title="Redo" />
         <ToggleButton
-          onClick={() => {
-            // @ts-ignore
-            const markdownOutput = editor.storage.markdown.getMarkdown();
-            const blob = new Blob([markdownOutput], { type: 'text/markdown;charset=utf-8' });
-            let title = 'Note';
-            const firstHeadingMatch = markdownOutput.match(/^#\s+(.*)/m);
-            if (firstHeadingMatch && firstHeadingMatch[1]) title = firstHeadingMatch[1].trim();
-            else title = pageTitle || 'Untitled Note';
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${title}.md`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-          }}
+          onClick={() => exportMarkdown(editor, pageTitle)}
           isActive={false}
           icon={Download}
           title="Export as Markdown"
@@ -183,7 +276,7 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
         {primaryItems.map(item => (
           <ToolbarButton key={item.id} item={item} />
         ))}
-        
+        <ToggleButton onClick={() => handleLinkAction()} isActive={editor.isActive('link')} icon={LinkIcon} title="Link" />
         {/* Undo/Redo always visible */}
         <ToggleButton onClick={() => editor.chain().focus().undo().run()} isActive={false} icon={Undo} title="Undo" />
         <ToggleButton onClick={() => editor.chain().focus().redo().run()} isActive={false} icon={Redo} title="Redo" />
@@ -199,26 +292,13 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
           </button>
 
           {showMore && (
-            <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-2 z-50 flex flex-wrap gap-1 max-w-[280px]">
-              {secondaryItems.map(item => (
+            <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-2 z-50 flex flex-wrap gap-1 max-w-[320px] justify-end">
+              {secondaryItems().map(item => (
                 <ToolbarButton key={item.id} item={item} />
               ))}
               <div className="w-full border-t border-gray-100 dark:border-gray-700 my-1" />
               <ToggleButton
-                onClick={() => {
-                  // @ts-ignore
-                  const markdownOutput = editor.storage.markdown.getMarkdown();
-                  const blob = new Blob([markdownOutput], { type: 'text/markdown;charset=utf-8' });
-                  let title = 'Note';
-                  const firstHeadingMatch = markdownOutput.match(/^#\s+(.*)/m);
-                  if (firstHeadingMatch && firstHeadingMatch[1]) title = firstHeadingMatch[1].trim();
-                  else title = pageTitle || 'Untitled Note';
-                  const a = document.createElement('a');
-                  a.href = URL.createObjectURL(blob);
-                  a.download = `${title}.md`;
-                  a.click();
-                  URL.revokeObjectURL(a.href);
-                }}
+                onClick={() => exportMarkdown(editor, pageTitle)}
                 isActive={false}
                 icon={Download}
                 title="Export MD"
@@ -229,4 +309,8 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
       </div>
     </div>
   );
+
+  function secondaryItems() {
+    return TOOLBAR_ITEMS.filter(i => !PRIMARY_IDS.includes(i.id) && i.id !== 'link');
+  }
 };
