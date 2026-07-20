@@ -1,7 +1,7 @@
 // Service worker for The Docket PWA
 // Caches the app shell for fast reloads and basic offline support.
 
-const CACHE_NAME = 'docket-v1';
+const CACHE_NAME = 'docket-v2';
 const SHELL_URLS = [
   '/',
   '/inbox',
@@ -36,13 +36,23 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API calls and Next.js HMR
   const url = new URL(event.request.url);
+
+  // Skip API calls and Next.js static assets (they're content-addressed and immutable)
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_next/')) return;
 
+  // Dynamic page routes (/page/{id}) must always fetch fresh HTML — cached HTML
+  // references stale JS chunk hashes after deploys, hiding code updates.
+  if (url.pathname.startsWith('/page/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // App shell + other routes: stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      // Return cached response, then update cache in background
       const fetchPromise = fetch(event.request)
         .then((response) => {
           if (response.ok) {
