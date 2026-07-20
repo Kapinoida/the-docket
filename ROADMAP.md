@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Page editor overhaul** 🟢
+  Four-area editor polish: (A) Toolbar — visual grouping with separators, inline URL input replacing `window.prompt()`, deduplicated Markdown export, mobile popup repositioned, table controls fade transition. (B) Drag handle & block type switcher — scroll listener to hide on scroll, clears position on drag end, multi-fallback `posAtCoords` projection, aria accessibility attributes, `BlockTypePopover` now portals to `document.body` with viewport boundary detection + active state indicator + Escape dismissal, fixed subpage conversion bug. (C) Padding & spacing — reduced `pb-[80vh]`→`pb-[40vh]`, removed redundant wrapper padding, added focus-visible ring, fixed mobile-invisible date button, fixed edit button background clash. (D) Slash command — renamed `SlashCommand.ts`→`.tsx` with JSX, added groupings/descriptions/types, replaced image URL prompt with file picker upload, `allowSpaces: true`, fixed Toggle Block icon, added keyboard shortcut hints.
+  *Completed: 2026-07-20*
+
 - [x] **Persistent ambient audio across pages + floating sound indicator** 🟢
   Moved audio management from the Focus page into a global `SoundContext` provider at the root layout level. Sounds now play immediately on selection (no timer needed) and persist across SPA page navigation — the provider never unmounts. Added a `FloatingSoundIndicator` component (fixed bottom-left, `z-50`) that appears on all pages when audio is active, showing current ambience + music label with a full dropdown popover for quick controls and an X button to stop all. Fixed a bug where ambience persisted but music stopped on navigation (ambience had no cleanup effect, music did). `SoundContext` reads/restores saved selections from localStorage on mount but does not auto-play; cleanup is handled via `beforeunload` (tab close) only.
   *Completed: 2026-07-13*
@@ -131,10 +135,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   
   **Affected files (likely):** `CalendarView.tsx` (day grid rendering, HOUR_START/END, scroll container, drag handlers), `UnscheduledTaskPanel.tsx` (sidebar scroll sync, drop target for unschedule), `DatePickerPopover.tsx` (duration/end-time UI), `TaskItem.tsx` / `EditorTaskItem.tsx` (all-day badge), `src/types/index.ts` (all-day flag, optional end_time on Task), `src/lib/db.ts` (persist end_time), API routes, a migration for the new column.
 
-- [ ] **Page editor overhaul** 🔴  
+- [x] **Page editor overhaul** 🔴 → 🟢  
   *The TipTap editor is functional but needs polish across several surfaces. Dave wants a general tightening of the editing experience.*  
-  **Status:** 🔴 Not Started  
-  **Reported:** 2026-07-09 (via Hermes, from Dave)
+  **Status:** 🟢 Complete  
+  **Reported:** 2026-07-09 (via Hermes, from Dave)  
+  *Completed: 2026-07-20*
   
   **a) Toolbar cleanup** — BUG-013 (double-click required for toolbar buttons) is the most visible issue — all buttons need `onMouseDown` + `preventDefault()` instead of `onClick`. Beyond that: button sizing/hit targets, icon clarity, responsive behavior (mobile toolbar is cramped), and the table controls strip that appears/disappears awkwardly.
   

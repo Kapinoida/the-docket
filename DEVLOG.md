@@ -10,6 +10,60 @@ Use this format:
 
 ---
 
+## [2026-07-20] – Page editor overhaul
+- **What changed:**
+  Four-area editor polish covering toolbar, drag handle, block type switcher, slash commands, and padding/spacing:
+
+  **A) Toolbar cleanup (`EditorToolbar.tsx`):**
+  - Added visual grouping with separators between format/headings/lists/blocks/align/insert groups
+  - Replaced `window.prompt()` URL link with inline URL input (`LinkInput` component with Apply button, Escape to cancel, Enter to apply)
+  - Extracted duplicated Markdown export logic into shared `exportMarkdown()` helper (was duplicated verbatim in desktop toolbar + mobile "More" popup)
+  - Fixed mobile "More" popup positioning from `left-0` to `right-0` (extends leftward, less likely to overflow)
+  - Increased mobile popup max width from `280px` to `320px`
+  - Added link button to mobile primary actions (was desktop-only before)
+  - Added `animate-in fade-in slide-in-from-top-1 duration-150` transition to `TableControls` strip (was abrupt appear/disappear)
+  - Changed `@ts-ignore` to `@ts-expect-error` for tiptap-markdown storage access
+
+  **B) Block drag handle & type switcher (`GlobalDragHandle.tsx`, `BlockTypePopover.tsx`):**
+  - Added scroll event listener (`capture: true`) to hide handle during scroll (prevents stale viewport positioning)
+  - Clear handle position on drag end (prevents lingering grip icon after drop)
+  - Improved `posAtCoords` reliability: try `event.clientX` directly first, then center projection (original behavior), then 25% and 75% horizontal fallbacks
+  - Added `role="toolbar"`, `aria-label`, `aria-haspopup`, `aria-expanded` accessibility attributes to drag handle and More button
+  - Blocked type popover now shows active state indicator (blue highlight + checkmark) via `currentType` prop
+  - Added Escape key dismissal to `BlockTypePopover`
+  - Changed `BlockTypePopover` from `absolute` to `fixed` + `createPortal` to `document.body` (prevents clipping by `overflow-hidden` parents)
+  - Added viewport boundary detection (flips popover above/below, shifts left/right if overflow)
+  - Added click-outside-to-close safety net to `BlockTypePopover`
+  - Fixed subpage conversion in `handleBlockTypeSelect`: now properly deletes the original block range before inserting the page link (was leaving the original block behind — known bug noted in comment)
+  - Added `getCurrentBlockType()` helper to detect current block type for active state in popover
+
+  **C) Editor padding & spacing (`Editor.tsx`, `EditorTaskItem.tsx`):**
+  - Reduced `.ProseMirror` bottom padding from `pb-[80vh]` to `pb-[40vh]` (still provides scroll anchor space without wasting half the viewport)
+  - Removed redundant `py-8` from outer wrapper (the editor itself has `p-4 md:p-8`, the compounding created excessive top spacing)
+  - Added `focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:ring-inset` focus ring to `.ProseMirror` (was `focus:outline-none` with no visual indicator)
+  - Fixed mobile-invisible date button in `EditorTaskItem.tsx`: added `opacity-60` base for touch devices (was `md:opacity-0 md:group-hover:opacity-100` with no touch equivalent)
+  - Fixed edit button background clash: changed hardcoded `bg-white dark:bg-gray-800` to theme-aware `bg-bg-primary` and `border-gray-200 dark:border-gray-700` to `border-border-default` (was clashing with `bg-purple-50/50` selection highlight)
+
+  **D) Slash command menu (`SlashCommand.tsx` [renamed from `.ts`], `SlashCommandList.tsx`):**
+  - Renamed `SlashCommand.ts` → `SlashCommand.tsx` and converted `React.createElement` calls to JSX for readability
+  - Added `SlashCommandItem` and `CommandGroup` TypeScript types (was `any` throughout)
+  - Added groupings with labels: Basic blocks / Lists / Advanced / Media (rendered as uppercase section headers in the popup)
+  - Added descriptions to all 13 command items (was icon + title only)
+  - Replaced `window.prompt("Image URL")` with file picker for image upload (triggers `<input type="file" accept="image/*">` → uploads to `/api/v2/upload` → inserts image — same flow as drag/paste)
+  - Changed search filter from `startsWith` to `includes` for more forgiving matching
+  - Set `allowSpaces: true` on slash command suggestion (was default `false`, so typing a space closed the menu)
+  - Fixed Toggle Block icon from `ChevronDown` to `ChevronRight` (matches `CollapsibleBlockExtension`'s icon)
+  - Added keyboard shortcut hints at bottom of slash command popup (↑↓ navigate, ↵ select, esc dismiss)
+  - Exported `GROUP_LABELS` and `CommandListItems` from `SlashCommand.tsx` for reuse in `SlashCommandList.tsx`
+
+- **Why:**
+  ROADMAP "Page editor overhaul" (Immediate section). Dave wanted a general tightening of the editing experience across the toolbar, block drag handle, editor spacing, and slash command menu. BUG-013 (double-click toolbar buttons) was already fixed; this addresses the remaining polish items.
+- **Affected areas:** `src/components/v2/editor/Editor.tsx`, `src/components/v2/editor/EditorToolbar.tsx`, `src/components/v2/editor/GlobalDragHandle.tsx`, `src/components/v2/editor/SlashCommandList.tsx`, `src/components/v2/editor/extensions/SlashCommand.tsx` (renamed from `.ts`), `src/components/v2/BlockTypePopover.tsx`, `src/components/v2/EditorTaskItem.tsx`.
+- **Migration needed? No.** No DB, API, or type changes. Pure frontend polish.
+- **Testing:** All 140 tests pass. TypeScript clean (15 pre-existing errors — none new). ESLint clean (no new errors beyond pre-existing `no-explicit-any` TipTap patterns).
+
+---
+
 ## [2026-07-16] – Revert typography overhaul (Bitter)
 - **What changed:**
   Reverted commit `2802294` (Typography overhaul: Bitter for content, Nunito for chrome). Restored Platypi `@import` + `--font-platypi` CSS variable, `.ProseMirror` `font-family: inherit`, and removed `font-serif` classes from `TaskItem.tsx` and `EditorTaskItem.tsx`. All typography is back to Nunito (body default) everywhere.

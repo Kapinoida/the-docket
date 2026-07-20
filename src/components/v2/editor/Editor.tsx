@@ -161,7 +161,7 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-lg max-w-none focus:outline-none min-h-[50vh] p-4 md:p-8 pb-[80vh]',
+        class: 'prose prose-lg max-w-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:ring-inset min-h-[50vh] p-4 md:p-8 pb-[40vh]',
       },
       handleDrop: (view, event, slice, moved) => {
         // 1. Handle File Uploads (Images)
@@ -458,7 +458,7 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8">
+    <div className="max-w-6xl mx-auto">
         {hasNewerVersion && (
             <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex items-center justify-between text-amber-800 dark:text-amber-200">
                 <div className="flex items-center gap-2">
