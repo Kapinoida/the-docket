@@ -23,7 +23,6 @@ import {
   Plus, 
   GripVertical, 
   GripHorizontal,
-  Download,
   MoreHorizontal,
 } from 'lucide-react';
 
@@ -59,7 +58,7 @@ const GroupSeparator = () => (
   <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 flex-shrink-0" />
 );
 
-function exportMarkdown(editor: Editor, pageTitle?: string) {
+export function exportMarkdown(editor: Editor, pageTitle?: string) {
   // @ts-expect-error - tiptap-markdown storage is untyped
   const markdownOutput = editor.storage.markdown.getMarkdown();
   const blob = new Blob([markdownOutput], { type: 'text/markdown;charset=utf-8' });
@@ -252,7 +251,7 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
   };
 
   return (
-    <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4 flex-wrap">
+    <div className="flex items-center gap-1 flex-wrap">
       {isTableActive && <TableControls />}
 
       {showLinkInput && <LinkInput />}
@@ -263,12 +262,6 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
         <GroupSeparator />
         <ToggleButton onClick={() => editor.chain().focus().undo().run()} isActive={false} icon={Undo} title="Undo" />
         <ToggleButton onClick={() => editor.chain().focus().redo().run()} isActive={false} icon={Redo} title="Redo" />
-        <ToggleButton
-          onClick={() => exportMarkdown(editor, pageTitle)}
-          isActive={false}
-          icon={Download}
-          title="Export as Markdown"
-        />
       </div>
 
       {/* Mobile: primary buttons + "More" dropdown */}
@@ -296,13 +289,6 @@ export const EditorToolbar = ({ editor, pageTitle }: EditorToolbarProps) => {
               {secondaryItems().map(item => (
                 <ToolbarButton key={item.id} item={item} />
               ))}
-              <div className="w-full border-t border-gray-100 dark:border-gray-700 my-1" />
-              <ToggleButton
-                onClick={() => exportMarkdown(editor, pageTitle)}
-                isActive={false}
-                icon={Download}
-                title="Export MD"
-              />
             </div>
           )}
         </div>

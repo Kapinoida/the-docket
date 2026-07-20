@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput } from 'lucide-react';
+import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput, Download, RefreshCw, CheckSquare } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, Task } from '../../../types';
 
@@ -35,6 +35,20 @@ export default function PageView() {
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const exportRef = useRef<(() => void) | null>(null);
+
+  const handleSaveStateChange = (saving: boolean, saved: Date | null) => {
+    setIsSaving(saving);
+    setLastSaved(saved);
+  };
+
+  const handleExportReady = (fn: () => void) => {
+    exportRef.current = fn;
+  };
+
+  const handleExport = () => exportRef.current?.();
 
   useEffect(() => {
     if (id) {
@@ -277,14 +291,31 @@ export default function PageView() {
 
             {/* Actions */}
             <div className="flex items-center gap-1">
-            <button 
+            {/* Save indicator */}
+            <div className="flex items-center mr-1 h-6 min-w-[24px] justify-end" title={lastSaved ? `Last saved at ${lastSaved.toLocaleTimeString()}` : 'Unsaved'}>
+                {isSaving ? (
+                    <RefreshCw size={16} className="text-blue-500 animate-spin" />
+                ) : lastSaved ? (
+                     <CheckSquare size={16} className="text-green-500/50" />
+                ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+                )}
+            </div>
+            <button
+                onClick={handleExport}
+                className="p-2 text-text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                title="Export as Markdown"
+            >
+                <Download size={18} />
+            </button>
+            <button
                 onClick={() => setShowMoveModal(true)}
                 className="p-2 text-text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 title="Move Page"
             >
                 <FolderInput size={18} />
             </button>
-            <button 
+            <button
                 onClick={() => setShowDeleteModal(true)}
                 className="p-2 text-text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 title="Delete Page"
@@ -360,11 +391,13 @@ export default function PageView() {
         </div>
       </div>
       
-      <V2Editor 
-          pageId={page.id} 
+      <V2Editor
+          pageId={page.id}
           pageTitle={page.title}
-          initialContent={page.content} 
+          initialContent={page.content}
           initialUpdatedAt={page.updated_at}
+          onSaveStateChange={handleSaveStateChange}
+          onExportReady={handleExportReady}
       />
 
 

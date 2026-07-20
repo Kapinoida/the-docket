@@ -19,7 +19,9 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
     const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
     const [hoveredNodePos, setHoveredNodePos] = useState<number | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
     const handleContainerRef = useRef<HTMLDivElement>(null);
+    const moreButtonRef = useRef<HTMLButtonElement>(null);
     const lastNodePosRef = useRef<number | null>(null);
 
     const hideHandle = useCallback(() => {
@@ -114,7 +116,7 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
                 return; // Keep last valid position instead of flickering
             }
 
-            const gutterLeft = editorRect.left - 24;
+            const gutterLeft = Math.max(8, editorRect.left - 24);
 
             setPosition({
                 top: resolved.top - 4,
@@ -263,7 +265,14 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
 
             <div className="relative">
                 <button
-                    onClick={() => setMenuOpen(!menuOpen)}
+                    ref={moreButtonRef}
+                    onClick={() => {
+                        if (moreButtonRef.current) {
+                            const rect = moreButtonRef.current.getBoundingClientRect();
+                            setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+                        }
+                        setMenuOpen(!menuOpen);
+                    }}
                     className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 ${menuOpen ? 'bg-gray-200 dark:bg-gray-700 text-gray-600' : ''}`}
                     aria-haspopup="true"
                     aria-expanded={menuOpen}
@@ -272,11 +281,11 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
                     <MoreHorizontal size={16} />
                 </button>
 
-                {menuOpen && (
+                {menuOpen && popoverPos && (
                     <BlockTypePopover
                         onSelect={handleBlockTypeSelect}
                         onClose={() => setMenuOpen(false)}
-                        position={{ top: 25, left: 0 }}
+                        position={popoverPos}
                         currentType={getCurrentBlockType(editor, hoveredNodePos)}
                     />
                 )}

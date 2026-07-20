@@ -22,7 +22,7 @@ import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
 import { Page } from '../../../types';
 import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal, RefreshCw, AlertTriangle } from 'lucide-react';
-import { EditorToolbar } from './EditorToolbar';
+import { EditorToolbar, exportMarkdown } from './EditorToolbar';
 import { GlobalDragHandle, dragStore } from './GlobalDragHandle';
 
 const lowlight = createLowlight(common);
@@ -32,9 +32,11 @@ interface EditorProps {
   pageTitle?: string;
   initialContent: any;
   initialUpdatedAt: Date;
+  onSaveStateChange?: (isSaving: boolean, lastSaved: Date | null) => void;
+  onExportReady?: (exportFn: () => void) => void;
 }
 
-export default function V2Editor({ pageId, pageTitle, initialContent, initialUpdatedAt }: EditorProps) {
+export default function V2Editor({ pageId, pageTitle, initialContent, initialUpdatedAt, onSaveStateChange, onExportReady }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(initialUpdatedAt ? new Date(initialUpdatedAt) : null);
   
@@ -413,6 +415,17 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
     };
   }, []);
 
+  // Notify parent of save state changes
+  useEffect(() => {
+    onSaveStateChange?.(isSaving, lastSaved);
+  }, [isSaving, lastSaved, onSaveStateChange]);
+
+  // Register export function for parent to call
+  useEffect(() => {
+    if (!editor || !onExportReady) return;
+    onExportReady(() => exportMarkdown(editor, pageTitle));
+  }, [editor, onExportReady, pageTitle]);
+
   const handleSave = (content: any) => {
     if (!pageId) return;
 
@@ -475,21 +488,8 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
             </div>
         )}
 
-        <div className="mb-4 flex items-center justify-between text-sm text-text-muted pb-2 border-b border-border-default">
-             {/* Toolbar container */}
-             <div className="flex-1">
-                 <EditorToolbar editor={editor} pageTitle={pageTitle} />
-             </div>
-            
-            <div className="flex items-center gap-2 ml-4 self-start mt-1 h-6 min-w-[24px] justify-end" title={lastSaved ? `Last saved at ${lastSaved.toLocaleTimeString()}` : 'Unsaved'}>
-                {isSaving ? (
-                    <RefreshCw size={16} className="text-blue-500 animate-spin" />
-                ) : lastSaved ? (
-                     <CheckSquare size={16} className="text-green-500/50" />
-                ) : (
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
-                )}
-            </div>
+<div className="mb-4 pb-2 border-b border-border-default">
+             <EditorToolbar editor={editor} pageTitle={pageTitle} />
         </div>
 
       <EditorContent editor={editor} />
