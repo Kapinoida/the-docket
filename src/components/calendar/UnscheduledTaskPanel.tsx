@@ -21,6 +21,7 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
   const [quickAddDate, setQuickAddDate] = useState<'today' | 'tomorrow' | 'none'>('today');
   const [showScheduled, setShowScheduled] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { openTaskEdit } = useTaskEdit();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +83,34 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
     e.dataTransfer.setData('application/task-id', String(task.id));
   };
 
+  // Drop-to-unschedule: clear the due date of a dragged task
+  const handleUnscheduleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    let taskId: number | null = null;
+    const dropData = e.dataTransfer.getData('text/plain');
+    const match = dropData.match(/^task-(\d+)$/);
+    if (match) {
+      taskId = parseInt(match[1]);
+    } else {
+      const appData = e.dataTransfer.getData('application/task-id');
+      if (appData) taskId = parseInt(appData);
+    }
+    if (taskId === null) return;
+    updateLocalTask(taskId, { due_date: null });
+    try {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_date: null }),
+      });
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
+    } catch (err) {
+      if (err instanceof AuthError) { return; }
+      console.error('Failed to unschedule task', err);
+    }
+  };
+
 const handleTaskClick = (task: Task) => {
     openTaskEdit(task);
   };
@@ -119,7 +148,12 @@ const handleTaskClick = (task: Task) => {
   if (!isOpen) return null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className={`flex flex-col h-full transition-colors ${isDragOver ? 'ring-2 ring-red-400 ring-inset bg-red-50/50 dark:bg-red-900/10' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={handleUnscheduleDrop}
+    >
       {/* Quick Add */}
       <div className="px-3 pt-3 pb-2 border-b border-border-default">
         <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
