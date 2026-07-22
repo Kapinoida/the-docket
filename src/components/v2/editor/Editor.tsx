@@ -163,7 +163,7 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-lg max-w-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:ring-inset min-h-[50vh] p-4 md:p-8 pb-[40vh]',
+        class: 'prose prose-lg max-w-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:ring-inset min-h-[50vh] p-4 md:p-8 pl-12 md:pl-14 pb-[40vh]',
       },
       handleDrop: (view, event, slice, moved) => {
         // 1. Handle File Uploads (Images)
