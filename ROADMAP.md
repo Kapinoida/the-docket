@@ -7,6 +7,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Calendar Day View UX overhaul (Phase 1: 6 of 7 items)** 🟡
+  Six of the seven interconnected day view improvements shipped. (a) Full-screen scrollable day container — DayView now scrolls internally (`max-h: calc(100vh - 200/220px)`) instead of pushing whole-page scroll; sidebar scrolls independently. (b) Truncate off-hours — defaults to 6 AM–10 PM with a "24 hours" toggle pill (shows "{n} hidden" badge when clipping items); added `gridYToMinutes`/`minutesToGridY` helpers and fixed click/drop/touch math + current-time indicator to account for non-zero `HOUR_START`. (c) All-day section polish — dedicated "All-day" panel with section label, unified event/task pill cards, and "+N more" collapse/expand. (e) Default to today — calendar always opens to `new Date()`; removed `cal_current_date` localStorage read + persistence. (f) Drag visualization — live 15-min snap ghost (dashed indigo line + time label) renders during `onDragOver` and touch-move; clears on drop/end/leave. (g) Drag to unschedule — floating "Drop here to remove date" zone (fixed bottom-center, `z-50`) on both mobile + desktop that PATCHes `due_date: null`; the desktop `UnscheduledTaskPanel` sidebar also accepts drops with a red ring hover state.
+  **Item (d) Time-blocking / `end_time` for tasks: DEFERRED** — largest piece, touches DB schema (migration), `Task` type, both API task handlers, `db.ts` `updateTask`, and a new datepicker duration/end-time UI. Will be tackled as a follow-up commit/PR.
+  *Completed: 2026-07-22 (Phase 1)*
+
 - [x] **Page editor overhaul** 🟢
   Four-area editor polish: (A) Toolbar — visual grouping with separators, inline URL input replacing `window.prompt()`, deduplicated Markdown export, mobile popup repositioned, table controls fade transition. (B) Drag handle & block type switcher — scroll listener to hide on scroll, clears position on drag end, multi-fallback `posAtCoords` projection, aria accessibility attributes, `BlockTypePopover` now portals to `document.body` with viewport boundary detection + active state indicator + Escape dismissal, fixed subpage conversion bug. (C) Padding & spacing — reduced `pb-[80vh]`→`pb-[40vh]`, removed redundant wrapper padding, added focus-visible ring, fixed mobile-invisible date button, fixed edit button background clash. (D) Slash command — renamed `SlashCommand.ts`→`.tsx` with JSX, added groupings/descriptions/types, replaced image URL prompt with file picker upload, `allowSpaces: true`, fixed Toggle Block icon, added keyboard shortcut hints.
   *Completed: 2026-07-20*
@@ -114,26 +119,27 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started  
   **Context:** Marked as TODO in codebase; users need multiple calendar sources.
 
-- [ ] **Calendar Day View UX overhaul** 🔴  
+- [~] **Calendar Day View UX overhaul** 🟡  
   *Dave wants the day view to be a proper time-blocking tool, not just a read-only grid. Several interconnected improvements:*  
-  **Status:** 🔴 Not Started  
+  **Status:** 🟡 Phase 1 complete — 6 of 7 items (a, b, c, e, f, g) shipped 2026-07-22. Item (d) time-blocking deferred.
   **Reported:** 2026-07-09 (via Hermes, from Dave)
   
-  **a) Full-screen scrollable day container** — Confine the day grid to a container that never exceeds viewport height. The time grid scrolls internally. This also means the tasks sidebar (UnscheduledTaskPanel) follows the same scroll container — nothing on the calendar page should be taller than the screen.
+  **a) Full-screen scrollable day container** ✅ — Day grid wraps in `overflow-y-auto` (`max-h: calc(100vh - 200/220px)`); grid uses `minHeight` to preserve absolute positioning; `PullToRefresh` `max-h-[60vh]` removed for day view; sidebar scrolls independently at the same max-height.
   
-  **b) Truncate off-hours** — Hide or collapse early AM (12am–6am) and late PM (10pm–12am) hours by default. These are rarely used for task scheduling and waste vertical space. `HOUR_START` / `HOUR_END` constants already exist in CalendarView — make them configurable or smarter about which hours to render. Could be a collapsible "show all hours" toggle.
+  **b) Truncate off-hours** ✅ — Defaults to 6 AM–10 PM; "24 hours" toggle pill (with "{n} hidden" amber badge); `gridYToMinutes`/`minutesToGridY` helpers handle the non-zero `HOUR_START`; click/drop/touch math and current-time indicator fixed accordingly.
   
-  **c) All-day events & tasks** — Add an "all day" section at the top of the day view (like Google Calendar / Apple Calendar). Tasks/events marked as all-day don't occupy the time grid. This already has a partial mention under "Rich calendar drag & resize" (Near-term) but needs its own focused implementation.
+  **c) All-day events & tasks** ✅ — Polished as a dedicated "All-day" panel (rounded border, "ALL-DAY" label, unified pill cards for events + tasks, "+N more" collapse/expand).
   
-  **d) Time-blocking for tasks** — Currently tasks have a single `due_date` timestamp. Add the ability to set a duration or end time so a task occupies a block (e.g., "Work on deck — 10:00 AM to 12:00 PM"). This turns tasks into time-blocked commitments rather than point-in-time deadlines. Requires: UI for setting duration/end time in DatePickerPopover, rendering the block span in DayView, persistence of end time in the DB.
+  **d) Time-blocking for tasks** 🔴 — Currently tasks have a single `due_date` timestamp. Add the ability to set a duration or end time so a task occupies a block (e.g., "Work on deck — 10:00 AM to 12:00 PM"). This turns tasks into time-blocked commitments rather than point-in-time deadlines. Requires: UI for setting duration/end time in DatePickerPopover, rendering the block span in DayView, persistence of end time in the DB. **DEFERRED — will be tackled as a follow-up commit/PR.**
   
-  **e) Default to today on open** — Calendar should always open to today's date, not the last-viewed date. Rethink how calendar position/date is persisted — likely just drop the saved position and always compute from `new Date()`. If the user navigates away and back, today should be the default.
+  **e) Default to today on open** ✅ — `currentDate` always initializes to `new Date()`; `cal_current_date` localStorage read + persistence effect removed; `viewType` persistence retained.
   
-  **f) Drag visualization with 15-min snap** — When dragging a task/event on the day grid, show a ghost/indicator of where it will land, snapping to 15-minute intervals. Currently there's no clear visual feedback during drag — the user can't tell exactly which time slot they're dropping into.
+  **f) Drag visualization with 15-min snap** ✅ — Live `dragIndicator` ghost (dashed indigo line + dot + time label at the snap point) renders during `onDragOver` (mouse) and `onTouchMove` (touch); clamps to 15-min in displayed range; clears on drop/leave/end.
   
-  **g) Drag to unschedule** — Dragging a task off the calendar grid (to the sidebar, or to a "remove time" zone) should strip its due date, converting it back to an unscheduled task. This is the natural inverse of dragging a task onto the calendar.
+  **g) Drag to unschedule** ✅ — Floating "Drop here to remove date" zone (`position: fixed` bottom-center, `z-50`) appears when dragging a task and PATCHes `due_date: null`; the desktop `UnscheduledTaskPanel` sidebar is also a drop target with a red ring hover state.
   
-  **Affected files (likely):** `CalendarView.tsx` (day grid rendering, HOUR_START/END, scroll container, drag handlers), `UnscheduledTaskPanel.tsx` (sidebar scroll sync, drop target for unschedule), `DatePickerPopover.tsx` (duration/end-time UI), `TaskItem.tsx` / `EditorTaskItem.tsx` (all-day badge), `src/types/index.ts` (all-day flag, optional end_time on Task), `src/lib/db.ts` (persist end_time), API routes, a migration for the new column.
+  **Affected files (Phase 1):** `src/components/CalendarView.tsx` (DayView function + CalendarViewV2 layout), `src/components/calendar/UnscheduledTaskPanel.tsx` (drop-to-unschedule handlers). **No API/DB/type changes** — all Phase 1 work is frontend-only.
+  **Affected files (Phase 2 / time-blocking, pending):** `DatePickerPopover.tsx` (duration/end-time UI), `src/types/index.ts` (optional `end_time` on Task), `src/lib/db.ts` (`updateTask` end_time), API routes (`tasks.ts`, `[id].ts`), new migration `006_task_end_time.sql`.
 
 - [x] **Page editor overhaul** 🔴 → 🟢  
   *The TipTap editor is functional but needs polish across several surfaces. Dave wants a general tightening of the editing experience.*  

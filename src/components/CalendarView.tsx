@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@/types';
-import { ChevronLeft, ChevronRight, Plus, Clock, Calendar, AlertCircle, ListTodo, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, Calendar, AlertCircle, ListTodo, Pencil, X } from 'lucide-react';
 import { startOfWeek, addDays, isSameDay, isBefore, startOfDay, format, isToday, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/calendar';
@@ -22,13 +22,7 @@ import EventDetailModal from './modals/EventDetailModal';
 type ViewType = 'week' | 'month' | 'day';
 
 export default function CalendarViewV2() {
-  const [currentDate, setCurrentDate] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('cal_current_date');
-      return saved ? new Date(saved) : new Date();
-    }
-    return new Date();
-  });
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewType, setViewType] = useState<ViewType>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('cal_view_type');
@@ -51,8 +45,7 @@ export default function CalendarViewV2() {
     openTaskEdit(task);
   }, [openTaskEdit]);
 
-  // Persist state
-  useEffect(() => { localStorage.setItem('cal_current_date', currentDate.toISOString()); }, [currentDate]);
+  // Persist state (view type only — calendar always opens to today)
   useEffect(() => { localStorage.setItem('cal_view_type', viewType); }, [viewType]);
 
   // Fetch tasks
@@ -252,7 +245,7 @@ export default function CalendarViewV2() {
       )}
 
       {/* Pull-to-refresh wrapper */}
-      <PullToRefresh onRefresh={handleRefresh} className="max-h-[60vh] md:max-h-none">
+      <PullToRefresh onRefresh={handleRefresh} className={viewType === 'day' ? 'md:max-h-none' : 'max-h-[60vh] md:max-h-none'}>
         {/* Overdue Section */}
         {overdueTasks.length > 0 && (
           <div className="mb-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl p-3 md:p-4">
@@ -268,7 +261,9 @@ export default function CalendarViewV2() {
         {/* ===== MOBILE: Week = day strip + detail, Month = compact grid, Day = time grid ===== */}
         <div className="md:hidden space-y-4">
           {viewType === 'day' ? (
-            <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
+            <div className="overflow-y-auto styled-scrollbar rounded-xl" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+              <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
+            </div>
           ) : viewType === 'week' ? (
             <>
               {/* Week: Horizontal day strip */}
@@ -331,8 +326,10 @@ export default function CalendarViewV2() {
         {/* ===== DESKTOP & TABLET: Grid View + Task Panel ===== */}
         <div className="hidden md:flex gap-4 pb-4">
           <div className="flex-1 min-w-0">
-            {viewType === 'day' ? (
-<DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
+{viewType === 'day' ? (
+              <div className="overflow-y-auto styled-scrollbar" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                <DayView day={currentDate} events={events} tasks={tasks} onEventClick={handleEventClick} onEventMoved={() => handleDataChanged()} onTaskToggle={handleTaskToggle} onTaskClick={handleOpenTaskEdit} />
+              </div>
             ) : viewType === 'week' ? (
               <div className="grid grid-cols-7 gap-3 min-w-[600px]">
                 {gridDays.map(day => (
@@ -358,7 +355,7 @@ export default function CalendarViewV2() {
             )}
           </div>
           {isUnscheduledPanelOpen && (
-            <div className="w-72 shrink-0 border border-border-default rounded-xl bg-bg-primary overflow-hidden">
+            <div className="w-72 shrink-0 border border-border-default rounded-xl bg-bg-primary overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 220px)' }}>
               <UnscheduledTaskPanel isOpen={true} onClose={() => setIsUnscheduledPanelOpen(false)} onTaskScheduled={() => handleDataChanged()} />
             </div>
           )}
@@ -520,14 +517,22 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   onTaskToggle?: (taskId: number, e: React.MouseEvent) => void;
   onTaskClick?: (task: Task) => void;
 }) {
+  const [showAllHours, setShowAllHours] = useState(false);
+  const [showAllAllDay, setShowAllAllDay] = useState(false);
+
   const HOUR_HEIGHT = 64;
-  const HOUR_START = 0;
-  const HOUR_END = 24;
+  const HOUR_START = showAllHours ? 0 : 6;
+  const HOUR_END = showAllHours ? 24 : 22;
   const LEFT_GUTTER = 48;
   const COLUMN_GAP = 1;
   const DEFAULT_TASK_DURATION = 30;
   const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => i + HOUR_START);
+
+  // Convert grid-Y (px from grid top) ↔ absolute minutes since midnight.
+  // Grid top corresponds to HOUR_START, so add/subtract the offset.
+  const gridYToMinutes = (y: number) => Math.round((y / HOUR_HEIGHT) * 60 / 15) * 15 + HOUR_START * 60;
+  const minutesToGridY = (absMinutes: number) => ((absMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT;
 
   const now = new Date();
   const isToday_ = isToday(day);
@@ -544,6 +549,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
   const [dragTask, setDragTask] = useState<Task | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
+  // Drop-snapping indicator (y position on grid + formatted label)
+  const [dragIndicator, setDragIndicator] = useState<{ y: number; label: string } | null>(null);
   const lastTouchY = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -574,6 +581,30 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   });
 
   const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
+
+  // Combined all-day items (events first, then tasks) with collapse/expand
+  const ALL_DAY_LIMIT = 4;
+  const allDayCombined = useMemo(() => [
+    ...allDayEvents.map(e => ({ kind: 'event' as const, item: e })),
+    ...allDayTasks.map(t => ({ kind: 'task' as const, item: t })),
+  ], [allDayEvents, allDayTasks]);
+  const displayedAllDay = showAllAllDay ? allDayCombined : allDayCombined.slice(0, ALL_DAY_LIMIT);
+  const allDayOverflow = allDayCombined.length - ALL_DAY_LIMIT;
+
+  // Count items hidden by off-hours truncation (in 12am-6am or 10pm-12am bands)
+  const hiddenTimedItems = useMemo(() => {
+    if (showAllHours) return 0;
+    const inHiddenRange = (minutes: number) => minutes < 6 * 60 || minutes >= 22 * 60;
+    const hiddenEvents = timedEvents.filter(e => {
+      const s = new Date(e.start_time);
+      return inHiddenRange(s.getHours() * 60 + s.getMinutes());
+    }).length;
+    const hiddenTasks = timedTasks.filter(t => {
+      const d = parseLocalDateNode(t.due_date!) as Date;
+      return inHiddenRange(d.getHours() * 60 + d.getMinutes());
+    }).length;
+    return hiddenEvents + hiddenTasks;
+  }, [showAllHours, timedEvents, timedTasks]);
 
   const itemLayouts = useMemo(() => {
     const items = [
@@ -628,58 +659,111 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   return (
     <div className="mt-2">
       {/* All-day events + tasks row */}
-      {(allDayEvents.length > 0 || allDayTasks.length > 0) && (
-        <div className="flex flex-wrap gap-1.5 mb-3 px-1">
-          {allDayEvents.map(e => (
-            <EventCard key={`allday-${e.id}`} event={e} onClick={onEventClick} variant="allday" />
-          ))}
-          {allDayTasks.map(t => (
-            <div
-              key={`allday-task-${t.id}`}
-              draggable
-              onDragStart={(e) => {
-                setDragTask(t);
-                setDragEvent(null);
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', `task-${t.id}`);
-              }}
-              onDragEnd={() => setDragTask(null)}
-              onClick={() => onTaskClick?.(t)}
-              className="px-2 py-1 rounded text-xs border border-dashed cursor-pointer hover:opacity-80 bg-bg-secondary border-border-subtle text-text-primary"
-            >
-              {t.content}
+      {allDayCombined.length > 0 && (
+        <div className="mb-2 border border-border-subtle rounded-lg bg-bg-secondary/60 px-2 py-1.5">
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted shrink-0 w-12 pt-1">
+              All-day
+            </span>
+            <div className="flex flex-1 flex-wrap gap-1.5 min-w-0">
+              {displayedAllDay.map(({ kind, item }) => {
+                if (kind === 'event') {
+                  const e = item as CalendarEvent;
+                  return <EventCard key={`allday-${e.id}`} event={e} onClick={onEventClick} variant="allday" />;
+                }
+                const t = item as Task;
+                return (
+                  <div
+                    key={`allday-task-${t.id}`}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragTask(t);
+                      setDragEvent(null);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', `task-${t.id}`);
+                    }}
+                    onDragEnd={() => { setDragTask(null); setDragIndicator(null); }}
+                    onClick={() => onTaskClick?.(t)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer transition-opacity hover:opacity-80 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 text-text-primary max-w-full"
+                  >
+                    <span className="opacity-60">✓</span>
+                    <span className="truncate max-w-[200px]">{t.content}</span>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+            {allDayOverflow > 0 && (
+              <button
+                onClick={() => setShowAllAllDay(v => !v)}
+                className="shrink-0 text-[10px] px-2 py-1 rounded-md border border-border-subtle bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors mt-0.5"
+              >
+                {showAllAllDay ? 'Collapse' : `+${allDayOverflow} more`}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
+      {/* Off-hours toggle */}
+      <div className="flex justify-end mb-1.5 px-1">
+        <button
+          onClick={() => setShowAllHours(v => !v)}
+          className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-colors ${
+            showAllHours
+              ? 'bg-bg-tertiary text-text-primary border-border-default'
+              : 'bg-bg-secondary text-text-muted border-border-subtle hover:bg-bg-tertiary'
+          }`}
+          title={showAllHours ? 'Hide off-hours (12am–6am, 10pm–12am)' : 'Show all 24 hours'}
+        >
+          <Clock size={11} />
+          {showAllHours ? '6am–10pm view' : '24 hours'}
+          {hiddenTimedItems > 0 && !showAllHours && (
+            <span className="ml-1 px-1 rounded-full bg-amber-200 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium leading-none">
+              {hiddenTimedItems} hidden
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Time grid */}
-      <div ref={gridRef} className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden" 
-           style={{ height: totalHeight }}
-           onClick={(e) => {
-             const target = e.target as HTMLElement;
-             if (target !== gridRef.current && !target.classList.contains('hour-row-bg')) return;
-             const rect = gridRef.current!.getBoundingClientRect();
-             const y = e.clientY - rect.top;
-             const minutes = Math.round((y / HOUR_HEIGHT) * 60 / 15) * 15;
-             const clampedMinutes = Math.max(0, Math.min(minutes, 24 * 60 - 15));
-             const newDate = new Date(day);
-             newDate.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
-             setCreatingAt({ time: newDate, y: (clampedMinutes / 60) * HOUR_HEIGHT });
-             setCreatingValue('');
-             setTimeout(() => createInputRef.current?.focus(), 50);
-           }}
+<div ref={gridRef} className="relative rounded-xl border border-border-subtle bg-bg-primary overflow-hidden"
+        style={{ minHeight: totalHeight }}
+onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target !== gridRef.current && !target.classList.contains('hour-row-bg')) return;
+              const rect = gridRef.current!.getBoundingClientRect();
+              const y = e.clientY - rect.top;
+              const minutes = gridYToMinutes(y);
+              const clampedMinutes = Math.max(HOUR_START * 60, Math.min(minutes, HOUR_END * 60 - 15));
+              const newDate = new Date(day);
+              newDate.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+              setCreatingAt({ time: newDate, y: minutesToGridY(clampedMinutes) });
+              setCreatingValue('');
+              setTimeout(() => createInputRef.current?.focus(), 50);
+            }}
            onDragOver={(e) => {
              e.preventDefault();
              e.dataTransfer.dropEffect = 'move';
+             // Live snap indicator: compute where the item would land
+             const rect = gridRef.current?.getBoundingClientRect();
+             if (rect) {
+               const y = e.clientY - rect.top - (dragOffsetY || 0);
+               const absMin = gridYToMinutes(y);
+               const clamped = Math.max(HOUR_START * 60, Math.min(absMin, HOUR_END * 60 - 15));
+               const h = Math.floor(clamped / 60);
+               const m = clamped % 60;
+               const label = format(new Date(2024, 0, 1, h, m), 'h:mm a');
+               setDragIndicator({ y: minutesToGridY(clamped), label });
+             }
            }}
+           onDragLeave={() => setDragIndicator(null)}
            onDrop={(e) => {
              e.preventDefault();
 
-             const gridRect = e.currentTarget.getBoundingClientRect();
-             const dropY = e.clientY - gridRect.top - (dragOffsetY || 0);
-             const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
-             const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
+const gridRect = e.currentTarget.getBoundingClientRect();
+              const dropY = e.clientY - gridRect.top - (dragOffsetY || 0);
+              const dropMinutes = gridYToMinutes(dropY);
+              const clampedMinutes = Math.max(HOUR_START * 60, Math.min(dropMinutes, HOUR_END * 60 - 15));
 
 if (dragTask) {
                 // Dropping a task → set its due time
@@ -694,6 +778,7 @@ body: JSON.stringify({ due_date: newDue.toISOString() }),
 
                 setDragTask(null);
                 setDragOffsetY(0);
+                setDragIndicator(null);
                 setTimeout(() => onEventMoved?.(), 500);
                 return;
               }
@@ -748,6 +833,7 @@ body: JSON.stringify({
 
              setDragEvent(null);
              setDragOffsetY(0);
+             setDragIndicator(null);
             setTimeout(() => onEventMoved?.(), 500); // brief delay for CalDAV to persist
            }}
         >
@@ -765,13 +851,27 @@ body: JSON.stringify({
         ))}
 
         {/* Current time indicator */}
-        {currentMinuteOffset >= 0 && (
-          <div 
+        {currentMinuteOffset >= 0 && currentMinuteOffset >= HOUR_START * 60 && currentMinuteOffset <= HOUR_END * 60 && (
+          <div
             className="absolute left-0 right-0 z-10 pointer-events-none"
-            style={{ top: (currentMinuteOffset / 60) * HOUR_HEIGHT }}
+            style={{ top: minutesToGridY(currentMinuteOffset) }}
           >
             <div className="absolute left-12 right-1 border-t-2 border-red-500" />
             <div className="absolute left-[44px] -top-1.5 w-3 h-3 rounded-full bg-red-500" />
+          </div>
+        )}
+
+        {/* Drag-snap indicator */}
+        {dragIndicator && (
+          <div
+            className="absolute left-0 right-0 z-[15] pointer-events-none"
+            style={{ top: dragIndicator.y }}
+          >
+            <div className="absolute left-12 right-1 border-t-2 border-dashed border-indigo-400" />
+            <div className="absolute left-[44px] -top-3 w-3 h-3 rounded-full bg-indigo-400 ring-2 ring-indigo-400/30" />
+            <span className="absolute -top-3 left-12 ml-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300 bg-bg-primary px-1.5 rounded shadow-sm">
+              {dragIndicator.label}
+            </span>
           </div>
         )}
 
@@ -782,7 +882,7 @@ body: JSON.stringify({
           const startMinutes = start.getHours() * 60 + start.getMinutes();
           const endMinutes = end.getHours() * 60 + end.getMinutes();
           const durationMinutes = Math.max(endMinutes - startMinutes, 15);
-          const top = (startMinutes / 60) * HOUR_HEIGHT;
+          const top = minutesToGridY(startMinutes);
           const height = (durationMinutes / 60) * HOUR_HEIGHT;
           const colors = eventColorStyle(event.calendar_color);
           const layout = itemLayouts.get(`evt-${event.id}`) ?? { column: 0, total: 1 };
@@ -803,6 +903,7 @@ body: JSON.stringify({
               onDragEnd={() => {
                 setDragEvent(null);
                 setDragOffsetY(0);
+                setDragIndicator(null);
               }}
               onTouchStart={(e) => {
                 if (e.touches.length === 1) {
@@ -817,6 +918,16 @@ body: JSON.stringify({
                 if (dragEvent?.id === event.id && e.touches.length === 1) {
                   e.preventDefault();
                   lastTouchY.current = e.touches[0].clientY;
+                  // Live snap indicator for touch drag
+                  const rect = gridRef.current?.getBoundingClientRect();
+                  if (rect) {
+                    const y = lastTouchY.current - rect.top - dragOffsetY;
+                    const absMin = gridYToMinutes(y);
+                    const clamped = Math.max(HOUR_START * 60, Math.min(absMin, HOUR_END * 60 - 15));
+                    const h = Math.floor(clamped / 60);
+                    const m = clamped % 60;
+                    setDragIndicator({ y: minutesToGridY(clamped), label: format(new Date(2024, 0, 1, h, m), 'h:mm a') });
+                  }
                 }
               }}
               onTouchEnd={() => {
@@ -825,8 +936,8 @@ body: JSON.stringify({
                 if (!gridRect) { setDragEvent(null); return; }
                 
                 const dropY = lastTouchY.current - gridRect.top - dragOffsetY;
-                const dropMinutes = Math.round((dropY / HOUR_HEIGHT) * 60 / 15) * 15;
-                const clampedMinutes = Math.max(0, Math.min(dropMinutes, 24 * 60 - 15));
+                const dropMinutes = gridYToMinutes(dropY);
+                const clampedMinutes = Math.max(HOUR_START * 60, Math.min(dropMinutes, HOUR_END * 60 - 15));
 
                 const durationMinutes = Math.max(
                   (new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000,
@@ -845,6 +956,7 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
 
                 setDragEvent(null);
                 setDragOffsetY(0);
+                setDragIndicator(null);
                 setTimeout(() => onEventMoved?.(), 500);
               }}
               onClick={() => onEventClick?.(event)}
@@ -876,7 +988,7 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
           if (!t.due_date) return null;
           const d = parseLocalDateNode(t.due_date) as Date;
           const startMinutes = d.getHours() * 60 + d.getMinutes();
-          const taskTop = (startMinutes / 60) * HOUR_HEIGHT;
+          const taskTop = minutesToGridY(startMinutes);
           const taskHeight = (DEFAULT_TASK_DURATION / 60) * HOUR_HEIGHT;
           const layout = itemLayouts.get(`task-${t.id}`) ?? { column: 0, total: 1 };
           const leftOffset = `calc(${LEFT_GUTTER}px + ${layout.column} * ((100% - ${LEFT_GUTTER}px) / ${layout.total}))`;
@@ -903,6 +1015,7 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
               onDragEnd={() => {
                 setDragTask(null);
                 setDragOffsetY(0);
+                setDragIndicator(null);
               }}
             />
           );
@@ -959,6 +1072,42 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
           </div>
         )}
       </div>
+
+      {/* Drag-to-unschedule drop zone (floating, mobile + desktop) */}
+      {dragTask && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const dropData = e.dataTransfer.getData('text/plain');
+            const match = dropData.match(/^task-(\d+)$/);
+            let taskId: number | null = match ? parseInt(match[1]) : null;
+            if (taskId === null) {
+              const appData = e.dataTransfer.getData('application/task-id');
+              if (appData) taskId = parseInt(appData);
+            }
+            if (taskId !== null) {
+              apiFetch(`/api/v2/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ due_date: null }),
+              })
+                .then(() => {
+                  onEventMoved?.();
+                  window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'calendar' } }));
+                })
+                .catch(err => { if (err instanceof AuthError) { return; } console.error('Unschedule drop failed:', err); showToast('Failed to unschedule task', 'error'); });
+            }
+            setDragTask(null);
+            setDragOffsetY(0);
+            setDragIndicator(null);
+          }}
+          className="fixed left-1/2 -translate-x-1/2 z-50 bottom-4 md:bottom-8 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-red-400 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 shadow-lg pointer-events-auto"
+        >
+          <X size={16} />
+          <span className="text-sm font-medium">Drop here to remove date</span>
+        </div>
+      )}
     </div>
   );
 }

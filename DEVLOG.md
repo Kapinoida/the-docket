@@ -10,6 +10,46 @@ Use this format:
 
 ---
 
+## [2026-07-22] – Calendar Day View UX overhaul (Phase 1: 6 of 7 items)
+- **What changed:**
+  Six interconnected improvements to the Calendar Day View, packaged as one coherent overhaul. The seventh item (time-blocking / `end_time` for tasks) is deferred to a follow-up since it touches the DB schema, types, and datepicker — it's the largest piece on its own.
+
+  **a) Full-screen scrollable day container:**
+  - Wrapped `<DayView>` in `overflow-y-auto styled-scrollbar` containers on both mobile (`max-h: calc(100vh - 200px)`) and desktop (`max-h: calc(100vh - 220px)`) call sites. The time grid now scrolls internally rather than pushing the whole page vertical scroll.
+  - Changed the day grid from `style={{ height: totalHeight }}` to `style={{ minHeight: totalHeight }}` so the absolute-positioned hour/event/task children keep their offsets while the outer container controls visible height.
+  - Removed the `PullToRefresh` wrapper's `max-h-[60vh]` constraint for day view (it conflicted with the new internal scroll container). Week and month views retain `max-h-[60vh]` on mobile.
+  - Constrained the desktop `UnscheduledTaskPanel` sidebar to the same `calc(100vh - 220px)` maxHeight so the day column and the sidebar scroll independently and stay aligned.
+
+  **b) Truncate off-hours (12am–6am, 10pm–12am):**
+  - Made `HOUR_START` / `HOUR_END` state-driven: default to `HOUR_START = 6` (6 AM) and `HOUR_END = 22` (10 PM). A "24 hours" / "6am–10pm view" toggle pill above the time grid expands to the full range. The toggle shows a "{n} hidden" amber badge when off-hours items (events or timed tasks) are being clipped, so users don't silently lose visibility into a 2 AM appointment.
+  - Added `gridYToMinutes()` / `minutesToGridY()` helpers to convert grid-pixel Y ↔ absolute-minutes-since-midnight while accounting for the non-zero `HOUR_START`. Replaced the raw `(y / HOUR_HEIGHT) * 60` math in the click-to-create, drag-drop, and touch-end handlers with these helpers and clamped to `[HOUR_START*60, HOUR_END*60 - 15]` instead of the previous `[0, 1440-15]`.
+  - Updated the current-time indicator: it now renders with `minutesToGridY(currentMinuteOffset)` and is guarded to only paint when the current time falls within the displayed range (no more stale red line hovering above a 6 AM grid top).
+
+  **c) All-day events & tasks section polish:**
+  - Reworked the all-day row from a bare `flex-wrap` of dashed-border task divs into a dedicated "All-day" panel: rounded border container, "ALL-DAY" section label on the left, then events (via `<EventCard variant="allday">`) and tasks (purple-tinted pill cards) in a single flex row.
+  - Added collapse/expand: if more than 4 all-day items are present, a "+N more" / "Collapse" toggle pill appears. State is local to DayView.
+
+  **d) — Time-blocking — DEFERRED.** The `end_time`/duration work is the largest piece and will be tackled in a follow-up commit (DB migration, type changes, datepicker UI, resize handles).
+
+  **e) Default to today on open:**
+  - `currentDate` initializer no longer reads `localStorage.getItem('cal_current_date')` — always `new Date()`. The `localStorage.setItem` persistence effect was also removed. The calendar now always opens to today. In-session navigation continues to work; closing and reopening the tab resets to today. `viewType` persistence is retained (less annoying to remember you prefer Day View).
+  - `resetToToday()` unchanged.
+
+  **f) Drag visualization with 15-min snap:**
+  - Added `dragIndicator` state (`{ y: number; label: string } | null`) and a live-snap ghost indicator inside the time grid. The grid's `onDragOver` now computes the 15-min-clamped snap position and time label in real time; a dashed indigo line + dot + time label render at the snap point while dragging (mouse or touch). The ghost clears on `onDragLeave`, `onDrop`, `onDragEnd`, and touch-end.
+  - Touch drag (`onTouchMove` for events) also updates the indicator from `lastTouchY` so finger dragging gets the same feedback.
+
+  **g) Drag to unschedule:**
+  - Added a floating "Drop here to remove date" zone (red dashed pill, `position: fixed` bottom-center, `z-50`) that appears whenever `dragTask` is set inside DayView. Dropping a task on it PATCHes `/api/v2/tasks/{id}` with `due_date: null`, dispatches `taskUpdated`, and refreshes via `onEventMoved`. Works on both mobile and desktop.
+  - Added unschedule drop handling to the `UnscheduledTaskPanel` sidebar itself: the panel root now has `onDragOver/onDragLeave/onDrop` handlers, with a red ring inset + tinted background as the visual hover state. Dropping a task on the sidebar clears its due date via the same PATCH.
+- **Why:**
+  ROADMAP "Calendar Day View UX overhaul" (Immediate section). Dave wanted the day view to be a proper time-blocking tool rather than a read-only grid — a full-height scroll container, sensible hour range, polished all-day section, real-time drag feedback, and a way to unschedule by drag. These six items deliver the UX pass; time-blocking (`end_time` on tasks) remains the headline feature for a follow-up.
+- **Affected areas:** `src/components/CalendarView.tsx` (DayView function + CalendarViewV2 layout), `src/components/calendar/UnscheduledTaskPanel.tsx` (drop-to-unschedule handlers).
+- **Migration needed?** No. All changes are frontend-only — no DB, API, or type changes.
+- **Testing:** All 140 tests pass. TypeScript clean (15 pre-existing errors — none new). ESLint: no new errors/warnings; actually one fewer warning than baseline (the previously-unused `Clock` import is now consumed by the off-hours toggle).
+
+---
+
 ## [2026-07-20] – Page editor overhaul
 - **What changed:**
   Four-area editor polish covering toolbar, drag handle, block type switcher, slash commands, and padding/spacing:
