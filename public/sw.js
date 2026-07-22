@@ -1,7 +1,7 @@
 // Service worker for The Docket PWA
 // Caches the app shell for fast reloads and basic offline support.
 
-const CACHE_NAME = 'docket-v3';
+const CACHE_NAME = 'docket-v4';
 const SHELL_URLS = [
   '/',
   '/inbox',
