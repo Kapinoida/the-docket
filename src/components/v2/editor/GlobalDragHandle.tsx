@@ -118,9 +118,15 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
 
             const gutterLeft = Math.max(8, editorRect.left - 24);
 
+            // Never let the handle overlap the sidebar.
+            // The main content area starts at the sidebar's right edge on desktop.
+            const mainEl = view.dom.closest('main');
+            const mainLeft = mainEl ? mainEl.getBoundingClientRect().left : 0;
+            const clampedLeft = Math.max(gutterLeft, mainLeft + 4);
+
             setPosition({
                 top: resolved.top - 4,
-                left: gutterLeft
+                left: clampedLeft
             });
             setHoveredNodePos(resolved.startPos);
             lastNodePosRef.current = resolved.startPos;
