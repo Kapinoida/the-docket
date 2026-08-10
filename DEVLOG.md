@@ -10,6 +10,29 @@ Use this format:
 
 ---
 
+## [2026-08-10] – Time-blocking for tasks (`end_time`)
+- **What changed:**
+  Tasks now optionally carry an `end_time` (absolute timestamp, same calendar day as `due_date`) so a task can occupy a time block rather than just a point-in-time deadline.
+
+  - **DB:** `006_task_end_time.sql` adds nullable `end_time TIMESTAMP` to `tasks` plus a `chk_tasks_end_time_after_due` check constraint (`end_time IS NULL OR (due_date IS NOT NULL AND end_time > due_date)`). Baseline schema updated for fresh installs.
+  - **Types:** `Task` / `TaskRow` gained optional `end_time: string | null`.
+  - **Pure helpers:** New `src/lib/taskTime.ts` — `getTaskDurationMinutes` (30-min default fallback), `isTaskAllDay`/`isTaskTimed` (midnight + no end_time = all-day; an `end_time` makes a task "timed" even from a midnight start), `isSameCalendarDay`, `isValidEndTime` (after-start + same-local-day), and `sameDayClampDragStart` (snaps to 15-min, clamps the whole block inside the displayed grid). Exported `DEFAULT_TASK_DURATION_MINUTES`.
+  - **DB helpers:** `createTask()` takes an optional `endTime`; `UpdateTaskFields` + `updateTask()` accept `end_time`.
+  - **API:** Both `tasks.ts` (POST/PUT) and `[id].ts` (PUT) accept `end_time`/`endTime` (the existing snake/camel alias pattern). Validation rejects an end_time without a start, before the start, or on a different calendar day (400). Clearing `due_date` also clears `end_time`.
+  - **Editing UI:** `DatePickerPopover` gained a "Block" row under the time input — None / 30m / 1h / 2h / Custom (native time picker). `onSelect` now returns `(date, recurrence, endTime)`. `TaskEditor`, `TaskItem`, and `EditorTaskItem` all wire `end_time` through.
+  - **TipTap:** `v2Task` node gained an `end_time` attribute; the editor optimistic temp task now carries `end_time: null`; `handleUpdate` triggers task creation on `end_time` changes too.
+  - **DayView rendering:** `itemLayouts` and the timed-task height calculations use `getTaskDurationMinutes(task)` instead of the fixed 30-min `DEFAULT_TASK_DURATION` (constant removed). `timedTasks` now also treats tasks with a midnight start + an `end_time` as timed.
+  - **Drag/drop:** Both the in-grid `dragTask` drop and the external sidebar drop preserve duration — they compute `new_end = new_start + duration` and PATCH both `due_date` and `end_time`. The start is run through `sameDayClampDragStart` so the whole block stays inside the visible grid (blocks never cross midnight by design). The floating "Drop here to remove date" zone and the `UnscheduledTaskPanel` drop both clear `due_date` AND `end_time`.
+  - **CalendarTaskBlock:** Displays a full `startTime – endTime` range when the task has an `end_time` (was start-only).
+  - **Recurrence:** `spawnNextRecurrence` preserves the duration offset — `nextEndTime = nextDate + (end_time - due_date)` — and threads it into `createTask()` and the generated `v2Task` node attrs.
+- **Why:**
+  ROADMAP "Calendar Day View UX overhaul — Item (d) Time-blocking". Turns the day view into a real time-blocking tool; tasks can occupy spans instead of point deadlines. Follows the agreed scoping decisions: blocks never cross midnight, drag-resize handles are deferred to a follow-up, and point-in-time tasks keep the 30-minute visual fallback.
+- **Affected areas:** `src/migrations/006_task_end_time.sql`, `src/migrations/001_baseline.sql`, `src/types/index.ts`, `src/lib/taskTime.ts` (new), `src/lib/db.ts`, `src/lib/recurrence.ts`, `src/pages/api/v2/tasks.ts`, `src/pages/api/v2/tasks/[id].ts`, `src/components/v2/DatePickerPopover.tsx`, `src/components/TaskEditor.tsx`, `src/components/v2/TaskItem.tsx`, `src/components/v2/EditorTaskItem.tsx`, `src/components/v2/editor/extensions/TaskExtension.tsx`, `src/components/CalendarView.tsx`, `src/components/calendar/CalendarTaskBlock.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`.
+- **Migration needed? Yes.** `006_task_end_time.sql` runs automatically via `update.sh` (production) or `npm run migrate` (dev). Additive only — nullable column + check constraint, safe on any existing `tasks` table.
+- **Testing:** Added `src/lib/__tests__/taskTime.test.ts` (23 pure-function tests for duration, all-day/timed classification, same-day validation, and drag clamping) and 3 new API tests in `tasks.test.ts` (create-with-end_time, reject cross-day, reject end-before-start) + 1 existing test updated for the new `createTask` arity. All 166 tests pass. TypeScript clean (15 pre-existing errors — none new). ESLint: matches the 81-problem baseline — **zero new errors/warnings**.
+
+---
+
 ## [2026-07-22] – Calendar Day View UX overhaul (Phase 1: 6 of 7 items)
 - **What changed:**
   Six interconnected improvements to the Calendar Day View, packaged as one coherent overhaul. The seventh item (time-blocking / `end_time` for tasks) is deferred to a follow-up since it touches the DB schema, types, and datepicker — it's the largest piece on its own.

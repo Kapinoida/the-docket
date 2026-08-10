@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createTask, getTask, addItemToPage, createTombstone, deleteTaskReferences, updateTask, deleteTask, deleteCompletedTasks, getTasks } from '../../../lib/db';
 import { normalizeDateToNoon } from '../../../lib/dateUtils';
+import { isValidEndTime } from '../../../lib/taskTime';
 
 export default async function handler(
   req: NextApiRequest,
@@ -29,13 +30,19 @@ export default async function handler(
         }
 
       case 'POST':
-        const { content, dueDate, due_date, pageId, recurrenceRule, recurrence_rule } = req.body;
+        const { content, dueDate, due_date, endTime, end_time, pageId, recurrenceRule, recurrence_rule } = req.body;
         if (content === undefined || content === null) return res.status(400).json({ error: 'Content is required' });
         
         const finalDueDate = due_date !== undefined ? due_date : dueDate;
         const finalRecurrenceRule = recurrence_rule !== undefined ? recurrence_rule : recurrenceRule;
+        const finalEndTime = end_time !== undefined ? end_time : endTime;
         
-        const newTask = await createTask(content, normalizeDateToNoon(finalDueDate), finalRecurrenceRule || null);
+        const parsedDue = normalizeDateToNoon(finalDueDate);
+        const parsedEnd = finalEndTime === null || finalEndTime === undefined ? null : new Date(finalEndTime);
+        if (parsedEnd && isNaN(parsedEnd.getTime())) return res.status(400).json({ error: 'Invalid end_time' });
+        if (!isValidEndTime(parsedDue, parsedEnd)) return res.status(400).json({ error: 'end_time must be after due_date and on the same calendar day' });
+        
+        const newTask = await createTask(content, parsedDue, finalRecurrenceRule || null, parsedEnd);
         
         if (pageId) {
             await addItemToPage(Number(pageId), newTask.id, 'task');
@@ -45,15 +52,28 @@ export default async function handler(
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'Task ID is required for update' });
-        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake } = req.body;
+        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, endTime: newEndTime, end_time: newEndTimeSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake } = req.body;
         
         const resolvedDueDate = newDueDateSnake !== undefined ? newDueDateSnake : newDueDate;
         const resolvedRecurrenceRule = newRecurrenceRuleSnake !== undefined ? newRecurrenceRuleSnake : newRecurrenceRule;
+        const resolvedEndTime = newEndTimeSnake !== undefined ? newEndTimeSnake : newEndTime;
         
         const fields: Record<string, any> = {};
         if (newContent !== undefined) fields.content = newContent;
         if (status !== undefined) fields.status = status;
-        if (resolvedDueDate !== undefined) fields.due_date = normalizeDateToNoon(resolvedDueDate);
+        if (resolvedDueDate !== undefined) {
+          const parsedDue = normalizeDateToNoon(resolvedDueDate);
+          fields.due_date = parsedDue;
+          if (parsedDue === null) fields.end_time = null;
+        }
+        if (resolvedEndTime !== undefined) {
+          const parsedEnd = resolvedEndTime === null ? null : new Date(resolvedEndTime);
+          if (parsedEnd && isNaN(parsedEnd.getTime())) return res.status(400).json({ error: 'Invalid end_time' });
+          if (parsedEnd && !isValidEndTime(fields.due_date ?? undefined, parsedEnd)) {
+            return res.status(400).json({ error: 'end_time must be after due_date and on the same calendar day' });
+          }
+          fields.end_time = parsedEnd;
+        }
         if (resolvedRecurrenceRule !== undefined) fields.recurrence_rule = resolvedRecurrenceRule;
         
         if (Object.keys(fields).length === 0) return res.status(400).json({ error: 'No fields to update' });

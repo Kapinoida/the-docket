@@ -95,7 +95,7 @@ describe('/api/v2/tasks', () => {
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
         expect(JSON.parse(res._getData())).toEqual(mockTask);
-        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null);
+        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null, null);
     });
 
     it('POST returns 400 when content is missing', async () => {
@@ -116,6 +116,50 @@ describe('/api/v2/tasks', () => {
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
+    });
+
+    it('POST creates a task with end_time', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: {
+                content: 'Block',
+                due_date: '2026-06-15T10:00:00.000Z',
+                end_time: '2026-06-15T12:00:00.000Z',
+            },
+        });
+        const mockTask = { id: 2, content: 'Block', end_time: '2026-06-15T12:00:00.000Z' };
+        (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(201);
+        expect(createTask).toHaveBeenCalledWith('Block', expect.any(Date), null, expect.any(Date));
+    });
+
+    it('POST rejects end_time on a different calendar day', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: {
+                content: 'Cross-day',
+                due_date: '2026-06-15T10:00:00.000Z',
+                end_time: '2026-06-16T14:00:00.000Z',
+            },
+        });
+        (createTask as jest.Mock).mockResolvedValueOnce({});
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(400);
+    });
+
+    it('POST rejects end_time before due_date', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: {
+                content: 'Negative block',
+                due_date: '2026-06-15T12:00:00.000Z',
+                end_time: '2026-06-15T10:00:00.000Z',
+            },
+        });
+        (createTask as jest.Mock).mockResolvedValueOnce({});
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(400);
     });
 
     it('PUT updates a task', async () => {

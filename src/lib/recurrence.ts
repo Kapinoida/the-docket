@@ -40,7 +40,16 @@ export async function spawnNextRecurrence(completedTaskId: number): Promise<numb
 
   await pool.query('UPDATE tasks SET recurrence_rule = NULL WHERE id = $1', [completedTaskId]);
 
-  const newTask = await createTask(currentTask.content, nextDate, nextRule);
+  // Preserve duration: shift end_time by the same offset as the due date.
+  let nextEndTime: Date | null = null;
+  if (currentTask.end_time && currentTask.due_date && nextDate) {
+    const durationMs = new Date(currentTask.end_time).getTime() - new Date(currentTask.due_date).getTime();
+    if (!isNaN(durationMs) && durationMs > 0) {
+      nextEndTime = new Date(nextDate.getTime() + durationMs);
+    }
+  }
+
+  const newTask = await createTask(currentTask.content, nextDate, nextRule, nextEndTime);
 
   const pageItemsRes = await pool.query(
     'SELECT page_id FROM page_items WHERE child_task_id = $1',
@@ -57,16 +66,17 @@ export async function spawnNextRecurrence(completedTaskId: number): Promise<numb
         if (!pageContent || typeof pageContent !== 'object' || pageContent.type !== 'doc') {
           pageContent = { type: 'doc', content: [] };
         }
-        pageContent.content.push({
-          type: 'v2Task',
+pageContent.content.push({
+          type: "v2Task",
           attrs: {
             taskId: newTask.id,
             pageId: pi.page_id,
             status: 'todo',
             autoFocus: false,
             due_date: nextDate.toISOString(),
+            ...(nextEndTime ? { end_time: nextEndTime.toISOString() } : {}),
           },
-          content: [{ type: 'text', text: currentTask.content }],
+          content: [{ type: "text", text: currentTask.content }],
         });
         await pool.query(
           'UPDATE pages SET content = $1, updated_at = NOW() WHERE id = $2',

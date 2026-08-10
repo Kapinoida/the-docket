@@ -97,12 +97,12 @@ export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: Unsch
       if (appData) taskId = parseInt(appData);
     }
     if (taskId === null) return;
-    updateLocalTask(taskId, { due_date: null });
+    updateLocalTask(taskId, { due_date: null, end_time: null });
     try {
       await apiFetch(`/api/v2/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ due_date: null }),
+        body: JSON.stringify({ due_date: null, end_time: null }),
       });
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'panel' } }));
     } catch (err) {

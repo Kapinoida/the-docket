@@ -41,14 +41,17 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
       }
   });
 
-  const handleDateSelect = (date: Date | null, recurrence?: any) => {
+  const handleDateSelect = (date: Date | null, recurrence?: any, endTime?: Date | null) => {
       const dueDate = date ? date.toISOString() : null;
+      const endTimeIso = endTime ? endTime.toISOString() : null;
       onUpdate?.({ 
           due_date: dueDate,
+          end_time: dueDate ? endTimeIso : null,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
       updateAttributes({ 
           due_date: dueDate,
+          end_time: dueDate ? endTimeIso : null,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
   };
@@ -113,6 +116,7 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                     {showDatePicker && (
                         <DatePickerPopover 
                             date={task.due_date ? parseLocalDateNode(task.due_date) : null}
+                            endTime={task.end_time ? parseLocalDateNode(task.end_time) : null}
                             recurrenceRule={task.recurrence_rule}
                             onSelect={handleDateSelect}
                             onClose={() => setShowDatePicker(false)}
