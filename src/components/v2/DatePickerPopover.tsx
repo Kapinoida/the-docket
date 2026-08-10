@@ -77,6 +77,7 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
     };
 
     // Build the end-time Date from current options, given a resolved start Date.
+    // Never crosses midnight (same-calendar-day invariant).
     const computeEndTime = (start: Date): Date | null => {
         if (durationOption === 'none') return null;
         if (durationOption === 'custom') {
@@ -84,10 +85,20 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
             const [h, m] = customEndTime.split(':').map(Number);
             const end = new Date(start);
             end.setHours(h, m, 0, 0);
-            return end <= start ? null : end;
+            if (end <= start) return null;
+            // reject cross-midnight
+            if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) return null;
+            return end;
         }
         const minutes = parseInt(durationOption, 10);
-        return new Date(start.getTime() + minutes * 60000);
+        const end = new Date(start.getTime() + minutes * 60000);
+        // clamp to same calendar day (end of day = 23:59)
+        if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) {
+            const clamped = new Date(start);
+            clamped.setHours(23, 59, 0, 0);
+            return clamped;
+        }
+        return end;
     };
 
     const handleQuickSelect = (type: 'today' | 'tomorrow' | 'next-week') => {
