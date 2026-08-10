@@ -70,9 +70,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const closeMenu = () => setShowLongPressMenu(false);
 
-  const handleDateSelect = (date: Date | null, recurrence?: any) => {
+  const handleDateSelect = (date: Date | null, recurrence?: any, endTime?: Date | null) => {
       onUpdate?.({ 
           due_date: date ? date.toISOString() : null,
+          end_time: endTime ? endTime.toISOString() : null,
           recurrence_rule: recurrence?.type !== 'none' ? recurrence : null
       });
   };
@@ -185,6 +186,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                     {showDatePicker && (
                         <DatePickerPopover 
                             date={task.due_date ? parseLocalDateNode(task.due_date) : null}
+                            endTime={task.end_time ? parseLocalDateNode(task.end_time) : null}
                             recurrenceRule={task.recurrence_rule}
                             onSelect={handleDateSelect}
                             onClose={() => setShowDatePicker(false)}

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool, { addItemToPage, createTombstone, deleteTaskReferences, updateTask, deleteTask } from '../../../../lib/db';
 import { spawnNextRecurrence } from '../../../../lib/recurrence';
+import { isValidEndTime } from '../../../../lib/taskTime';
 
 export default async function handler(
   req: NextApiRequest,
@@ -15,7 +16,7 @@ export default async function handler(
   try {
     switch (method) {
       case 'PUT':
-        const { content, status, due_date, addToPageId } = req.body;
+        const { content, status, due_date, end_time, addToPageId } = req.body;
         
         if (addToPageId) {
             const taskRes = await pool.query("SELECT content FROM tasks WHERE id = $1", [taskId]);
@@ -44,7 +45,20 @@ export default async function handler(
                 await spawnNextRecurrence(taskId);
             }
         }
-        if (due_date !== undefined) fields.due_date = due_date;
+        if (due_date !== undefined) {
+          fields.due_date = due_date;
+          if (due_date === null) fields.end_time = null;
+        }
+        if (end_time !== undefined) {
+          const existingRes = await pool.query('SELECT due_date FROM tasks WHERE id = $1', [taskId]);
+          const existingDue = existingRes.rows[0]?.due_date ?? undefined;
+          const parsedEnd = end_time === null ? null : new Date(end_time);
+          if (parsedEnd && isNaN(parsedEnd.getTime())) return res.status(400).json({ error: 'Invalid end_time' });
+          if (parsedEnd && !isValidEndTime(fields.due_date !== undefined ? fields.due_date : existingDue, parsedEnd)) {
+            return res.status(400).json({ error: 'end_time must be after due_date and on the same calendar day' });
+          }
+          fields.end_time = parsedEnd;
+        }
 
         const { recurrenceRule, recurrence_rule } = req.body;
         const ruleToUse = recurrenceRule !== undefined ? recurrenceRule : recurrence_rule;

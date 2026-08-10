@@ -47,6 +47,12 @@ export function CalendarTaskBlock({
     ? format(parseLocalDateNode(task.due_date) as Date, 'h:mm a')
     : null;
 
+  const endTimeLabel = task.end_time
+    ? format(parseLocalDateNode(task.end_time) as Date, 'h:mm a')
+    : null;
+
+  const fullTimeRange = startTime && endTimeLabel ? `${startTime} – ${endTimeLabel}` : startTime;
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (e.target instanceof HTMLElement && e.target.closest('[data-task-checkbox]')) return;
     onClick?.(task);
@@ -101,9 +107,9 @@ export function CalendarTaskBlock({
           <div className={`text-xs font-medium truncate leading-tight ${isDone ? 'line-through' : ''}`}>
             {task.content || 'Untitled Task'}
           </div>
-          {startTime && (
+          {fullTimeRange && (
             <div className="text-[10px] opacity-75 leading-tight mt-0.5">
-              {startTime}
+              {fullTimeRange}
             </div>
           )}
         </div>

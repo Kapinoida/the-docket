@@ -29,6 +29,9 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
     }
     return format(parseLocalDateNode(task.due_date) as Date, 'HH:mm');
   });
+  const [endTime, setEndTime] = useState<Date | null>(
+    task?.end_time ? parseLocalDateNode(task.end_time) : null
+  );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrence_rule);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +53,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
         setDueTime('');
       }
       setRecurrenceRule(task.recurrence_rule);
+      setEndTime(task.end_time ? parseLocalDateNode(task.end_time) : null);
       setStatus(task.status || 'todo');
     }
   }, [task]);
@@ -67,6 +71,9 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
       const updates: any = {
         content: content.trim(),
         due_date: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null,
+        end_time: dueDate && endTime ? new Date(
+          `${dueDate}T${dueTime || '00:00'}:00`
+        ).getTime() === endTime.getTime() ? null : endTime : null,
         recurrence_rule: recurrenceRule || null,
         status,
       };
@@ -179,12 +186,14 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                 {showDatePicker && (
                   <DatePickerPopover
                     date={dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return new Date(y, m - 1, d); })() : null}
+                    endTime={endTime}
                     recurrenceRule={recurrenceRule}
-                    onSelect={(date, rule) => {
+                    onSelect={(date, rule, end) => {
                       setDueDate(date ? format(date, 'yyyy-MM-dd') : '');
                       if (date && !dueTime) {
                         setDueTime('12:00');
                       }
+                      setEndTime(end ?? null);
                       setRecurrenceRule(rule);
                       setShowDatePicker(false);
                     }}

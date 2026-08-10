@@ -96,6 +96,7 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
             content: '',
             status: 'todo',
             due_date: null,
+            end_time: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         });
@@ -216,7 +217,7 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
           }, 500); 
       } else {
           // Temp task - CREATE (first input or date set)
-          if (updates.content || updates.due_date) {
+          if (updates.content || updates.due_date || updates.end_time) {
             createTask(updates);
           }
       }
@@ -303,6 +304,9 @@ export const TaskExtension = Node.create({
           default: false,
       },
       due_date: {
+          default: null
+      },
+      end_time: {
           default: null
       },
       status: {

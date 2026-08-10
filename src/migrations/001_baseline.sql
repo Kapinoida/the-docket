@@ -28,9 +28,12 @@ CREATE TABLE IF NOT EXISTS tasks (
   content TEXT NOT NULL,
   status VARCHAR(50) DEFAULT 'todo',
   due_date TIMESTAMP,
+  end_time TIMESTAMP,
   recurrence_rule JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT chk_tasks_end_time_after_due
+    CHECK (end_time IS NULL OR (due_date IS NOT NULL AND end_time > due_date))
 );
 
 -- 3. Page Items (Context Graph)

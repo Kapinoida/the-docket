@@ -15,6 +15,7 @@ import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calend
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useToast } from '@/contexts/ToastContext';
 import { apiFetch, AuthError } from '@/lib/api';
+import { getTaskDurationMinutes, sameDayClampDragStart } from '@/lib/taskTime';
 import { PullToRefresh } from './v2/PullToRefresh';
 import AddCalendarModal from './modals/AddCalendarModal';
 import EventDetailModal from './modals/EventDetailModal';
@@ -525,7 +526,6 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const HOUR_END = showAllHours ? 24 : 22;
   const LEFT_GUTTER = 48;
   const COLUMN_GAP = 1;
-  const DEFAULT_TASK_DURATION = 30;
   const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => i + HOUR_START);
 
@@ -577,7 +577,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const timedTasks = dayTasks.filter(t => {
     if (!t.due_date) return false;
     const d = new Date(t.due_date);
-    return d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0;
+    return d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || !!t.end_time;
   });
 
   const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
@@ -615,10 +615,11 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
       })),
       ...timedTasks.map(t => {
         const startMs = (parseLocalDateNode(t.due_date!) as Date).getTime();
+        const durationMin = getTaskDurationMinutes(t);
         return {
           key: `task-${t.id}`,
           startMs,
-          endMs: startMs + DEFAULT_TASK_DURATION * 60000,
+          endMs: startMs + durationMin * 60000,
         };
       }),
     ];
@@ -766,15 +767,27 @@ const gridRect = e.currentTarget.getBoundingClientRect();
               const clampedMinutes = Math.max(HOUR_START * 60, Math.min(dropMinutes, HOUR_END * 60 - 15));
 
 if (dragTask) {
-                // Dropping a task → set its due time
+                // Dropping a task → set its due time, preserving any end_time duration
+                const durationMin = getTaskDurationMinutes(dragTask);
+                const clampedStart = sameDayClampDragStart(
+                  Math.floor(clampedMinutes / 60) * 60 + clampedMinutes % 60,
+                  durationMin,
+                  HOUR_START,
+                  HOUR_END
+                );
                 const newDue = new Date(day);
-                newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+                newDue.setHours(Math.floor(clampedStart / 60), clampedStart % 60, 0, 0);
+                const bodyPayload: { due_date: string; end_time?: string } = { due_date: newDue.toISOString() };
+                if (dragTask.end_time) {
+                  const newEnd = new Date(newDue.getTime() + durationMin * 60000);
+                  bodyPayload.end_time = newEnd.toISOString();
+                }
 
                 apiFetch(`/api/v2/tasks/${dragTask.id}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ due_date: newDue.toISOString() }),
-                 }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
+                  body: JSON.stringify(bodyPayload),
+                }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
 
                 setDragTask(null);
                 setDragOffsetY(0);
@@ -799,13 +812,20 @@ body: JSON.stringify({ due_date: newDue.toISOString() }),
 if (taskId !== null) {
                    const task = tasks.find(t => t.id === taskId);
                    if (task) {
+                     const durationMin = getTaskDurationMinutes(task);
+                     const clampedStart = sameDayClampDragStart(clampedMinutes, durationMin, HOUR_START, HOUR_END);
                      const newDue = new Date(day);
-                     newDue.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+                     newDue.setHours(Math.floor(clampedStart / 60), clampedStart % 60, 0, 0);
+                     const bodyPayload: { due_date: string; end_time?: string } = { due_date: newDue.toISOString() };
+                     if (task.end_time) {
+                       const newEnd = new Date(newDue.getTime() + durationMin * 60000);
+                       bodyPayload.end_time = newEnd.toISOString();
+                     }
                      apiFetch(`/api/v2/tasks/${taskId}`, {
                        method: 'PUT',
                        headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ due_date: newDue.toISOString() }),
-                      }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
+                       body: JSON.stringify(bodyPayload),
+                     }).catch(err => { if (err instanceof AuthError) { return; } console.error('Task drop failed:', err); showToast('Failed to move task', 'error'); });
                      setTimeout(() => onEventMoved?.(), 500);
                    }
                  }
@@ -988,8 +1008,9 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
           if (!t.due_date) return null;
           const d = parseLocalDateNode(t.due_date) as Date;
           const startMinutes = d.getHours() * 60 + d.getMinutes();
+          const durationMin = getTaskDurationMinutes(t);
           const taskTop = minutesToGridY(startMinutes);
-          const taskHeight = (DEFAULT_TASK_DURATION / 60) * HOUR_HEIGHT;
+          const taskHeight = (durationMin / 60) * HOUR_HEIGHT;
           const layout = itemLayouts.get(`task-${t.id}`) ?? { column: 0, total: 1 };
           const leftOffset = `calc(${LEFT_GUTTER}px + ${layout.column} * ((100% - ${LEFT_GUTTER}px) / ${layout.total}))`;
           const colWidth = `calc((100% - ${LEFT_GUTTER}px - ${COLUMN_GAP * (layout.total - 1)}px) / ${layout.total})`;
@@ -1090,7 +1111,7 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
               apiFetch(`/api/v2/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ due_date: null }),
+                body: JSON.stringify({ due_date: null, end_time: null }),
               })
                 .then(() => {
                   onEventMoved?.();

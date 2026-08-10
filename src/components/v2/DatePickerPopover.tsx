@@ -8,8 +8,9 @@ import 'react-day-picker/dist/style.css';
 
 interface DatePickerPopoverProps {
     date?: Date | null;
+    endTime?: Date | null;
     recurrenceRule?: RecurrenceRule;
-    onSelect: (date: Date | null, recurrence?: RecurrenceRule) => void;
+    onSelect: (date: Date | null, recurrence?: RecurrenceRule, endTime?: Date | null) => void;
     onClose: () => void;
     position?: { top?: number; left?: number; right?: number };
     triggerRef?: React.RefObject<HTMLElement | null>;
@@ -19,7 +20,7 @@ interface DatePickerPopoverProps {
 type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none';
 type EndCondition = 'never' | 'count' | 'until';
 
-export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, position, triggerRef, showTime = true }: DatePickerPopoverProps) {
+export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onClose, position, triggerRef, showTime = true }: DatePickerPopoverProps) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? new Date(date) : undefined);
     const [selectedTime, setSelectedTime] = useState<string>(() => {
         if (!date) return '';
@@ -27,6 +28,21 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
         const d = new Date(date);
         if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return '';
         return format(d, 'HH:mm');
+    });
+
+    // Duration / end-time state ("none" = point-in-time)
+    const [durationOption, setDurationOption] = useState<'none' | '30' | '60' | '120' | 'custom'>(() => {
+        if (!date || !endTime) return 'none';
+        const durMin = Math.round((new Date(endTime).getTime() - new Date(date).getTime()) / 60000);
+        if (durMin <= 0) return 'none';
+        if (durMin === 30) return '30';
+        if (durMin === 60) return '60';
+        if (durMin === 120) return '120';
+        return 'custom';
+    });
+    const [customEndTime, setCustomEndTime] = useState<string>(() => {
+        if (!date || !endTime) return '';
+        return format(new Date(endTime), 'HH:mm');
     });
     
     // Recurrence State
@@ -60,6 +76,20 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
         setSelectedDate(d);
     };
 
+    // Build the end-time Date from current options, given a resolved start Date.
+    const computeEndTime = (start: Date): Date | null => {
+        if (durationOption === 'none') return null;
+        if (durationOption === 'custom') {
+            if (!customEndTime) return null;
+            const [h, m] = customEndTime.split(':').map(Number);
+            const end = new Date(start);
+            end.setHours(h, m, 0, 0);
+            return end <= start ? null : end;
+        }
+        const minutes = parseInt(durationOption, 10);
+        return new Date(start.getTime() + minutes * 60000);
+    };
+
     const handleQuickSelect = (type: 'today' | 'tomorrow' | 'next-week') => {
         const today = new Date();
         today.setHours(17, 0, 0, 0);
@@ -91,7 +121,7 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             };
         }
         
-        onSelect(newDate, finalRule);
+        onSelect(newDate, finalRule, computeEndTime(newDate));
         onClose();
     };
 
@@ -117,7 +147,7 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
             finalDate.setHours(h, m, 0, 0);
         }
 
-        onSelect(finalDate, finalRule);
+        onSelect(finalDate, finalRule, finalDate ? computeEndTime(finalDate) : null);
         onClose();
     };
 
@@ -283,6 +313,52 @@ export function DatePickerPopover({ date, recurrenceRule, onSelect, onClose, pos
                             Clear
                         </button>
                     )}
+                </div>
+            )}
+
+            {/* Duration / End Time */}
+            {showTime && (
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted w-8">Block</span>
+                    <div className="flex flex-1 gap-1">
+                        {([
+                            { val: 'none', label: 'None' },
+                            { val: '30', label: '30m' },
+                            { val: '60', label: '1h' },
+                            { val: '120', label: '2h' },
+                        ] as const).map(opt => (
+                            <button
+                                key={opt.val}
+                                onClick={() => setDurationOption(opt.val)}
+                                className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+                                    durationOption === opt.val
+                                        ? 'bg-blue-500 text-white border-blue-500'
+                                        : 'bg-bg-tertiary text-text-secondary border-border-subtle hover:bg-bg-accent'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => setDurationOption('custom')}
+                            className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+                                durationOption === 'custom'
+                                    ? 'bg-blue-500 text-white border-blue-500'
+                                    : 'bg-bg-tertiary text-text-secondary border-border-subtle hover:bg-bg-accent'
+                            }`}
+                        >
+                            Custom
+                        </button>
+                        {durationOption === 'custom' && (
+                            <input
+                                type="time"
+                                value={customEndTime}
+                                onChange={(e) => setCustomEndTime(e.target.value)}
+                                disabled={!selectedDate}
+                                className="px-1.5 py-1 border border-border-default rounded-md bg-bg-primary text-text-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                        )}
+                    </div>
                 </div>
             )}
 
