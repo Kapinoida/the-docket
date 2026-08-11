@@ -30,19 +30,11 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
         return format(d, 'HH:mm');
     });
 
-    // Duration / end-time state ("none" = point-in-time)
-    const [durationOption, setDurationOption] = useState<'none' | '30' | '60' | '120' | 'custom'>(() => {
-        if (!date || !endTime) return 'none';
-        const durMin = Math.round((new Date(endTime).getTime() - new Date(date).getTime()) / 60000);
-        if (durMin <= 0) return 'none';
-        if (durMin === 30) return '30';
-        if (durMin === 60) return '60';
-        if (durMin === 120) return '120';
-        return 'custom';
-    });
-    const [customEndTime, setCustomEndTime] = useState<string>(() => {
-        if (!date || !endTime) return '';
-        return format(new Date(endTime), 'HH:mm');
+    // Explicit end time (HH:mm string, empty = no end time)
+    const [selectedEndTime, setSelectedEndTime] = useState<string>(() => {
+        if (!endTime) return '';
+        const d = new Date(endTime);
+        return format(d, 'HH:mm');
     });
     
     // Recurrence State
@@ -76,28 +68,17 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
         setSelectedDate(d);
     };
 
-    // Build the end-time Date from current options, given a resolved start Date.
-    // Never crosses midnight (same-calendar-day invariant).
+    // Build the end-time Date from the explicit end time input.
+    // Returns null if no end time set, or if invalid (before start or cross-midnight).
     const computeEndTime = (start: Date): Date | null => {
-        if (durationOption === 'none') return null;
-        if (durationOption === 'custom') {
-            if (!customEndTime) return null;
-            const [h, m] = customEndTime.split(':').map(Number);
-            const end = new Date(start);
-            end.setHours(h, m, 0, 0);
-            if (end <= start) return null;
-            // reject cross-midnight
-            if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) return null;
-            return end;
-        }
-        const minutes = parseInt(durationOption, 10);
-        const end = new Date(start.getTime() + minutes * 60000);
-        // clamp to same calendar day (end of day = 23:59)
-        if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) {
-            const clamped = new Date(start);
-            clamped.setHours(23, 59, 0, 0);
-            return clamped;
-        }
+        if (!selectedEndTime) return null;
+        const [h, m] = selectedEndTime.split(':').map(Number);
+        const end = new Date(start);
+        end.setHours(h, m, 0, 0);
+        // End must be after start
+        if (end <= start) return null;
+        // Must be same calendar day
+        if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) return null;
         return end;
     };
 
@@ -327,49 +308,25 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
                 </div>
             )}
 
-            {/* Duration / End Time */}
+            {/* End Time */}
             {showTime && (
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-muted w-8">Block</span>
-                    <div className="flex flex-1 gap-1">
-                        {([
-                            { val: 'none', label: 'None' },
-                            { val: '30', label: '30m' },
-                            { val: '60', label: '1h' },
-                            { val: '120', label: '2h' },
-                        ] as const).map(opt => (
-                            <button
-                                key={opt.val}
-                                onClick={() => setDurationOption(opt.val)}
-                                className={`text-xs px-2 py-1 rounded-md border transition-colors ${
-                                    durationOption === opt.val
-                                        ? 'bg-blue-500 text-white border-blue-500'
-                                        : 'bg-bg-tertiary text-text-secondary border-border-subtle hover:bg-bg-accent'
-                                }`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
+                    <span className="text-xs text-text-muted w-8">End</span>
+                    <input
+                        type="time"
+                        value={selectedEndTime}
+                        onChange={(e) => setSelectedEndTime(e.target.value)}
+                        disabled={!selectedDate}
+                        className="flex-1 px-2 py-1.5 border border-border-default rounded-md bg-bg-primary text-text-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {selectedEndTime && (
                         <button
-                            onClick={() => setDurationOption('custom')}
-                            className={`text-xs px-2 py-1 rounded-md border transition-colors ${
-                                durationOption === 'custom'
-                                    ? 'bg-blue-500 text-white border-blue-500'
-                                    : 'bg-bg-tertiary text-text-secondary border-border-subtle hover:bg-bg-accent'
-                            }`}
+                            onClick={() => setSelectedEndTime('')}
+                            className="text-xs text-text-muted hover:text-red-500 px-1"
                         >
-                            Custom
+                            Clear
                         </button>
-                        {durationOption === 'custom' && (
-                            <input
-                                type="time"
-                                value={customEndTime}
-                                onChange={(e) => setCustomEndTime(e.target.value)}
-                                disabled={!selectedDate}
-                                className="px-1.5 py-1 border border-border-default rounded-md bg-bg-primary text-text-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                        )}
-                    </div>
+                    )}
                 </div>
             )}
 
