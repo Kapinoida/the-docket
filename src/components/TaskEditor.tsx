@@ -200,8 +200,14 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                         const newDueTime = timeStr !== '00:00' ? timeStr : (dueTime || '12:00');
                         setDueTime(newDueTime);
                         
-                        // If we have an existing endTime, recalculate it to preserve duration
-                        if (endTime) {
+                        // If end is explicitly null, user chose "None" - clear endTime
+                        if (end === null) {
+                          setEndTime(null);
+                        } else if (end !== undefined) {
+                          // User set a specific duration - use it
+                          setEndTime(end);
+                        } else if (endTime) {
+                          // end is undefined, preserve existing duration when date changes
                           const oldStartTime = dueDate && dueTime 
                             ? new Date(`${dueDate}T${dueTime}:00`).getTime()
                             : null;
@@ -221,13 +227,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                             } else {
                               setEndTime(null);
                             }
-                          } else {
-                            // Use the endTime from the popover if provided
-                            setEndTime(end ?? null);
                           }
-                        } else {
-                          // No existing endTime, use the one from the popover
-                          setEndTime(end ?? null);
                         }
                       } else {
                         setEndTime(null);
