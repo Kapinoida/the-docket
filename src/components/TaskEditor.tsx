@@ -185,15 +185,53 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
 
                 {showDatePicker && (
                   <DatePickerPopover
-                    date={dueDate ? (() => { const [y, m, d] = dueDate.split('-').map(Number); return new Date(y, m - 1, d); })() : null}
+                    date={dueDate ? (() => { 
+                      const [y, m, d] = dueDate.split('-').map(Number);
+                      const [h, min] = (dueTime || '00:00').split(':').map(Number);
+                      return new Date(y, m - 1, d, h, min, 0, 0);
+                    })() : null}
                     endTime={endTime}
                     recurrenceRule={recurrenceRule}
                     onSelect={(date, rule, end) => {
                       setDueDate(date ? format(date, 'yyyy-MM-dd') : '');
-                      if (date && !dueTime) {
-                        setDueTime('12:00');
+                      if (date) {
+                        // Extract the time from the selected date
+                        const timeStr = format(date, 'HH:mm');
+                        const newDueTime = timeStr !== '00:00' ? timeStr : (dueTime || '12:00');
+                        setDueTime(newDueTime);
+                        
+                        // If we have an existing endTime, recalculate it to preserve duration
+                        if (endTime) {
+                          const oldStartTime = dueDate && dueTime 
+                            ? new Date(`${dueDate}T${dueTime}:00`).getTime()
+                            : null;
+                          const oldEndTime = endTime.getTime();
+                          
+                          if (oldStartTime && oldEndTime > oldStartTime) {
+                            // Preserve the duration
+                            const durationMs = oldEndTime - oldStartTime;
+                            const [y, m, d] = format(date, 'yyyy-MM-dd').split('-').map(Number);
+                            const [h, min] = newDueTime.split(':').map(Number);
+                            const newStart = new Date(y, m - 1, d, h, min, 0, 0);
+                            const newEnd = new Date(newStart.getTime() + durationMs);
+                            
+                            // Only set if it doesn't cross midnight
+                            if (newEnd.getDate() === newStart.getDate()) {
+                              setEndTime(newEnd);
+                            } else {
+                              setEndTime(null);
+                            }
+                          } else {
+                            // Use the endTime from the popover if provided
+                            setEndTime(end ?? null);
+                          }
+                        } else {
+                          // No existing endTime, use the one from the popover
+                          setEndTime(end ?? null);
+                        }
+                      } else {
+                        setEndTime(null);
                       }
-                      setEndTime(end ?? null);
                       setRecurrenceRule(rule);
                       setShowDatePicker(false);
                     }}
