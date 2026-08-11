@@ -68,15 +68,26 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
 
     setIsSaving(true);
     try {
+      const startTime = dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null;
       const updates: any = {
         content: content.trim(),
-        due_date: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null,
-        end_time: dueDate && endTime ? new Date(
-          `${dueDate}T${dueTime || '00:00'}:00`
-        ).getTime() === endTime.getTime() ? null : endTime : null,
+        due_date: startTime,
+        end_time: startTime && endTime && endTime.getTime() !== startTime.getTime() ? endTime : null,
         recurrence_rule: recurrenceRule || null,
         status,
       };
+
+      console.log('[TaskEditor] Saving:', {
+        taskId: task?.id,
+        dueDate,
+        dueTime,
+        endTime: endTime?.toISOString(),
+        updates: {
+          ...updates,
+          due_date: updates.due_date?.toISOString(),
+          end_time: updates.end_time?.toISOString(),
+        }
+      });
 
       if (task) {
         updates.id = task.id;
@@ -85,7 +96,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
       await onSave(updates);
 
     } catch (error) {
-      console.error('Error saving task:', error);
+      console.error('[TaskEditor] Save failed:', error);
       alert('Failed to save task');
     } finally {
       setIsSaving(false);
@@ -199,39 +210,9 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
                         const timeStr = format(date, 'HH:mm');
                         const newDueTime = timeStr !== '00:00' ? timeStr : (dueTime || '12:00');
                         setDueTime(newDueTime);
-                        
-                        // If end is explicitly null, user chose "None" - clear endTime
-                        if (end === null) {
-                          setEndTime(null);
-                        } else if (end !== undefined) {
-                          // User set a specific duration - use it
-                          setEndTime(end);
-                        } else if (endTime) {
-                          // end is undefined, preserve existing duration when date changes
-                          const oldStartTime = dueDate && dueTime 
-                            ? new Date(`${dueDate}T${dueTime}:00`).getTime()
-                            : null;
-                          const oldEndTime = endTime.getTime();
-                          
-                          if (oldStartTime && oldEndTime > oldStartTime) {
-                            // Preserve the duration
-                            const durationMs = oldEndTime - oldStartTime;
-                            const [y, m, d] = format(date, 'yyyy-MM-dd').split('-').map(Number);
-                            const [h, min] = newDueTime.split(':').map(Number);
-                            const newStart = new Date(y, m - 1, d, h, min, 0, 0);
-                            const newEnd = new Date(newStart.getTime() + durationMs);
-                            
-                            // Only set if it doesn't cross midnight
-                            if (newEnd.getDate() === newStart.getDate()) {
-                              setEndTime(newEnd);
-                            } else {
-                              setEndTime(null);
-                            }
-                          }
-                        }
-                      } else {
-                        setEndTime(null);
                       }
+                      // End time is explicit from the picker
+                      setEndTime(end ?? null);
                       setRecurrenceRule(rule);
                       setShowDatePicker(false);
                     }}
