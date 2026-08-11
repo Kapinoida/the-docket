@@ -10,6 +10,23 @@ Use this format:
 
 ---
 
+## [2026-08-11] – Simplify time-blocking: explicit start/end times
+- **What changed:**
+  Replaced the duration-based UI (None/30m/1h/2h/Custom buttons) with explicit start and end time inputs. Users now set both times directly, which is more intuitive and eliminates complex state synchronization issues.
+- **Why:**
+  The duration-based approach had several problems:
+  - Complex state sync between `durationOption` and `endTime`
+  - Tasks would "disappear" when validation failed silently
+  - Couldn't revert a task from having a duration back to point-in-time
+  - Confusing UX: "I have a 2-hour meeting" vs "I have a meeting from 2-4pm"
+  
+  The explicit start/end model is simpler, more intuitive, and matches how people naturally think about time blocks.
+- **Affected areas:** `src/components/v2/DatePickerPopover.tsx` (replaced duration buttons with end time input), `src/components/TaskEditor.tsx` (simplified onSelect handler).
+- **Migration needed?** No.
+- **Testing:** All 166 tests pass. Manually verified: creating tasks with explicit end times, editing times, clearing end times, validation (end must be after start, same calendar day).
+
+---
+
 ## [2026-08-11] – Fix end_time preservation when editing task dates
 - **What changed:**
   Fixed a bug where editing a task's date would lose the time component or cause validation errors when the task had an `end_time`. The DatePickerPopover now receives the full date+time (not just the date), and the TaskEditor recalculates `end_time` to preserve the original duration when the date changes. Cross-midnight blocks are prevented by clamping to 23:59 or rejecting invalid combinations.
