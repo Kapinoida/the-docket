@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-08-11] – Fix end_time preservation when editing task dates
+- **What changed:**
+  Fixed a bug where editing a task's date would lose the time component or cause validation errors when the task had an `end_time`. The DatePickerPopover now receives the full date+time (not just the date), and the TaskEditor recalculates `end_time` to preserve the original duration when the date changes. Cross-midnight blocks are prevented by clamping to 23:59 or rejecting invalid combinations.
+- **Why:**
+  When a user edited a task with a time block (e.g., 10:00 AM – 11:00 AM) and changed the date, the DatePickerPopover would initialize with `selectedTime` empty (because the `date` prop was created from just the date string, losing the time). The user would select a new date, and the TaskEditor would set `dueTime` to '12:00' (noon) while `endTime` remained at the original 11:00 AM, causing the API validation to reject the request (end < start). The fix ensures the time is preserved and the duration is maintained when editing dates.
+- **Affected areas:** `src/components/TaskEditor.tsx` (pass full date+time to DatePickerPopover, recalculate end_time to preserve duration), `src/components/v2/DatePickerPopover.tsx` (clamp cross-midnight blocks to 23:59).
+- **Migration needed?** No.
+- **Testing:** All 166 tests pass. Manually verified: creating tasks with duration, editing dates while preserving time and duration, and rejection of cross-midnight blocks.
+
+---
+
 ## [2026-08-10] – Time-blocking for tasks (`end_time`)
 - **What changed:**
   Tasks now optionally carry an `end_time` (absolute timestamp, same calendar day as `due_date`) so a task can occupy a time block rather than just a point-in-time deadline.
