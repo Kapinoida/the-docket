@@ -39,3 +39,69 @@ You are running on the host machine with OrbStack (Docker). Run `bash update.sh`
 - `src/lib/calendar.ts` — Shared calendar utilities, color system, event rendering
 - `src/lib/db.ts` — All data access functions, used by API routes
 - `src/types/index.ts` — Canonical type definitions (snake_case matching DB)
+
+## Recording Schedule Module
+A sports/TV recording schedule visualization and management module integrated into The Docket. Shows upcoming recordings, detects conflicts, and provides a dashboard for monitoring the IPTV recording pipeline.
+
+**Dashboard**: `/recordings` — accessible via Sidebar (desktop) and BottomTabBar (mobile)
+
+**Database**: `recording_schedules` table (migration `007_recording_schedules.sql`)
+- Fields: id, stream_id, title, league, channel_name, start_time, end_time, status, source, output_path, file_size_bytes, error_message, metadata (JSONB), created_at, updated_at
+- Status values: pending, scheduled, recording, completed, failed, cancelled
+- Source values: fixture, manual, replay
+- Indexes: time range, status+time, league, unique (stream_id, start_time)
+- Auto-updates `updated_at` via trigger
+
+**API Endpoints** (all require JWT auth via cookie):
+- `GET /api/v2/recordings` — List recordings with filters (status, league, dateRange, startDate, endDate, limit, offset)
+- `POST /api/v2/recordings` — Create recording (requires stream_id, title, start_time, end_time)
+- `GET /api/v2/recordings/[id]` — Get single recording
+- `PATCH /api/v2/recordings/[id]` — Update recording (status, output_path, file_size_bytes, error_message, metadata)
+- `DELETE /api/v2/recordings/[id]` — Delete recording
+- `GET /api/v2/recordings/conflicts` — Get overlapping recordings (pending/scheduled status, future start times)
+
+**Components** (`src/components/recordings/`):
+- `RecordingDashboard.tsx` — Main dashboard with 60s auto-refresh, stats cards, conflict panel, timeline, filters
+- `RecordingCard.tsx` — Compact card showing title, league, time, channel, status
+- `StatusBadge.tsx` — Color-coded status indicator (pulse animation for "recording")
+- `ConflictPanel.tsx` — Alert panel highlighting overlapping recordings
+- `TimelineView.tsx` — Gantt chart on desktop, list on mobile
+- `Filters.tsx` — Dropdown filters for status, league, dateRange
+- `DashboardSkeleton.tsx` — Loading state
+- `EmptyState.tsx` — Empty state with icon and message
+
+**Hermes Scripts** (`~/.hermes/scripts/`):
+- `recording_api.py` — Shared API client with JWT authentication (cookie-based, 24h token cache)
+- `smartiflix-fixture-scheduler.py` — Fetches ESPN fixtures, POSTs to API
+- `smartiflix-recording-runner.py` — Fetches pending recordings, launches ffmpeg, updates status
+- `pl-replay-grabber.py` — Records PL replays, POSTs to API with source='replay'
+- `~/.hermes/docket_credentials.json` — API credentials (password only)
+
+**Types** (`src/types/index.ts`):
+- `RecordingSchedule` — Full recording record
+- `CreateRecordingInput` — Input for creating recordings
+- `UpdateRecordingInput` — Input for updating recordings
+- `ConflictPair` — Overlapping recording pair
+- `RecordingStatus` — 'pending' | 'scheduled' | 'recording' | 'completed' | 'failed' | 'cancelled'
+- `RecordingSource` — 'fixture' | 'manual' | 'replay'
+
+**Data Access** (`src/lib/db.ts`):
+- `createRecording(input)` — Insert new recording
+- `getRecording(id)` — Fetch single recording
+- `getRecordings(options)` — List with filters
+- `updateRecording(id, input)` — Update fields
+- `deleteRecording(id)` — Remove recording
+- `getConflicts()` — Detect overlapping recordings
+
+**Testing**:
+- API tests: `src/pages/api/v2/recordings/__tests__/` (3 files, 28 tests)
+- Component tests: `src/components/recordings/__tests__/` (4 files, 28 tests)
+- Run: `npm test -- recordings`
+
+**Debugging**:
+- Check API: `curl -s http://localhost:8088/api/v2/recordings` (requires auth cookie)
+- Check DB: `docker exec -i the-docket-db psql -U postgres -d the_docket -c "SELECT * FROM recording_schedules ORDER BY start_time DESC LIMIT 10;"`
+- Check migrations: `docker exec -i the-docket-db psql -U postgres -d the_docket -c "SELECT * FROM pgmigrations ORDER BY run_on;"`
+- Hermes scripts log to stdout when run manually
+
+**Sandbox Repo**: `~/MyServer/docket-recordings/` — original development sandbox (Phases 0-3). All code has been merged into The Docket. Sandbox kept for reference but no longer actively developed.
