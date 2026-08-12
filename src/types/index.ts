@@ -219,3 +219,66 @@ export function pageRowToPage(row: PageRow): Page {
     updated_at: row.updated_at,
   };
 }
+
+// Recording Schedule Types
+export type RecordingStatus =
+  | 'pending'
+  | 'scheduled'
+  | 'recording'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type RecordingSource = 'fixture' | 'manual' | 'replay';
+
+export interface RecordingSchedule {
+  id: number;
+  stream_id: string;
+  title: string;
+  league: string | null;
+  channel_name: string | null;
+  start_time: string;
+  end_time: string;
+  status: RecordingStatus;
+  source: RecordingSource;
+  output_path: string | null;
+  file_size_bytes: number | null;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRecordingInput {
+  stream_id: string;
+  title: string;
+  league?: string;
+  channel_name?: string;
+  start_time: string;
+  end_time: string;
+  status?: RecordingStatus;
+  source?: RecordingSource;
+  output_path?: string;
+  file_size_bytes?: number;
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateRecordingInput {
+  status?: RecordingStatus;
+  output_path?: string;
+  file_size_bytes?: number;
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConflictPair {
+  id: number;
+  conflict_id: number;
+  title: string;
+  conflict_title: string;
+  start_time: string;
+  end_time: string;
+  conflict_start: string;
+  conflict_end: string;
+}

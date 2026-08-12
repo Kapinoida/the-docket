@@ -280,19 +280,20 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   curl -sI https://docket.dcplaskett.com/apple-touch-icon.png
   # PWA install test on phone — icon should appear correctly in launcher
   ```
-- [~] **Recording Schedule Module** 🟡
+- [x] **Recording Schedule Module** 🟢
   *A dedicated sports recording schedule management system bolted onto The Docket (same pattern as Focus Timer). Database table, CRUD API, conflict detection, dashboard UI. Hermes scripts will POST/read schedules via API instead of JSON files. Built as a standalone module in `src/modules/recording-scheduler/` then plugged into the app shell.*
-  **Status:** 🟡 Plan written (2026-08-01); ready for OpenCode implementation
+  **Status:** 🟢 Complete (Phases 1-4)
   **Plan:** `.hermes/plans/2026-08-01-recording-schedule-module.md`
   **Reported:** 2026-08-01 (via Hermes, from Dave)
+  *Completed: 2026-08-11 (Phases 1-4)*
 
   **What needs to happen (6 phases):**
-  - **Phase 1: Module scaffold + DB** — `src/modules/recording-scheduler/` directory, migration `007_recording_schedules.sql`, types, db helpers
-  - **Phase 2: API routes** — CRUD endpoints at `/api/v2/recordings` + conflict detection at `/api/v2/recordings/conflicts`
-  - **Phase 3: UI components** — RecordingCard, ConflictPanel, RecordingDashboard (auto-refreshing, 60s polling)
-  - **Phase 4: Plug into Docket** — `/recordings` page route, sidebar + BottomTabBar navigation
-  - **Phase 5: Hermes script integration** — `smartiflix-fixture-scheduler.py`, `smartiflix-recording-runner.py`, `pl-replay-grabber.py` all switch from JSON file I/O to API calls
-  - **Phase 6: Polish** — ROADMAP, AGENTS, deploy
+  - **Phase 1: Module scaffold + DB** — `src/modules/recording-scheduler/` directory, migration `007_recording_schedules.sql`, types, db helpers ✅
+  - **Phase 2: API routes** — CRUD endpoints at `/api/v2/recordings` + conflict detection at `/api/v2/recordings/conflicts` ✅
+  - **Phase 3: UI components** — RecordingCard, ConflictPanel, RecordingDashboard (auto-refreshing, 60s polling) ✅
+  - **Phase 4: Plug into Docket** — `/recordings` page route, sidebar + BottomTabBar navigation ✅
+  - **Phase 5: Hermes script integration** — `smartiflix-fixture-scheduler.py`, `smartiflix-recording-runner.py`, `pl-replay-grabber.py` all switch from JSON file I/O to API calls 🔴
+  - **Phase 6: Polish** — ROADMAP, AGENTS, deploy 🔴
 
   **Affected files:**
   - `src/modules/recording-scheduler/` — types, db helpers, components (new)

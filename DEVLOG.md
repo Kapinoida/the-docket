@@ -10,6 +10,27 @@ Use this format:
 
 ---
 
+## [2026-08-11] – Recording Schedule Module Phase 4: Integration into The Docket
+- **What changed:**
+  Integrated the Recording Schedule Module into The Docket. Created migration `007_recording_schedules.sql` with the recording_schedules table, indexes, and updated_at trigger. Added recording types and data access functions to `src/lib/db.ts` and `src/types/index.ts`. Created API routes at `/api/v2/recordings/` (index, [id], conflicts) using Pages Router pattern. Moved all UI components to `src/components/recordings/` (StatusBadge, RecordingCard, ConflictPanel, TimelineView, Filters, DashboardSkeleton, EmptyState, RecordingDashboard). Created `/recordings` page route. Added Recordings navigation to Sidebar and BottomTabBar. Ported and adapted all tests (56 tests for recordings).
+- **Why:**
+  Phase 4 completes the integration of the recording schedule module into The Docket, making it accessible via the existing app shell with proper authentication, navigation, and mobile support. The module is now fully functional within The Docket's ecosystem.
+- **Affected areas:** 
+  - `src/migrations/007_recording_schedules.sql` (new)
+  - `src/lib/db.ts` (added recording data access functions)
+  - `src/types/index.ts` (added recording types)
+  - `src/pages/api/v2/recordings/` (new: index.ts, [id].ts, conflicts.ts)
+  - `src/components/recordings/` (new: 8 components)
+  - `src/app/recordings/page.tsx` (new)
+  - `src/components/v2/Sidebar.tsx` (added Recordings nav item)
+  - `src/components/v2/BottomTabBar.tsx` (added Recordings tab)
+  - `src/pages/api/v2/recordings/__tests__/` (new: 3 test files)
+  - `src/components/recordings/__tests__/` (new: 4 test files)
+- **Migration needed?** Yes — run `npm run migrate` to apply `007_recording_schedules.sql`
+- **Testing:** All 222 tests pass (56 new recording tests). Lint clean (no new errors). TypeScript clean (no new errors).
+
+---
+
 ## [2026-08-11] – Simplify time-blocking: explicit start/end times
 - **What changed:**
   Replaced the duration-based UI (None/30m/1h/2h/Custom buttons) with explicit start and end time inputs. Users now set both times directly, which is more intuitive and eliminates complex state synchronization issues.
