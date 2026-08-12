@@ -661,3 +661,154 @@ export async function getFolderName(folderId: number): Promise<string | null> {
   const res = await pool.query('SELECT name FROM folders WHERE id = $1', [folderId]);
   return res.rows[0]?.name || null;
 }
+
+// --- Recording Schedule Data Access ---
+
+import { RecordingSchedule, CreateRecordingInput, UpdateRecordingInput, ConflictPair } from '../types';
+
+export async function createRecording(input: CreateRecordingInput): Promise<RecordingSchedule> {
+  const res = await pool.query(
+    `INSERT INTO recording_schedules (
+      stream_id, title, league, channel_name, start_time, end_time,
+      status, source, output_path, file_size_bytes, error_message, metadata
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING *`,
+    [
+      input.stream_id,
+      input.title,
+      input.league || null,
+      input.channel_name || null,
+      input.start_time,
+      input.end_time,
+      input.status || 'pending',
+      input.source || 'fixture',
+      input.output_path || null,
+      input.file_size_bytes || null,
+      input.error_message || null,
+      input.metadata || {},
+    ]
+  );
+  return res.rows[0];
+}
+
+export async function getRecording(id: number): Promise<RecordingSchedule | null> {
+  const res = await pool.query('SELECT * FROM recording_schedules WHERE id = $1', [id]);
+  return res.rows[0] || null;
+}
+
+export interface GetRecordingsOptions {
+  status?: string;
+  league?: string;
+  dateRange?: 'today' | 'upcoming' | 'past';
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function getRecordings(options: GetRecordingsOptions = {}): Promise<RecordingSchedule[]> {
+  let query = 'SELECT * FROM recording_schedules WHERE 1=1';
+  const params: (string | number)[] = [];
+  let paramIdx = 1;
+
+  if (options.status) {
+    query += ` AND status = $${paramIdx++}`;
+    params.push(options.status);
+  }
+
+  if (options.league) {
+    query += ` AND league = $${paramIdx++}`;
+    params.push(options.league);
+  }
+
+  if (options.dateRange === 'today') {
+    query += ` AND start_time::date = CURRENT_DATE`;
+  } else if (options.dateRange === 'upcoming') {
+    query += ` AND start_time >= NOW()`;
+  } else if (options.dateRange === 'past') {
+    query += ` AND start_time < NOW()`;
+  }
+
+  if (options.startDate) {
+    query += ` AND start_time >= $${paramIdx++}`;
+    params.push(options.startDate);
+  }
+
+  if (options.endDate) {
+    query += ` AND end_time <= $${paramIdx++}`;
+    params.push(options.endDate);
+  }
+
+  query += ' ORDER BY start_time ASC';
+
+  if (options.limit) {
+    query += ` LIMIT $${paramIdx++}`;
+    params.push(options.limit);
+  }
+
+  if (options.offset) {
+    query += ` OFFSET $${paramIdx++}`;
+    params.push(options.offset);
+  }
+
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+export async function updateRecording(id: number, input: UpdateRecordingInput): Promise<RecordingSchedule | null> {
+  const setClauses: string[] = [];
+  const values: (string | number | Record<string, unknown> | null)[] = [];
+  let paramIdx = 1;
+
+  if (input.status !== undefined) {
+    setClauses.push(`status = $${paramIdx++}`);
+    values.push(input.status);
+  }
+  if (input.output_path !== undefined) {
+    setClauses.push(`output_path = $${paramIdx++}`);
+    values.push(input.output_path);
+  }
+  if (input.file_size_bytes !== undefined) {
+    setClauses.push(`file_size_bytes = $${paramIdx++}`);
+    values.push(input.file_size_bytes);
+  }
+  if (input.error_message !== undefined) {
+    setClauses.push(`error_message = $${paramIdx++}`);
+    values.push(input.error_message);
+  }
+  if (input.metadata !== undefined) {
+    setClauses.push(`metadata = $${paramIdx++}`);
+    values.push(input.metadata);
+  }
+
+  if (setClauses.length === 0) return null;
+
+  values.push(id);
+  const query = `UPDATE recording_schedules SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+  const res = await pool.query(query, values);
+  return res.rows[0] || null;
+}
+
+export async function deleteRecording(id: number): Promise<boolean> {
+  const res = await pool.query('DELETE FROM recording_schedules WHERE id = $1', [id]);
+  return (res.rowCount ?? 0) > 0;
+}
+
+export async function getConflicts(): Promise<ConflictPair[]> {
+  const query = `
+    SELECT a.id, b.id AS conflict_id,
+           a.title, b.title AS conflict_title,
+           a.start_time, a.end_time,
+           b.start_time AS conflict_start, b.end_time AS conflict_end
+    FROM recording_schedules a
+    JOIN recording_schedules b ON b.id != a.id
+      AND b.start_time < a.end_time
+      AND b.end_time > a.start_time
+      AND b.status IN ('pending', 'scheduled')
+    WHERE a.status IN ('pending', 'scheduled')
+      AND a.start_time >= NOW()
+    ORDER BY a.start_time
+  `;
+  const res = await pool.query(query);
+  return res.rows;
+}
