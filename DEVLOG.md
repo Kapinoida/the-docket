@@ -10,6 +10,47 @@ Use this format:
 
 ---
 
+## [2026-08-12] – Recording Schedule Module Phase 5: Hermes Script Migration
+- **What changed:**
+  Migrated all three Hermes recording scripts from JSON file I/O to the new Recording Schedule API.
+  
+  - **Shared API client** (`~/.hermes/scripts/recording_api.py`): Created a reusable API client with JWT authentication (cookie-based), token caching (24h), and helper functions for all CRUD operations. Handles login via `/api/auth/login`, extracts token from Set-Cookie header, and sends it as a cookie in subsequent requests.
+  
+  - **Fixture scheduler** (`smartiflix-fixture-scheduler.py`): Removed `load_queue()` and `save_queue()` functions. Now uses `create_recording()` to POST matched fixtures to the API. Calculates end times based on league duration. Posts metadata including home/away teams and notes. Checks for conflicts after saving via `get_conflicts()`.
+  
+  - **Recording runner** (`smartiflix-recording-runner.py`): Removed JSON queue file operations. Now uses `get_recordings(status='pending')` to fetch upcoming recordings. Uses `update_recording()` to mark recordings as 'recording' when ffmpeg launches and 'completed' when done. Tracks PIDs locally in `~/.hermes/state/recording_pids.json` (API doesn't store PIDs). Checks for completed recordings by verifying PID status and updates API with output file path and size.
+  
+  - **PL replay grabber** (`pl-replay-grabber.py`): Now uses `create_recording()` to POST replay recordings to the API with `source='replay'`. Includes channel label and PID in metadata. Calculates end times based on duration.
+  
+  - **Credentials** (`~/.hermes/docket_credentials.json`): Created credentials file with Docket password for API authentication.
+  
+- **Why:**
+  Phase 5 completes the migration from the legacy JSON-based recording queue to the new database-backed API. This provides:
+  - Centralized recording schedule visible in The Docket dashboard
+  - Conflict detection and visualization
+  - Better data integrity (no more JSON file corruption)
+  - API-based integration instead of file-based
+  - Proper authentication and authorization
+  
+- **Affected areas:** 
+  - `~/.hermes/scripts/recording_api.py` (new)
+  - `~/.hermes/scripts/smartiflix-fixture-scheduler.py` (modified)
+  - `~/.hermes/scripts/smartiflix-recording-runner.py` (modified)
+  - `~/.hermes/scripts/pl-replay-grabber.py` (modified)
+  - `~/.hermes/docket_credentials.json` (new)
+  
+- **Migration needed?** No — uses existing API from Phase 4
+  
+- **Testing:** 
+  - ✅ API client successfully authenticates and makes requests
+  - ✅ Fixture scheduler dry-run works
+  - ✅ Recording runner dry-run works
+  - ✅ PL replay grabber dry-run works
+  - ✅ Created, fetched, updated, and deleted test recordings via API
+  - ✅ All three scripts can communicate with the API
+
+---
+
 ## [2026-08-11] – Recording Schedule Module Phase 4: Integration into The Docket
 - **What changed:**
   Integrated the Recording Schedule Module into The Docket. Created migration `007_recording_schedules.sql` with the recording_schedules table, indexes, and updated_at trigger. Added recording types and data access functions to `src/lib/db.ts` and `src/types/index.ts`. Created API routes at `/api/v2/recordings/` (index, [id], conflicts) using Pages Router pattern. Moved all UI components to `src/components/recordings/` (StatusBadge, RecordingCard, ConflictPanel, TimelineView, Filters, DashboardSkeleton, EmptyState, RecordingDashboard). Created `/recordings` page route. Added Recordings navigation to Sidebar and BottomTabBar. Ported and adapted all tests (56 tests for recordings).
