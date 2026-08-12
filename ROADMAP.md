@@ -282,7 +282,7 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   ```
 - [x] **Recording Schedule Module** 🟢
   *A dedicated sports recording schedule management system bolted onto The Docket (same pattern as Focus Timer). Database table, CRUD API, conflict detection, dashboard UI. Hermes scripts will POST/read schedules via API instead of JSON files. Built as a standalone module in `src/modules/recording-scheduler/` then plugged into the app shell.*
-  **Status:** 🟢 Complete (Phases 1-5)
+  **Status:** 🟢 Complete (Phases 1-6)
   **Plan:** `.hermes/plans/2026-08-01-recording-schedule-module.md`
   **Reported:** 2026-08-01 (via Hermes, from Dave)
   *Completed: 2026-08-11 (Phases 1-4), 2026-08-12 (Phase 5)*
@@ -293,7 +293,7 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   - **Phase 3: UI components** — RecordingCard, ConflictPanel, RecordingDashboard (auto-refreshing, 60s polling) ✅
   - **Phase 4: Plug into Docket** — `/recordings` page route, sidebar + BottomTabBar navigation ✅
   - **Phase 5: Hermes script integration** — `smartiflix-fixture-scheduler.py`, `smartiflix-recording-runner.py`, `pl-replay-grabber.py` all switch from JSON file I/O to API calls ✅
-  - **Phase 6: Polish** — ROADMAP, AGENTS, deploy 🔴
+  - **Phase 6: Polish** — ROADMAP, AGENTS, deploy ✅
 
   **Affected files:**
   - `src/modules/recording-scheduler/` — types, db helpers, components (new)
