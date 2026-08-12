@@ -10,6 +10,15 @@ Use this format:
 
 ---
 
+## [2026-08-12] - Recording Schedule Module deployment
+- **What changed:** Deployed the recording schedule module and Hermes API integration to production. The application image rebuilt successfully, containers restarted, and the migration runner confirmed `007_recording_schedules.sql` is applied.
+- **Why:** Completes the recording module rollout with the dashboard, CRUD/conflict APIs, database schema, and recording script integration available in production.
+- **Affected areas:** `/recordings`, `/api/v2/recordings/*`, `recording_schedules` database table, and Hermes recording scripts.
+- **Migration needed?** No - migration `007_recording_schedules.sql` was already applied.
+- **Testing:** 222 tests passed; production build completed successfully.
+
+---
+
 ## [2026-08-12] – Recording Schedule Module Phase 5: Hermes Script Migration
 - **What changed:**
   Migrated all three Hermes recording scripts from JSON file I/O to the new Recording Schedule API.
