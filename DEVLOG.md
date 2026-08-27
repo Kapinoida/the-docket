@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-08-27] – Inbox processing mode
+- **What changed:**
+  Added a "Process" button to InboxView that enters a focused processing mode. Processing mode displays one task at a time with progress tracking ("Needs a decision · 1 of 3"), and provides six actions: Keep Active (advance without changes), Skip (advance without changes), Schedule (open date picker), Move (open page selector), Clarify (open task editor), and Delete (remove task). Each action advances to the next task on success. Added keyboard shortcuts (J/K for navigation, Enter for clarify, D for schedule, M for move, X for delete, Escape to exit) with guards to prevent activation when focus is in editable elements. Implemented session-local queue tracking using a Set of processed task IDs to handle Do/Skip actions that don't modify the database. Hardened MoveToPageModal with apiFetch and error handling. Added 13 comprehensive tests covering processing mode entry/exit, navigation, actions, keyboard shortcuts, and error handling.
+- **Why:**
+  Implements the first vertical slice from DOCKET-IMPROVEMENT-SYNOPSIS.md: turning Inbox from a passive list into a decision queue. The existing Inbox captured tasks but didn't help decide what each thought means or what should happen next. Processing mode provides a low-friction workflow for clarifying, scheduling, moving, or discarding captured items. The session-local queue design allows Do and Skip actions to advance without requiring database changes, keeping the MVP simple while validating the processing workflow.
+- **Affected areas:** `src/components/v2/InboxView.tsx` (processing mode UI, state, handlers, keyboard shortcuts), `src/components/v2/MoveToPageModal.tsx` (apiFetch migration), `src/components/v2/__tests__/InboxView.test.tsx` (new test file with 13 tests).
+- **Migration needed?** No.
+- **Testing:** All 235 tests pass (13 new InboxView tests). TypeScript clean (no new errors in modified files). ESLint clean (no new errors in modified files).
+
+---
+
 ## [2026-08-27] – Inbox mutation hardening with apiFetch
 - **What changed:**
   Replaced all raw `fetch()` calls in `InboxView.tsx` with the centralized `apiFetch()` wrapper from `src/lib/api.ts`. This ensures HTTP 4xx/5xx responses are properly treated as failures instead of being silently ignored. Added `AuthError` handling to all mutation paths (create, toggle, update, delete, move-to-page) so session-expiry flows through the existing global auth-expiry handler without surfacing as a user-visible error. Optimistic local updates and rollback behavior are preserved.
