@@ -10,6 +10,28 @@ Use this format:
 
 ---
 
+## [2026-08-27] – Inbox mutation hardening with apiFetch
+- **What changed:**
+  Replaced all raw `fetch()` calls in `InboxView.tsx` with the centralized `apiFetch()` wrapper from `src/lib/api.ts`. This ensures HTTP 4xx/5xx responses are properly treated as failures instead of being silently ignored. Added `AuthError` handling to all mutation paths (create, toggle, update, delete, move-to-page) so session-expiry flows through the existing global auth-expiry handler without surfacing as a user-visible error. Optimistic local updates and rollback behavior are preserved.
+- **Why:**
+  The previous raw `fetch()` calls only caught network rejections in their `.catch()` blocks. HTTP error responses (e.g., 500, 403) were treated as successes because `res.ok` was not checked in all paths, leading to silent data inconsistencies. The `apiFetch()` wrapper throws on any non-2xx response, making failures explicit and enabling proper rollback.
+- **Affected areas:** `src/components/v2/InboxView.tsx` (5 mutation handlers updated).
+- **Migration needed?** No.
+- **Testing:** All 222 tests pass. TypeScript clean (no new errors in modified files). ESLint clean (no new errors in modified files).
+
+---
+
+## [2026-08-27] – Move CalendarView constants to module scope
+- **What changed:**
+  Moved four static DayView layout constants from inside the `DayView` component function to module scope in `src/components/CalendarView.tsx`: `HOUR_HEIGHT` (64), `LEFT_GUTTER` (48), `COLUMN_GAP` (1), and `ALL_DAY_LIMIT` (4). `HOUR_START` and `HOUR_END` remain local to `DayView` because they depend on the `showAllHours` state.
+- **Why:**
+  ROADMAP "Move constants out of component functions." These values were being recreated on every render despite being static. Moving them to module scope eliminates unnecessary allocations and makes the intent clearer.
+- **Affected areas:** `src/components/CalendarView.tsx` (DayView function).
+- **Migration needed?** No.
+- **Testing:** All 222 tests pass. TypeScript clean (no new errors in modified files). ESLint clean (no new errors in modified files).
+
+---
+
 ## [2026-08-12] - Recording Schedule Module deployment
 - **What changed:** Deployed the recording schedule module and Hermes API integration to production. The application image rebuilt successfully, containers restarted, and the migration runner confirmed `007_recording_schedules.sql` is applied.
 - **Why:** Completes the recording module rollout with the dashboard, CRUD/conflict APIs, database schema, and recording script integration available in production.

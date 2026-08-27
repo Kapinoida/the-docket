@@ -214,9 +214,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Reported:** 2026-07-15 (via Hermes, from Dave)
   **Attempted:** 2026-07-15 — implemented and deployed, reverted same day after Dave reviewed.
 
-- [ ] **Move constants out of component functions**  
-  *`HOUR_HEIGHT`, `HOUR_START`, `HOUR_END` are recreated on every render in CalendarView. Should be module-level.*  
-  **Status:** 🔴 Not Started
+- [x] **Move constants out of component functions** 🟢
+  *Moved `HOUR_HEIGHT`, `LEFT_GUTTER`, `COLUMN_GAP`, and `ALL_DAY_LIMIT` to module scope in CalendarView.tsx. `HOUR_START` and `HOUR_END` remain local to DayView since they depend on the `showAllHours` state.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-08-27*
 
 - [x] **Remove console.log from production code** 🟢
   *Removed all 45 `console.log` statements from production code across 13 files (caldav sync, recurrence, contexts, hooks, components, API routes). Retained `console.error` (117 catch/error handlers) and `console.warn` (7 operational warnings). No functional changes.*
