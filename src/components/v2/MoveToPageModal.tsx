@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, FileText } from 'lucide-react';
 import { Page } from '../../types';
+import { apiFetch, AuthError } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 interface MoveToPageModalProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface MoveToPageModalProps {
 }
 
 export default function MoveToPageModal({ isOpen, onClose, onSelect }: MoveToPageModalProps) {
+  const { showToast } = useToast();
   const [pages, setPages] = useState<Page[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,18 +20,22 @@ export default function MoveToPageModal({ isOpen, onClose, onSelect }: MoveToPag
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      fetch('/api/v2/pages?view=all')
-        .then(res => res.json())
+      apiFetch<Page[]>('/api/v2/pages?view=all')
         .then(data => {
             setPages(data);
             setLoading(false);
         })
         .catch(err => {
+            if (err instanceof AuthError) {
+              setLoading(false);
+              return;
+            }
             console.error(err);
+            showToast('Failed to load pages', 'error');
             setLoading(false);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, showToast]);
 
   if (!isOpen) return null;
 
