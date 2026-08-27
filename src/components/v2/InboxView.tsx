@@ -9,6 +9,7 @@ import MoveToPageModal from './MoveToPageModal';
 import { TaskListSkeleton } from './Skeleton';
 import { PullToRefresh } from './PullToRefresh';
 import { useSync } from '@/contexts/SyncContext';
+import { apiFetch, AuthError } from '@/lib/api';
 
 export default function InboxView() {
   const { tasks, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
@@ -32,18 +33,16 @@ export default function InboxView() {
     if (!inputValue.trim()) return;
 
     try {
-      const res = await fetch('/api/v2/tasks', {
+      const task = await apiFetch<Task>('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: inputValue }),
       });
 
-      if (res.ok) {
-        const task = await res.json();
-        setInputValue('');
-        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'inboxView' } }));
-      }
+      setInputValue('');
+      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'inboxView' } }));
     } catch (error) {
+      if (error instanceof AuthError) return;
       console.error('Failed to create task', error);
     }
   };
@@ -51,26 +50,30 @@ export default function InboxView() {
   const handleToggle = (id: number) => {
       updateLocalTask(id, { status: 'done' });
 
-      fetch(`/api/v2/tasks/${id}`, {
+      apiFetch(`/api/v2/tasks/${id}`, {
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ status: 'done' })
       }).then(() => {
           window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates: { status: 'done' }, source: 'inboxView' } }));
-      }).catch(() => refetch());
+      }).catch((error) => {
+          if (error instanceof AuthError) return;
+          refetch();
+      });
   };
 
 const handleUpdate = async (id: number, updates: Partial<Task>) => {
       updateLocalTask(id, updates);
 
       try {
-          await fetch(`/api/v2/tasks/${id}`, {
+          await apiFetch(`/api/v2/tasks/${id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates)
           });
           window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: id, updates, source: 'inboxView' } }));
       } catch (error) {
+          if (error instanceof AuthError) return;
           console.error('Failed to update task', error);
           refetch();
       }
@@ -79,9 +82,10 @@ const handleUpdate = async (id: number, updates: Partial<Task>) => {
   const handleDelete = async (id: number) => {
       removeLocalTask(id);
       try {
-          await fetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
+          await apiFetch(`/api/v2/tasks/${id}`, { method: 'DELETE' });
           window.dispatchEvent(new CustomEvent('taskDeleted', { detail: { taskId: id, source: 'inboxView' } }));
       } catch (error) {
+          if (error instanceof AuthError) return;
           console.error('Failed to delete task', error);
           refetch();
       }
@@ -96,18 +100,17 @@ const handleUpdate = async (id: number, updates: Partial<Task>) => {
       if (!movingTask) return;
 
       try {
-          const res = await fetch(`/api/v2/tasks/${movingTask.id}`, {
+          await apiFetch(`/api/v2/tasks/${movingTask.id}`, {
               method: 'PUT',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ addToPageId: pageId })
           });
 
-          if (res.ok) {
-              setMovingTask(null);
-              setIsMoveModalOpen(false);
-              window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: movingTask.id, source: 'inboxView' } }));
-          }
+          setMovingTask(null);
+          setIsMoveModalOpen(false);
+          window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: movingTask.id, source: 'inboxView' } }));
       } catch (e) {
+          if (e instanceof AuthError) return;
           console.error("Failed to move task", e);
       }
   };
