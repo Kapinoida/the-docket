@@ -509,6 +509,11 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
 }
 
 // --- Day View ---
+const HOUR_HEIGHT = 64;
+const LEFT_GUTTER = 48;
+const COLUMN_GAP = 1;
+const ALL_DAY_LIMIT = 4;
+
 function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle, onTaskClick }: {
   day: Date;
   events: CalendarEvent[];
@@ -521,11 +526,8 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const [showAllHours, setShowAllHours] = useState(false);
   const [showAllAllDay, setShowAllAllDay] = useState(false);
 
-  const HOUR_HEIGHT = 64;
   const HOUR_START = showAllHours ? 0 : 6;
   const HOUR_END = showAllHours ? 24 : 22;
-  const LEFT_GUTTER = 48;
-  const COLUMN_GAP = 1;
   const totalHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => i + HOUR_START);
 
@@ -583,7 +585,6 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
 
   // Combined all-day items (events first, then tasks) with collapse/expand
-  const ALL_DAY_LIMIT = 4;
   const allDayCombined = useMemo(() => [
     ...allDayEvents.map(e => ({ kind: 'event' as const, item: e })),
     ...allDayTasks.map(t => ({ kind: 'task' as const, item: t })),
