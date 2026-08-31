@@ -242,9 +242,9 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-07-08*
 
 ### Testing & Stability
-- [ ] **Re-enable TypeScript & ESLint in builds**  
-  *Fix all existing errors and remove `ignoreBuildErrors` / `ignoreDuringBuilds` from `next.config.ts`.*  
-  **Status:** 🔴 Not Started
+- [~] **Re-enable TypeScript & ESLint in builds**  
+  *Phase 1 complete: fixed all 15 TypeScript errors and ~24 high-confidence ESLint errors (unused imports, unescaped quotes, prefer-const, @ts-ignore→@ts-expect-error, FocusVisualizer state rename). Remaining: 171 `no-explicit-any` errors deferred to Phase 2. Build validation (`ignoreBuildErrors`/`ignoreDuringBuilds`) not yet re-enabled.*  
+  **Status:** 🟡 Partial — Phase 1 done, Phase 2 (any-reduction + build re-enable) pending
 
 - [ ] **Add integration tests for critical flows**  
   *Task CRUD → sync, CalendarView drag & drop, folder export ZIP integrity.*  

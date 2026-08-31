@@ -15,7 +15,7 @@ interface UnscheduledTaskPanelProps {
   onTaskScheduled?: () => void;
 }
 
-export function UnscheduledTaskPanel({ isOpen, onClose, onTaskScheduled }: UnscheduledTaskPanelProps) {
+export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
   const { tasks, initialLoading, updateLocalTask } = useSync();
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddDate, setQuickAddDate] = useState<'today' | 'tomorrow' | 'none'>('today');

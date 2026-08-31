@@ -38,7 +38,7 @@ export default function CalendarViewV2() {
   const [isUnscheduledPanelOpen, setIsUnscheduledPanelOpen] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const { calendars, refetch: refetchCalendars } = useCalendarSources();
+  const { calendars } = useCalendarSources();
   const { openTaskEdit } = useTaskEdit();
   const { showToast } = useToast();
 
@@ -133,7 +133,7 @@ export default function CalendarViewV2() {
       const lastDay = new Date(eom);
       lastDay.setDate(lastDay.getDate() + endPad);
       const days: Date[] = [];
-      let cur = new Date(firstDay);
+      const cur = new Date(firstDay);
       while (cur <= lastDay) {
         days.push(new Date(cur));
         cur.setDate(cur.getDate() + 1);
@@ -463,7 +463,6 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
   const isTodayDate = isToday(day);
   const inMonth = day.getMonth() === currentMonth;
   const total = items.tasks.length + items.events.length;
-  const doneCount = items.tasks.filter(t => t.status === 'done').length;
   const [isDragOver, setIsDragOver] = useState(false);
 
   return (

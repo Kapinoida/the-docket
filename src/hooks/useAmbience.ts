@@ -21,7 +21,7 @@ export default function useAmbience() {
 
   const initAudio = () => {
     if (!contextRef.current) {
-      // @ts-ignore
+      // @ts-expect-error - webkitAudioContext is not in TypeScript's lib.dom.d.ts
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       if (AudioContextCtor) {
         contextRef.current = new AudioContextCtor();

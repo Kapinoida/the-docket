@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. Fetch Remote Objects to build current UID set
     // Note: Reusing logic from sync.ts largely, but stripped down for ID checking
     const calendars = await client.fetchCalendars();
-    let calendar = config.calendar_url 
+    const calendar = config.calendar_url 
       ? calendars.find(c => c.url === config.calendar_url)
       : calendars.find(c => c.components && c.components.includes('VTODO')) || calendars[0];
 
@@ -40,12 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'No suitable calendar found' });
     }
 
-    let remoteObjects = [];
+    let remoteObjects: Array<{ data?: string }> = [];
     try {
       remoteObjects = await client.fetchCalendarObjects({
         calendar,
         filters: [{ type: 'comp-filter', attrs: { name: 'VCALENDAR' } }]
-      });
+      }) as Array<{ data?: string }>;
     } catch (e) {
       console.warn('Standard fetch failed during repair, ignoring...');
     }
@@ -89,6 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Map Remote UIDs
     const remoteUids = new Set<string>();
     remoteObjects.forEach(r => {
+        if (!r.data) return;
         const uid = parseVTodoUid(r.data);
         if (uid) remoteUids.add(uid);
     });

@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     const isCalendar = block.includes('<c:calendar/>') || block.includes('calendar');
                     
                     if (hrefMatch && isCalendar) {
-                        let href = hrefMatch[1];
+                        const href = hrefMatch[1];
                         // Ensure absolute URL
                         const baseUrl = new URL(url);
                         const fullUrl = new URL(href, baseUrl).toString();

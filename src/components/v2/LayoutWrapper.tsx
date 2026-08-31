@@ -15,8 +15,8 @@ import { usePeriodicSync } from '@/hooks/usePeriodicSync';
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const pathname = usePathname();
-  const { isOpen: isRightSidebarOpen, openSidebar: openRightSidebar, closeSidebar: closeRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
+  const pathname = usePathname() || '';
+  const { isOpen: isRightSidebarOpen, closeSidebar: closeRightSidebar, toggleSidebar: toggleRightSidebar } = useRightSidebar();
   const { showToast } = useToast();
 
   // Global 401 handling: when any `apiFetch` call receives a 401 it dispatches

@@ -54,7 +54,7 @@ class MockAudioContext {
   createMediaElementSource = jest.fn(() => new MockMediaElementSourceNode());
 }
 
-// @ts-ignore
+// @ts-expect-error - test mock override
 window.AudioContext = MockAudioContext;
 
 // Mock HTMLAudioElement
@@ -67,7 +67,7 @@ class MockAudioElement {
   pause = jest.fn();
 }
 
-// @ts-ignore
+// @ts-expect-error - test mock override
 global.Audio = MockAudioElement;
 
 describe('useAmbience', () => {

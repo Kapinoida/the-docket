@@ -27,8 +27,7 @@ async function debugEventSync() {
         components: ['VEVENT'],
         resourcetype: 'calendar',
         ctag: '',
-        description: '',
-        data: ''
+        description: ''
     };
 
     // 1. Try tsdav fetch

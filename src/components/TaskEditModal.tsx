@@ -12,7 +12,7 @@ interface TaskEditModalProps {
   onDelete?: (taskId: number) => void;
 }
 
-export default function TaskEditModal({ task, isOpen, onClose, onSave, onDelete }: TaskEditModalProps) {
+export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEditModalProps) {
   if (!isOpen) return null;
 
   return (

@@ -17,7 +17,7 @@ interface FocusSettingsModalProps {
 export default function FocusSettingsModal({ isOpen, onClose, profiles, onSave, activeMode }: FocusSettingsModalProps) {
   // We edit one mode at a time, defaulting to the active one when opened
   const [editingMode, setEditingMode] = useState<FocusMode>(activeMode);
-  const [formData, setFormData] = useState<PomodoroSettings>(profiles[activeMode]);
+  const [, setFormData] = useState<PomodoroSettings>(profiles[activeMode]);
 
   // Sync state when modal opens
   useEffect(() => {

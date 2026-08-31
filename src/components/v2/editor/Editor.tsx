@@ -12,7 +12,6 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { common, createLowlight } from 'lowlight';
-import { Extension } from '@tiptap/core';
 import { TaskExtension } from './extensions/TaskExtension';
 import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
@@ -20,8 +19,7 @@ import { TagExtension } from './extensions/TagExtension';
 import { CollapsibleBlockExtension } from './extensions/CollapsibleBlockExtension';
 import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
-import { Page } from '../../../types';
-import { CheckSquare, Save, Bold, Italic, Link as LinkIcon, Highlighter, Code, Trash2, Plus, GripVertical, GripHorizontal, RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { EditorToolbar, exportMarkdown } from './EditorToolbar';
 import { GlobalDragHandle, dragStore } from './GlobalDragHandle';
 
@@ -249,8 +247,8 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
                      }
                  }
                  
-                 // Perform the move
-                 let tr = view.state.tr;
+                  // Perform the move
+                  const tr = view.state.tr;
                      
                  // Robustly check for internal drag using shared singleton
                  const dragState = dragStore.current;

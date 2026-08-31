@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const nodes = fullContent.content || [];
       const todayDate = getTodayHeader();
 
-      let todayContentNodes: any[] = [];
+      const todayContentNodes: any[] = [];
       let foundToday = false;
 
       for (const node of nodes) {
@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const fullContent = page.content || { type: 'doc', content: [] };
-      let existingNodes = fullContent.content || [];
+      const existingNodes = fullContent.content || [];
 
       const newNodes: any[] = [];
       const hasContent = content.content.some((n: any) => 

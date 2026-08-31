@@ -60,7 +60,7 @@ export default function NotificationToggle() {
 
       if (!subscription) {
         // Fetch VAPID public key
-        const keyRes = await fetch('/api/push/subscribe', { method: 'GET' });
+        await fetch('/api/push/subscribe', { method: 'GET' });
         // Public key is embedded in the page — use the hardcoded one
         const vapidPublicKey = 'BLEL2SkBz9b9cHfMd5-vkhFIh_CTI7508_UzqkpQqUQiMDLxckKuijBMwWe518lsM8HHJ416ywcmysQMI1WDFvc';
 

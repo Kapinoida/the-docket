@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Folder as FolderIcon, Calendar, Trash2, ListTodo, Timer, Settings, Hash, Radio } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Calendar, Trash2, ListTodo, Timer, Settings, Hash, Radio } from 'lucide-react';
 import { Page } from '../../types';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';

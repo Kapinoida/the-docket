@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Volume2, VolumeX, Waves, CloudRain, Snowflake, Orbit, Music, Radio, Coffee } from 'lucide-react';
+import { Check, Volume2, VolumeX, Waves, CloudRain, Snowflake, Orbit, Music, Radio, Coffee } from 'lucide-react';
 import type { AmbienceMode, MusicSource } from '@/hooks/useAmbience';
 
 interface SoundDropdownProps {

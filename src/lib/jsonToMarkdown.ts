@@ -25,7 +25,7 @@ export function jsonToMarkdown(content: any): string {
     content: content,
   });
 
-  // @ts-ignore
+  // @ts-expect-error - tiptap-markdown storage type not fully typed
   const markdown = editor.storage.markdown.getMarkdown();
   editor.destroy();
   

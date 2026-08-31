@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRightSidebar } from '../../contexts/RightSidebarContext';
-import { X, Calendar, Inbox, CheckSquare, GripVertical } from 'lucide-react';
+import { X, Inbox, CheckSquare } from 'lucide-react';
 import InboxView from './InboxView';
 import TodayView from './TodayView';
 

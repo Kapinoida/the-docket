@@ -28,7 +28,6 @@ const statusColors: Record<string, { bg: string; border: string; text: string }>
 
 export function CalendarTaskBlock({
   task,
-  day,
   hourHeight,
   top,
   left,

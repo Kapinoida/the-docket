@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, AuthError } from '@/lib/api';
 

@@ -18,7 +18,7 @@ async function verifyIcal() {
         // Parse
         const jcal = ICAL.parse(text);
         const comp = new ICAL.Component(jcal);
-        const vevents = comp.getAllSubcomponents('vevent');
+        const vevents = (comp as any).getAllSubcomponents('vevent') as ICAL.Component[];
         
         console.log(`Found ${vevents.length} VEVENTs.`);
         
