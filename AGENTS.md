@@ -9,6 +9,10 @@ A Next.js task/calendar management app with PostgreSQL.
 ## Deployment
 You are running on the host machine with OrbStack (Docker). Run `bash update.sh` directly to deploy — do not claim you cannot do this. The script runs tests, pulls code, rebuilds containers, runs migrations, and cleans up. If Docker isn't found in PATH, try `export PATH="/usr/local/bin:$PATH"` first.
 
+## Hermes ↔ OpenCode Collaboration
+
+Read `.hermes/OPENCODE-HANDOFF.md` for the collaboration workflow. Hermes investigates the live project and writes focused findings to markdown; OpenCode implements, verifies, documents, commits, and deploys the agreed code changes. Use `DOCKET-IMPROVEMENT-SYNOPSIS.md` as the product direction, not as one giant implementation prompt.
+
 ## Key Conventions
 - Always run lint/typecheck after making changes
 - Test suite: `npm test`
