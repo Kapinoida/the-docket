@@ -53,10 +53,10 @@ export async function getPage(id: number): Promise<Page | null> {
   };
 }
 
-export async function createTask(content: string, dueDate: Date | null = null, recurrenceRule: any = null, endTime: Date | null = null): Promise<Task> {
+export async function createTask(content: string, dueDate: Date | null = null, recurrenceRule: any = null, endTime: Date | null = null, nextAction: string | null = null): Promise<Task> {
   const res = await pool.query(
-    'INSERT INTO tasks (content, due_date, end_time, recurrence_rule) VALUES ($1, $2, $3, $4) RETURNING *',
-    [content, dueDate, endTime, recurrenceRule]
+    'INSERT INTO tasks (content, due_date, end_time, recurrence_rule, next_action) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+    [content, dueDate, endTime, recurrenceRule, nextAction]
   );
   return res.rows[0];
 }
@@ -335,6 +335,7 @@ export interface UpdateTaskFields {
   status?: string;
   due_date?: Date | string | null;
   end_time?: Date | string | null;
+  next_action?: string | null;
   recurrence_rule?: any;
 }
 
@@ -358,6 +359,10 @@ export async function updateTask(id: number, fields: UpdateTaskFields): Promise<
   if (fields.end_time !== undefined) {
     setClauses.push(`end_time = $${paramIdx++}`);
     values.push(fields.end_time);
+  }
+  if (fields.next_action !== undefined) {
+    setClauses.push(`next_action = $${paramIdx++}`);
+    values.push(fields.next_action);
   }
   if (fields.recurrence_rule !== undefined) {
     setClauses.push(`recurrence_rule = $${paramIdx++}`);

@@ -156,6 +156,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   {task.content}
               </div>
           )}
+          {task.next_action && !isDone && (
+              <div className="text-xs text-text-muted leading-tight mt-0.5 truncate">
+                  {task.next_action}
+              </div>
+          )}
       </div>
 
       {/* Metadata / Date Badge — on the right */}

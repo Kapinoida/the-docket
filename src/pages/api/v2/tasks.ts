@@ -30,19 +30,20 @@ export default async function handler(
         }
 
       case 'POST':
-        const { content, dueDate, due_date, endTime, end_time, pageId, recurrenceRule, recurrence_rule } = req.body;
+        const { content, dueDate, due_date, endTime, end_time, pageId, recurrenceRule, recurrence_rule, next_action } = req.body;
         if (content === undefined || content === null) return res.status(400).json({ error: 'Content is required' });
         
         const finalDueDate = due_date !== undefined ? due_date : dueDate;
         const finalRecurrenceRule = recurrence_rule !== undefined ? recurrence_rule : recurrenceRule;
         const finalEndTime = end_time !== undefined ? end_time : endTime;
+        const finalNextAction = typeof next_action === 'string' ? (next_action.trim() || null) : null;
         
         const parsedDue = normalizeDateToNoon(finalDueDate);
         const parsedEnd = finalEndTime === null || finalEndTime === undefined ? null : new Date(finalEndTime);
         if (parsedEnd && isNaN(parsedEnd.getTime())) return res.status(400).json({ error: 'Invalid end_time' });
         if (!isValidEndTime(parsedDue, parsedEnd)) return res.status(400).json({ error: 'end_time must be after due_date and on the same calendar day' });
         
-        const newTask = await createTask(content, parsedDue, finalRecurrenceRule || null, parsedEnd);
+        const newTask = await createTask(content, parsedDue, finalRecurrenceRule || null, parsedEnd, finalNextAction);
         
         if (pageId) {
             await addItemToPage(Number(pageId), newTask.id, 'task');
@@ -52,7 +53,7 @@ export default async function handler(
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'Task ID is required for update' });
-        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, endTime: newEndTime, end_time: newEndTimeSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake } = req.body;
+        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, endTime: newEndTime, end_time: newEndTimeSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake, next_action: newNextAction } = req.body;
         
         const resolvedDueDate = newDueDateSnake !== undefined ? newDueDateSnake : newDueDate;
         const resolvedRecurrenceRule = newRecurrenceRuleSnake !== undefined ? newRecurrenceRuleSnake : newRecurrenceRule;
@@ -75,6 +76,7 @@ export default async function handler(
           fields.end_time = parsedEnd;
         }
         if (resolvedRecurrenceRule !== undefined) fields.recurrence_rule = resolvedRecurrenceRule;
+        if (newNextAction !== undefined) fields.next_action = typeof newNextAction === 'string' ? (newNextAction.trim() || null) : null;
         
         if (Object.keys(fields).length === 0) return res.status(400).json({ error: 'No fields to update' });
 

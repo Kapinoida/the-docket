@@ -15,6 +15,7 @@ export interface Task {
   status: TaskStatus;
   due_date: string | null;
   end_time?: string | null;
+  next_action?: string | null;
   recurrence_rule?: RecurrenceRule;
   created_at: string;
   updated_at: string;
@@ -119,6 +120,7 @@ export interface TaskRow {
   status: TaskStatus;
   due_date: string | null;
   end_time?: string | null;
+  next_action?: string | null;
   recurrence_rule: RecurrenceRule | null;
   created_at: string;
   updated_at: string;

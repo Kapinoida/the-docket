@@ -86,6 +86,11 @@ export const EditorTaskItem: React.FC<EditorTaskItemProps> = ({
                 ${task.status === 'done' ? 'line-through text-text-muted' : 'text-text-primary'}
             `} 
           />
+          {task.next_action && task.status !== 'done' && (
+              <div className="text-xs text-text-muted leading-tight mt-0.5 truncate">
+                  {task.next_action}
+              </div>
+          )}
       </div>
 
       {/* Metadata / Date Badge — on the right */}

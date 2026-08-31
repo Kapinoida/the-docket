@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Optional next_action field** 🟢
+  Added `next_action` (nullable TEXT) to tasks for planning context. Migration `008_task_next_action.sql`, updated types/DB/API/recurrence. TaskEditor has a "Next action" input. TaskItem and EditorTaskItem show it as a secondary muted line. Inbox processing mode displays it to aid decisions. Recurrence copies it to spawned instances. Blank values normalize to NULL. 10 new tests.
+  *Completed: 2026-08-31*
+
 - [x] **Inbox processing mode** 🟢
   Added a focused processing workflow to Inbox. "Process" button enters one-task-at-a-time mode with progress tracking ("Needs a decision · 1 of 3"). Six actions: Keep Active (advance without changes), Skip (advance), Schedule (date picker), Move (page selector), Clarify (task editor), Delete (remove task). Each action advances to the next task on success. Session-local queue tracks processed IDs so Do/Skip work without database changes. Keyboard shortcuts (J/K navigate, Enter clarify, D schedule, M move, X delete, Esc exit) with guards for editable elements. Hardened MoveToPageModal with apiFetch. 13 new tests.
   *Completed: 2026-08-27*

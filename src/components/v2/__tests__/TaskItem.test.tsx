@@ -131,4 +131,39 @@ describe('TaskItem', () => {
     );
     expect(screen.queryByText('Job Search 2026')).not.toBeInTheDocument();
   });
+
+  // ── next_action ────────────────────────────────────────
+  it('renders next_action as secondary line when present', () => {
+    const taskWithNextAction: Task = {
+      ...mockTask,
+      next_action: 'Call the insurance company'
+    };
+    customRender(
+      <TaskItem task={taskWithNextAction} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.getByText('Call the insurance company')).toBeInTheDocument();
+  });
+
+  it('hides next_action when task is done', () => {
+    const doneTaskWithNextAction: Task = {
+      ...mockTask,
+      status: 'done',
+      next_action: 'Call the insurance company'
+    };
+    customRender(
+      <TaskItem task={doneTaskWithNextAction} onToggle={mockOnToggle} />
+    );
+    expect(screen.queryByText('Call the insurance company')).not.toBeInTheDocument();
+  });
+
+  it('does not render next_action when null', () => {
+    const taskWithoutNextAction: Task = {
+      ...mockTask,
+      next_action: null
+    };
+    customRender(
+      <TaskItem task={taskWithoutNextAction} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.queryByText('Call the insurance company')).not.toBeInTheDocument();
+  });
 });

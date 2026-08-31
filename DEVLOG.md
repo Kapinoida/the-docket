@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-08-31] – Optional next_action field for tasks
+- **What changed:**
+  Added an optional `next_action` field to tasks, providing planning context for vague tasks. Migration `008_task_next_action.sql` adds nullable `TEXT` column. Updated `Task`/`TaskRow` types, `createTask`/`updateTask` DB helpers, both task API handlers (`tasks.ts` and `[id].ts`), and recurrence spawning to copy `next_action` to next instances. `TaskEditor` now has a "Next action" single-line input. `TaskItem` and `EditorTaskItem` show it as a secondary muted line below the task content (hidden when done). Inbox processing mode displays it as "Next: ..." to aid decision-making. Blank/whitespace-only values normalize to `NULL`. 10 new tests (API POST/PUT, TaskItem rendering, InboxView processing display).
+- **Why:**
+  Implements the second item from the Phase 1 product build order in `DOCKET-IMPROVEMENT-SYNOPSIS.md`. Tasks like "Work on website" or "Look into insurance" are clouds of concern wearing task costumes — the `next_action` field captures the next physical step, turning vague intentions into actionable items.
+- **Affected areas:** `src/migrations/008_task_next_action.sql` (new), `src/migrations/001_baseline.sql` (schema update), `src/types/index.ts`, `src/lib/db.ts`, `src/lib/recurrence.ts`, `src/pages/api/v2/tasks.ts`, `src/pages/api/v2/tasks/[id].ts`, `src/components/TaskEditor.tsx`, `src/components/v2/TaskItem.tsx`, `src/components/v2/EditorTaskItem.tsx`, `src/components/v2/InboxView.tsx`, `src/pages/api/v2/__tests__/tasks.test.ts`, `src/components/v2/__tests__/TaskItem.test.tsx`, `src/components/v2/__tests__/InboxView.test.tsx`.
+- **Migration needed?** Yes — `008_task_next_action.sql` runs automatically via `update.sh` (production) or `npm run migrate` (dev). Additive only — nullable column, safe on any existing `tasks` table.
+- **Testing:** All 245 tests pass (10 new). TypeScript clean (no new errors). ESLint clean (no new errors). Build succeeds.
+
+---
+
 ## [2026-08-27] – Inbox processing mode
 - **What changed:**
   Added a "Process" button to InboxView that enters a focused processing mode. Processing mode displays one task at a time with progress tracking ("Needs a decision · 1 of 3"), and provides six actions: Keep Active (advance without changes), Skip (advance without changes), Schedule (open date picker), Move (open page selector), Clarify (open task editor), and Delete (remove task). Each action advances to the next task on success. Added keyboard shortcuts (J/K for navigation, Enter for clarify, D for schedule, M for move, X for delete, Escape to exit) with guards to prevent activation when focus is in editable elements. Implemented session-local queue tracking using a Set of processed task IDs to handle Do/Skip actions that don't modify the database. Hardened MoveToPageModal with apiFetch and error handling. Added 13 comprehensive tests covering processing mode entry/exit, navigation, actions, keyboard shortcuts, and error handling.

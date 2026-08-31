@@ -95,7 +95,30 @@ describe('/api/v2/tasks', () => {
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
         expect(JSON.parse(res._getData())).toEqual(mockTask);
-        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null, null);
+        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null, null, null);
+    });
+
+    it('POST passes next_action to createTask', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: { content: 'Task', next_action: 'Call the dentist' },
+        });
+        const mockTask = { id: 1, content: 'Task', next_action: 'Call the dentist' };
+        (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(201);
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, 'Call the dentist');
+    });
+
+    it('POST normalizes blank next_action to null', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: { content: 'Task', next_action: '   ' },
+        });
+        const mockTask = { id: 1, content: 'Task' };
+        (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
+        await handler(req, res);
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, null);
     });
 
     it('POST returns 400 when content is missing', async () => {
@@ -131,7 +154,7 @@ describe('/api/v2/tasks', () => {
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
-        expect(createTask).toHaveBeenCalledWith('Block', expect.any(Date), null, expect.any(Date));
+        expect(createTask).toHaveBeenCalledWith('Block', expect.any(Date), null, expect.any(Date), null);
     });
 
     it('POST rejects end_time on a different calendar day', async () => {
@@ -174,6 +197,45 @@ describe('/api/v2/tasks', () => {
         expect(res._getStatusCode()).toBe(200);
         expect(JSON.parse(res._getData())).toEqual(updatedTask);
         expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ status: 'done' }));
+    });
+
+    it('PUT sets next_action', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { next_action: 'Send the email' },
+        });
+        const updatedTask = { id: 1, content: 'Test', next_action: 'Send the email' };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(200);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ next_action: 'Send the email' }));
+    });
+
+    it('PUT clears next_action with null', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { next_action: null },
+        });
+        const updatedTask = { id: 1, content: 'Test', next_action: null };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(200);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ next_action: null }));
+    });
+
+    it('PUT omits next_action when not provided', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { content: 'Updated' },
+        });
+        const updatedTask = { id: 1, content: 'Updated' };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(200);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.not.objectContaining({ next_action: expect.anything() }));
     });
 
     it('PUT returns 400 when no id provided', async () => {

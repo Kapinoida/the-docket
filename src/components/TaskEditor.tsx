@@ -33,6 +33,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
     task?.end_time ? parseLocalDateNode(task.end_time) : null
   );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrence_rule);
+  const [nextAction, setNextAction] = useState(task?.next_action || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<Task['status']>(task?.status || 'todo');
@@ -55,6 +56,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
       setRecurrenceRule(task.recurrence_rule);
       setEndTime(task.end_time ? parseLocalDateNode(task.end_time) : null);
       setStatus(task.status || 'todo');
+      setNextAction(task.next_action || '');
     }
   }, [task]);
 
@@ -75,6 +77,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
         end_time: startTime && endTime && endTime.getTime() !== startTime.getTime() ? endTime : null,
         recurrence_rule: recurrenceRule || null,
         status,
+        next_action: nextAction.trim() || null,
       };
 
       console.log('[TaskEditor] Saving:', {
@@ -160,6 +163,21 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
               className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               placeholder="What needs to be done?"
               autoFocus
+            />
+          </div>
+
+          {/* Next Action */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Next Action
+            </label>
+            <input
+              type="text"
+              value={nextAction}
+              onChange={(e) => setNextAction(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+              placeholder="What is the next physical step?"
             />
           </div>
 
