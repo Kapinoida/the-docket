@@ -12,7 +12,7 @@ const tabs = [
 ];
 
 export default function BottomTabBar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const router = useRouter();
 
   return (

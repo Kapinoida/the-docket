@@ -5,7 +5,6 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, FileText, CheckCircle, Home, Calendar, Hash } from 'lucide-react';
-import { Page, Task } from '@/types';
 import { apiFetch, AuthError } from '@/lib/api';
 
 // Helper interface for the flat API response

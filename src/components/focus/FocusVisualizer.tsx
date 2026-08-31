@@ -182,7 +182,7 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
          ctx.beginPath();
          let started = false;
          
-         this.points.forEach((p, i) => {
+          this.points.forEach((p) => {
              // Calculate sine wave offset
              const waveX = Math.sin(p.y * this.wavelength + time * 0.002 + this.offset) * 20;
              const x = p.x + waveX;
@@ -269,7 +269,7 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
       progress: number;
       speed: number;
       life: number;
-      state: 'traveling' | 'holding' | 'fading';
+      phase: 'traveling' | 'holding' | 'fading';
       rotation: number;
       
       constructor(w: number, h: number, spot: GridSpot) {
@@ -288,14 +288,14 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
         this.speed = Math.random() * 0.003 + 0.002; 
         this.progress = 0;
         this.life = 1.0;
-        this.state = 'traveling';
+        this.phase = 'traveling';
         // Fixed orientation
         // 0 rad = Vertex at right (0), Top side is horizontal (Flat Top).
         this.rotation = 0; 
       }
       
       update() {
-         if (this.state === 'traveling') {
+         if (this.phase === 'traveling') {
              this.progress += this.speed;
              
              // Smoother ease out
@@ -304,44 +304,44 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
              this.x = this.startX + (this.targetSpot.x - this.startX) * t;
              this.y = this.startY + (this.targetSpot.y - this.startY) * t;
              
-             if (this.progress >= 1) {
-                 this.progress = 1;
-                 this.x = this.targetSpot.x;
-                 this.y = this.targetSpot.y;
-                 this.state = 'holding';
-                 this.life = 300 + Math.random() * 300; // Hold longer (was 200+200)
-             }
-         } else if (this.state === 'holding') {
-             this.life--;
-             if (this.life <= 0) {
-                 this.state = 'fading';
-                 this.life = 1.0; // Reset for alpha fade
-             }
-         } else if (this.state === 'fading') {
-             this.life -= 0.01; // Slower fade (was 0.02)
-             if (this.life <= 0) {
-                 this.life = 0;
-                 // Dead
-                 this.targetSpot.occupied = false;
-             }
-         }
-      }
+              if (this.progress >= 1) {
+                  this.progress = 1;
+                  this.x = this.targetSpot.x;
+                  this.y = this.targetSpot.y;
+                  this.phase = 'holding';
+                  this.life = 300 + Math.random() * 300; // Hold longer (was 200+200)
+              }
+          } else if (this.phase === 'holding') {
+              this.life--;
+              if (this.life <= 0) {
+                  this.phase = 'fading';
+                  this.life = 1.0; // Reset for alpha fade
+              }
+          } else if (this.phase === 'fading') {
+              this.life -= 0.01; // Slower fade (was 0.02)
+              if (this.life <= 0) {
+                  this.life = 0;
+                  // Dead
+                  this.targetSpot.occupied = false;
+              }
+          }
+       }
 
-      draw(ctx: CanvasRenderingContext2D, r: number, g: number, b: number) {
-         ctx.save();
-         ctx.translate(this.x, this.y);
-         ctx.rotate(this.rotation);
-         
-         ctx.beginPath();
-         for (let i = 0; i < 6; i++) {
-           ctx.lineTo(this.size * Math.cos(i * Math.PI / 3), this.size * Math.sin(i * Math.PI / 3));
-         }
-         ctx.closePath();
-         
-         // Opacity depends on state
-         let alpha = 0.5;
-         if (this.state === 'traveling') alpha = Math.min(this.progress * 2, 0.5);
-         if (this.state === 'fading') alpha = this.life * 0.5;
+       draw(ctx: CanvasRenderingContext2D, r: number, g: number, b: number) {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.rotation);
+          
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            ctx.lineTo(this.size * Math.cos(i * Math.PI / 3), this.size * Math.sin(i * Math.PI / 3));
+          }
+          ctx.closePath();
+          
+          // Opacity depends on phase
+          let alpha = 0.5;
+          if (this.phase === 'traveling') alpha = Math.min(this.progress * 2, 0.5);
+          if (this.phase === 'fading') alpha = this.life * 0.5;
          
          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
          ctx.lineWidth = 1;
@@ -563,7 +563,7 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
             this.opacity = Math.random() * 0.5 + 0.3;
         }
 
-        update(h: number, cx: number, cy: number) {
+        update(h: number, cx: number) {
             this.y += this.speedY;
             this.x += Math.sin(this.y * 0.01 + this.driftOffset) * this.drift;
 
@@ -665,16 +665,16 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
              
              if (!spot.occupied) {
                   const hex = new Hexagon(w, h, spot);
-                  // Randomize state for "lived-in" feel
+                  // Randomize phase for "lived-in" feel
                   const rand = Math.random();
                   if (rand > 0.4) {
-                      hex.state = 'holding';
+                      hex.phase = 'holding';
                       hex.life = Math.random() * 600;
                       hex.progress = 1;
                       hex.x = spot.x;
                       hex.y = spot.y;
                   } else {
-                      hex.state = 'traveling';
+                      hex.phase = 'traveling';
                       hex.progress = Math.random();
                       // Update pos
                       const t = 1 - Math.pow(1 - hex.progress, 2);
@@ -924,8 +924,8 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
              }
          }
          
-         // Filter dead
-         hexagons = hexagons.filter(h => !(h.state === 'fading' && h.life <= 0));
+          // Filter dead
+          hexagons = hexagons.filter(h => !(h.phase === 'fading' && h.life <= 0));
 
          hexagons.forEach(h => {
              h.update();
@@ -1027,10 +1027,10 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
                snowflakes.push(new SnowFlake(canvas.width, canvas.height));
            }
            
-           snowflakes.forEach(s => {
-               s.update(canvas.height, cx, cy);
-               s.draw(ctx, r, g, b);
-           });
+            snowflakes.forEach(s => {
+                s.update(canvas.height, cx);
+                s.draw(ctx, r, g, b);
+            });
        }
 
        // --- Mode: CONSTELLATION ---

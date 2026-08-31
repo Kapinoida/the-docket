@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, FileText, CheckSquare, Hash } from 'lucide-react';
 import { apiFetch, AuthError } from '@/lib/api';
@@ -17,8 +16,8 @@ export function SearchDialog() {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<SearchResult[]>([]);
-  const useRouter = require('next/navigation').useRouter; // Ensure we use the hook
-  const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const router = (require('next/navigation') as any).useRouter();
 
   // Toggle with Cmd+K
   React.useEffect(() => {

@@ -6,7 +6,7 @@ export default function useSoundEffects() {
   // Initialize AudioContext lazily
   const getContext = () => {
     if (!audioContextRef.current) {
-      // @ts-ignore - for Safari support if needed, though standard is well supported now
+      // @ts-expect-error - for Safari support if needed, though standard is well supported now
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       if (AudioContextCtor) {
         audioContextRef.current = new AudioContextCtor();

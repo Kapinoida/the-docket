@@ -169,7 +169,7 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
   vtodo.addPropertyWithValue('status', status === 'done' ? 'COMPLETED' : 'NEEDS-ACTION');
   
   if (dueDate) {
-    // @ts-ignore - ical.js types are missing the useUTC argument
+    // @ts-expect-error - ical.js types are missing the useUTC argument
     const time = ICAL.Time.fromJSDate(dueDate, true);
     (time as any).isDate = true; // Force DATE-only (All Day) to avoid timezone shifts
     vtodo.addPropertyWithValue('due', time);
@@ -177,7 +177,7 @@ function createVTodoString(uid: string, summary: string, status: string, dueDate
 
   if (recurrenceRule) {
     const rruleStr = recurrenceRuleToRrule(recurrenceRule);
-    // @ts-ignore - ical.js types are incomplete for Recur
+    // @ts-expect-error - ical.js types are incomplete for Recur
     const rrule = ICAL.Recur.fromString(rruleStr);
     vtodo.addPropertyWithValue('rrule', rrule);
   }

@@ -44,13 +44,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           
           const dtstart = v.getFirstProperty('dtstart');
           if (dtstart) {
-            const icalDt = ICAL.Time.fromJSDate(newStart, !event.is_all_day);
+            const icalDt = (ICAL.Time.fromJSDate as (date: Date, useUTC?: boolean) => ICAL.Time)(newStart, !event.is_all_day);
             v.updatePropertyWithValue('dtstart', icalDt);
           }
           
           const dtend = v.getFirstProperty('dtend');
           if (dtend) {
-            const icalDt = ICAL.Time.fromJSDate(newEnd, !event.is_all_day);
+            const icalDt = (ICAL.Time.fromJSDate as (date: Date, useUTC?: boolean) => ICAL.Time)(newEnd, !event.is_all_day);
             v.updatePropertyWithValue('dtend', icalDt);
           }
 

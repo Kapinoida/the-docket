@@ -1,5 +1,5 @@
 
-import pool, { createPage, createTask, addItemToPage, getPageItems, getItemContext } from '../src/lib/db';
+import pool, { createPage, createTask, addItemToPage, getPageItems } from '../src/lib/db';
 
 async function runTest() {
   console.log('Testing V2 Data Model...');
@@ -41,19 +41,27 @@ async function runTest() {
       console.log(`- [${item.type}] ${item.type === 'task' ? (item.item as any).content : (item.item as any).title}`);
     });
 
-    // 6. Verify Context (Reverse lookup)
+    // 6. Verify Context (Reverse lookup) - using direct SQL
     console.log(`\nContext for Task "${task.content}" (ID: ${task.id}):`);
-    const taskContext = await getItemContext(task.id, 'task');
-    taskContext.forEach(page => {
+    const taskContextRes = await pool.query(
+      `SELECT p.id, p.title FROM pages p 
+       JOIN page_items pi ON pi.page_id = p.id 
+       WHERE pi.child_task_id = $1`,
+      [task.id]
+    );
+    taskContextRes.rows.forEach((page: any) => {
       console.log(`- Found on Page: ${page.title} (ID: ${page.id})`);
-      // Note: Full ancestor traversal would be recursive, checking the context of these pages.
-      // For now, checking direct parents is the first step.
     });
     
-    // 7. Verify Context for Project Page
+    // 7. Verify Context for Project Page - using direct SQL
     console.log(`\nContext for Project Page "${projectPage.title}" (ID: ${projectPage.id}):`);
-    const projectContext = await getItemContext(projectPage.id, 'page');
-    projectContext.forEach(page => {
+    const projectContextRes = await pool.query(
+      `SELECT p.id, p.title FROM pages p 
+       JOIN page_items pi ON pi.page_id = p.id 
+       WHERE pi.child_page_id = $1`,
+      [projectPage.id]
+    );
+    projectContextRes.rows.forEach((page: any) => {
       console.log(`- Found on Page: ${page.title} (ID: ${page.id})`);
     });
 

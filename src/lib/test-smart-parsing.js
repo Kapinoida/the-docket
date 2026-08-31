@@ -1,4 +1,4 @@
-const { parseTaskDate, parseTasksFromContent } = require('./taskParser');
+const { parseTaskDate, parseTasksFromContent } = require('./taskParser'); // eslint-disable-line @typescript-eslint/no-require-imports
 
 // Mock date for consistent testing
 // const mockToday = new Date('2025-08-06T12:00:00');

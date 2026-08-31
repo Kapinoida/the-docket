@@ -62,14 +62,14 @@ const V2TaskNodeView = ({ node, updateAttributes, editor, getPos, selected }: an
                                  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
                                  const tr = editor.state.tr;
                                  let count = 0;
-                                 editor.state.doc.descendants((n, p) => {
-                                   if (!n.isText || p < pos || p > pos + node.nodeSize) return;
-                                   const text = n.text || '';
-                                   let match;
-                                   urlRegex.lastIndex = 0;
-                                   while ((match = urlRegex.exec(text)) !== null) {
-                                     const $pos = editor.state.doc.resolve(p + match.index);
-                                     if ($pos.marks().some(m => m.type.name === 'link')) continue;
+                                  editor.state.doc.descendants((n: any, p: number) => {
+                                    if (!n.isText || p < pos || p > pos + node.nodeSize) return;
+                                    const text = n.text || '';
+                                    let match;
+                                    urlRegex.lastIndex = 0;
+                                    while ((match = urlRegex.exec(text)) !== null) {
+                                      const $pos = editor.state.doc.resolve(p + match.index);
+                                      if ($pos.marks().some((m: any) => m.type.name === 'link')) continue;
                                      tr.addMark(p + match.index, p + match.index + match[0].length, editor.schema.marks.link.create({ href: match[0] }));
                                      count++;
                                    }

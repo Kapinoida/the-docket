@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, MoreVertical, Flag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, Flag } from 'lucide-react';
 import { Task } from '../../types';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';

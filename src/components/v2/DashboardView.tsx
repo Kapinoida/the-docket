@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Task, Page } from '@/types';
 import WeeklyCalendar from './WeeklyCalendar';
 import RecentNotes from './RecentNotes';
-import { Plus, Layout, Calendar, CheckSquare } from 'lucide-react';
-import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { Layout, Calendar, CheckSquare } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 
 export default function DashboardView() {
   const router = useRouter();
-  const { openTaskEdit } = useTaskEdit();
   const [stats, setStats] = useState({ 
     notes: 0, 
     tasks: 0, 

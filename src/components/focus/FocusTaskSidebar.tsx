@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Task } from '@/types';
-import { CheckCircle2, Circle, Calendar, X, ChevronRight, Clock } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, X, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TaskGroup {

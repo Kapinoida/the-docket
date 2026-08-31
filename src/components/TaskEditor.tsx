@@ -16,7 +16,7 @@ interface TaskEditorProps {
   onNoteSelect?: (note: any) => void;
 }
 
-export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = false, onNoteSelect }: TaskEditorProps) {
+export default function TaskEditor({ task, onSave, onClose, isInTab = false }: TaskEditorProps) {
   const [content, setContent] = useState(task?.content || '');
   const [dueDate, setDueDate] = useState(
     task?.due_date ? format(parseLocalDateNode(task.due_date) as Date, 'yyyy-MM-dd') : ''

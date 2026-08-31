@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DayPicker } from 'react-day-picker';
-import { format, addDays, nextMonday, nextFriday } from 'date-fns';
-import { Calendar, Repeat, X, ChevronRight, Check } from 'lucide-react';
+import { format, addDays, nextMonday } from 'date-fns';
+import { Calendar, Repeat, X, ChevronRight } from 'lucide-react';
 import { RecurrenceRule } from '@/types';
 import { createPortal } from 'react-dom';
 import 'react-day-picker/dist/style.css'; 
@@ -423,7 +423,7 @@ export function DatePickerPopover({ date, endTime, recurrenceRule, onSelect, onC
                                     </select>
                                 </div>
                                 <div className="text-xs text-text-muted italic">
-                                    Note: Leave "Day" empty to repeat on the same date (e.g. 15th).
+                                    Note: Leave &ldquo;Day&rdquo; empty to repeat on the same date (e.g. 15th).
                                 </div>
                             </div>
                         )}
