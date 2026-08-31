@@ -95,7 +95,7 @@ describe('/api/v2/tasks', () => {
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
         expect(JSON.parse(res._getData())).toEqual(mockTask);
-        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null, null, null);
+        expect(createTask).toHaveBeenCalledWith('New Task', expect.any(Date), null, null, null, null);
     });
 
     it('POST passes next_action to createTask', async () => {
@@ -107,7 +107,7 @@ describe('/api/v2/tasks', () => {
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
-        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, 'Call the dentist');
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, 'Call the dentist', null);
     });
 
     it('POST normalizes blank next_action to null', async () => {
@@ -118,7 +118,30 @@ describe('/api/v2/tasks', () => {
         const mockTask = { id: 1, content: 'Task' };
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
-        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, null);
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, null, null);
+    });
+
+    it('POST passes commitment_level to createTask', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: { content: 'Task', commitment_level: 'must' },
+        });
+        const mockTask = { id: 1, content: 'Task', commitment_level: 'must' };
+        (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(201);
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, null, 'must');
+    });
+
+    it('POST normalizes invalid commitment_level to null', async () => {
+        const { req, res } = createMocks({
+            method: 'POST',
+            body: { content: 'Task', commitment_level: 'invalid' },
+        });
+        const mockTask = { id: 1, content: 'Task' };
+        (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
+        await handler(req, res);
+        expect(createTask).toHaveBeenCalledWith('Task', null, null, null, null, null);
     });
 
     it('POST returns 400 when content is missing', async () => {
@@ -154,7 +177,7 @@ describe('/api/v2/tasks', () => {
         (createTask as jest.Mock).mockResolvedValueOnce(mockTask);
         await handler(req, res);
         expect(res._getStatusCode()).toBe(201);
-        expect(createTask).toHaveBeenCalledWith('Block', expect.any(Date), null, expect.any(Date), null);
+        expect(createTask).toHaveBeenCalledWith('Block', expect.any(Date), null, expect.any(Date), null, null);
     });
 
     it('POST rejects end_time on a different calendar day', async () => {
@@ -236,6 +259,42 @@ describe('/api/v2/tasks', () => {
         await handler(req, res);
         expect(res._getStatusCode()).toBe(200);
         expect(updateTask).toHaveBeenCalledWith(1, expect.not.objectContaining({ next_action: expect.anything() }));
+    });
+
+    it('PUT sets commitment_level', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { commitment_level: 'must' },
+        });
+        const updatedTask = { id: 1, content: 'Test', commitment_level: 'must' };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(200);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ commitment_level: 'must' }));
+    });
+
+    it('PUT clears commitment_level with null', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { commitment_level: null },
+        });
+        const updatedTask = { id: 1, content: 'Test', commitment_level: null };
+        (updateTask as jest.Mock).mockResolvedValueOnce(updatedTask);
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(200);
+        expect(updateTask).toHaveBeenCalledWith(1, expect.objectContaining({ commitment_level: null }));
+    });
+
+    it('PUT rejects invalid commitment_level', async () => {
+        const { req, res } = createMocks({
+            method: 'PUT',
+            query: { id: '1' },
+            body: { commitment_level: 'invalid' },
+        });
+        await handler(req, res);
+        expect(res._getStatusCode()).toBe(400);
     });
 
     it('PUT returns 400 when no id provided', async () => {

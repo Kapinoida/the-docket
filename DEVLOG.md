@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-08-31] – Today Commitment View (Must/Should/Could)
+- **What changed:**
+  Implemented a commitment-level system for tasks to support deliberate daily planning. Added `commitment_level` field (nullable VARCHAR(10) with values 'must', 'should', 'could') to tasks via migration `009_task_commitment_level.sql`. Updated `Task`/`TaskRow` types, `createTask`/`updateTask` DB helpers, and both task API handlers with validation. Created `src/lib/todayPlanning.ts` with pure functions for grouping and sorting tasks by commitment level. `TaskEditor` now has a segmented control for Must/Should/Could selection. `TaskItem` has an optional `showCommitment` prop that renders a compact flag badge with dropdown menu. `TodayView` now displays tasks in four commitment sections (Must, Should, Could, Unassigned) instead of a single list, each with colored headers and backgrounds. Tasks are sorted within sections by due time, then creation date. 28 new tests covering API validation, grouping logic, component rendering, and TodayView section display.
+- **Why:**
+  Implements the third item from the Phase 1 product build order in `DOCKET-IMPROVEMENT-SYNOPSIS.md`. The existing Today view showed all tasks due today in a single list, making it hard to prioritize. The Must/Should/Could framework (from the synopsis) helps users make deliberate commitments: Must = non-negotiable, Should = important but flexible, Could = nice-to-have if time permits. Unassigned tasks remain visible but separated, encouraging users to classify them. This transforms Today from a passive task list into an active planning tool.
+- **Affected areas:** `src/migrations/009_task_commitment_level.sql` (new), `src/migrations/001_baseline.sql` (schema update), `src/types/index.ts`, `src/lib/db.ts`, `src/lib/recurrence.ts`, `src/lib/todayPlanning.ts` (new), `src/pages/api/v2/tasks.ts`, `src/pages/api/v2/tasks/[id].ts`, `src/components/TaskEditor.tsx`, `src/components/v2/TaskItem.tsx`, `src/components/v2/TodayView.tsx`, `src/pages/api/v2/__tests__/tasks.test.ts`, `src/lib/__tests__/todayPlanning.test.ts` (new), `src/components/v2/__tests__/TaskItem.test.tsx`, `src/components/v2/__tests__/TodayView.test.tsx` (new).
+- **Migration needed?** Yes — `009_task_commitment_level.sql` runs automatically via `update.sh` (production) or `npm run migrate` (dev). Additive only — nullable column with check constraint, safe on any existing `tasks` table.
+- **Testing:** All 273 tests pass (28 new). TypeScript clean (no new errors). ESLint clean (no new errors). Build succeeds.
+
+---
+
 ## [2026-08-31] – Optional next_action field for tasks
 - **What changed:**
   Added an optional `next_action` field to tasks, providing planning context for vague tasks. Migration `008_task_next_action.sql` adds nullable `TEXT` column. Updated `Task`/`TaskRow` types, `createTask`/`updateTask` DB helpers, both task API handlers (`tasks.ts` and `[id].ts`), and recurrence spawning to copy `next_action` to next instances. `TaskEditor` now has a "Next action" single-line input. `TaskItem` and `EditorTaskItem` show it as a secondary muted line below the task content (hidden when done). Inbox processing mode displays it as "Next: ..." to aid decision-making. Blank/whitespace-only values normalize to `NULL`. 10 new tests (API POST/PUT, TaskItem rendering, InboxView processing display).

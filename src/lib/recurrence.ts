@@ -49,7 +49,7 @@ export async function spawnNextRecurrence(completedTaskId: number): Promise<numb
     }
   }
 
-  const newTask = await createTask(currentTask.content, nextDate, nextRule, nextEndTime, currentTask.next_action ?? null);
+  const newTask = await createTask(currentTask.content, nextDate, nextRule, nextEndTime, currentTask.next_action ?? null, currentTask.commitment_level ?? null);
 
   const pageItemsRes = await pool.query(
     'SELECT page_id FROM page_items WHERE child_task_id = $1',

@@ -1,4 +1,5 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
+export type CommitmentLevel = 'must' | 'should' | 'could';
 
 export interface RecurrenceRule {
   type: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -16,6 +17,7 @@ export interface Task {
   due_date: string | null;
   end_time?: string | null;
   next_action?: string | null;
+  commitment_level?: CommitmentLevel | null;
   recurrence_rule?: RecurrenceRule;
   created_at: string;
   updated_at: string;
@@ -121,6 +123,7 @@ export interface TaskRow {
   due_date: string | null;
   end_time?: string | null;
   next_action?: string | null;
+  commitment_level?: CommitmentLevel | null;
   recurrence_rule: RecurrenceRule | null;
   created_at: string;
   updated_at: string;

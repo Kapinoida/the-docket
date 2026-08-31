@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Task, RecurrenceRule } from '@/types';
+import { Task, RecurrenceRule, CommitmentLevel } from '@/types';
 import { format } from 'date-fns';
 import { Calendar, X, Repeat } from 'lucide-react';
 import { DatePickerPopover } from './v2/DatePickerPopover';
@@ -34,6 +34,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
   );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrence_rule);
   const [nextAction, setNextAction] = useState(task?.next_action || '');
+  const [commitmentLevel, setCommitmentLevel] = useState<CommitmentLevel | null>(task?.commitment_level || null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<Task['status']>(task?.status || 'todo');
@@ -57,6 +58,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
       setEndTime(task.end_time ? parseLocalDateNode(task.end_time) : null);
       setStatus(task.status || 'todo');
       setNextAction(task.next_action || '');
+      setCommitmentLevel(task.commitment_level || null);
     }
   }, [task]);
 
@@ -78,6 +80,7 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
         recurrence_rule: recurrenceRule || null,
         status,
         next_action: nextAction.trim() || null,
+        commitment_level: commitmentLevel,
       };
 
       console.log('[TaskEditor] Saving:', {
@@ -179,6 +182,57 @@ export default function TaskEditor({ task, folderId, onSave, onClose, isInTab = 
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
               placeholder="What is the next physical step?"
             />
+          </div>
+
+          {/* Commitment Level */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Commitment Level
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCommitmentLevel(commitmentLevel === 'must' ? null : 'must')}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  commitmentLevel === 'must'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                Must
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommitmentLevel(commitmentLevel === 'should' ? null : 'should')}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  commitmentLevel === 'should'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                Should
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommitmentLevel(commitmentLevel === 'could' ? null : 'could')}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  commitmentLevel === 'could'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                Could
+              </button>
+            </div>
+            {commitmentLevel && (
+              <button
+                type="button"
+                onClick={() => setCommitmentLevel(null)}
+                className="mt-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                Clear commitment
+              </button>
+            )}
           </div>
 
           {/* Due Date & Recurrence */}
