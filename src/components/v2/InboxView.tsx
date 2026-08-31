@@ -197,7 +197,7 @@ const handleUpdate = async (id: number, updates: Partial<Task>) => {
         detail: { taskId: currentTask.id, updates, source: 'inboxView' } 
       }));
       
-      advanceQueue(currentTask.id);
+      // Don't advance — user still needs to Move this to a folder
     } catch (error) {
       if (error instanceof AuthError) return;
       console.error('Failed to schedule task', error);
