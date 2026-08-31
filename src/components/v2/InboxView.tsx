@@ -342,6 +342,11 @@ const handleUpdate = async (id: number, updates: Partial<Task>) => {
                     Due: {new Date(currentTask.due_date).toLocaleDateString()}
                   </div>
                 )}
+                {currentTask.next_action && (
+                  <div className="text-sm text-text-muted mt-1">
+                    Next: {currentTask.next_action}
+                  </div>
+                )}
               </div>
               
               {/* Action Buttons */}

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status VARCHAR(50) DEFAULT 'todo',
   due_date TIMESTAMP,
   end_time TIMESTAMP,
+  next_action TEXT,
   recurrence_rule JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),

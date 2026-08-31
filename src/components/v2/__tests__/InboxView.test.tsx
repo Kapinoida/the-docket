@@ -214,4 +214,36 @@ describe('InboxView Processing Mode', () => {
       expect(mockUseToast().showToast).toHaveBeenCalledWith('Failed to delete task', 'error');
     });
   });
+
+  it('displays next_action in processing mode when present', () => {
+    const tasksWithNextAction = [
+      { ...mockTasks[0], next_action: 'Call the dentist' },
+      mockTasks[1],
+      mockTasks[2],
+    ];
+    mockUseSync.mockReturnValue({
+      tasks: tasksWithNextAction,
+      events: [],
+      initialLoading: false,
+      isFetching: false,
+      refetch: jest.fn(),
+      updateLocalTask: jest.fn(),
+      removeLocalTask: jest.fn(),
+      addLocalTask: jest.fn(),
+    });
+
+    render(<InboxView />);
+    fireEvent.click(screen.getByText('Process'));
+
+    expect(screen.getByText('Task 1')).toBeInTheDocument();
+    expect(screen.getByText(/Next: Call the dentist/)).toBeInTheDocument();
+  });
+
+  it('does not display next_action line when task has none', () => {
+    render(<InboxView />);
+    fireEvent.click(screen.getByText('Process'));
+
+    expect(screen.getByText('Task 1')).toBeInTheDocument();
+    expect(screen.queryByText(/Next:/)).not.toBeInTheDocument();
+  });
 });
