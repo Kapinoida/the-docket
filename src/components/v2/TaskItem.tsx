@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, MoreVertical } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, Clock, Edit2, Trash2, ArrowRight, MoreVertical, Flag } from 'lucide-react';
 import { Task } from '../../types';
 import { format } from 'date-fns';
 import { DatePickerPopover } from './DatePickerPopover';
@@ -15,17 +15,20 @@ interface TaskItemProps {
   extraActions?: React.ReactNode;
   onMoveToPage?: () => void;
   onDelete?: () => void;
+  showCommitment?: boolean;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ 
-    task, onToggle, onUpdate, isSelected, onSelect, extraActions, onMoveToPage, onDelete
+    task, onToggle, onUpdate, isSelected, onSelect, extraActions, onMoveToPage, onDelete, showCommitment
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
   const [showLongPressMenu, setShowLongPressMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [showCommitmentMenu, setShowCommitmentMenu] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
+  const commitmentButtonRef = useRef<HTMLButtonElement>(null);
   const { openTaskEdit } = useTaskEdit();
   
   // Long-press state
@@ -162,6 +165,79 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               </div>
           )}
       </div>
+
+      {/* Commitment Level Badge */}
+      {showCommitment && !isDone && (
+        <div className="relative flex-shrink-0">
+          <button
+            ref={commitmentButtonRef}
+            onClick={() => setShowCommitmentMenu(!showCommitmentMenu)}
+            className={`
+              flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border transition-colors whitespace-nowrap min-h-[32px]
+              ${task.commitment_level === 'must' ? 'bg-red-500 text-white border-transparent' : ''}
+              ${task.commitment_level === 'should' ? 'bg-orange-500 text-white border-transparent' : ''}
+              ${task.commitment_level === 'could' ? 'bg-blue-500 text-white border-transparent' : ''}
+              ${!task.commitment_level ? 'text-text-muted border-border-default border-dashed hover:bg-gray-50 dark:hover:bg-gray-800' : ''}
+            `}
+          >
+            <Flag size={12} />
+            {task.commitment_level ? (
+              <span className="font-medium capitalize">{task.commitment_level}</span>
+            ) : (
+              <span>Set</span>
+            )}
+          </button>
+
+          {showCommitmentMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowCommitmentMenu(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[120px]">
+                <button
+                  onClick={() => {
+                    onUpdate?.({ commitment_level: 'must' });
+                    setShowCommitmentMenu(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${task.commitment_level === 'must' ? 'bg-red-500 text-white' : 'text-red-500'}`}
+                >
+                  Must
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdate?.({ commitment_level: 'should' });
+                    setShowCommitmentMenu(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${task.commitment_level === 'should' ? 'bg-orange-500 text-white' : 'text-orange-500'}`}
+                >
+                  Should
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdate?.({ commitment_level: 'could' });
+                    setShowCommitmentMenu(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${task.commitment_level === 'could' ? 'bg-blue-500 text-white' : 'text-blue-500'}`}
+                >
+                  Could
+                </button>
+                {task.commitment_level && (
+                  <>
+                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                    <button
+                      onClick={() => {
+                        onUpdate?.({ commitment_level: null });
+                        setShowCommitmentMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-text-muted hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Metadata / Date Badge — on the right */}
       <div className="flex-shrink-0 flex items-center justify-center mt-0" style={{ width: task.due_date ? 'auto' : '28px' }}>

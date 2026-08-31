@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Today Commitment View (Must/Should/Could)** 🟢
+  Implemented commitment-level system for deliberate daily planning. Added `commitment_level` field (nullable VARCHAR(10): 'must', 'should', 'could') to tasks via migration `009_task_commitment_level.sql`. Updated types/DB/API/recurrence. Created `todayPlanning.ts` with pure grouping/sorting functions. TaskEditor has Must/Should/Could segmented control. TaskItem has optional `showCommitment` prop with flag badge and dropdown menu. TodayView now displays tasks in four commitment sections (Must, Should, Could, Unassigned) with colored headers and backgrounds, sorted by due time then creation date. 28 new tests.
+  *Completed: 2026-08-31*
+
 - [x] **Optional next_action field** 🟢
   Added `next_action` (nullable TEXT) to tasks for planning context. Migration `008_task_next_action.sql`, updated types/DB/API/recurrence. TaskEditor has a "Next action" input. TaskItem and EditorTaskItem show it as a secondary muted line. Inbox processing mode displays it to aid decisions. Recurrence copies it to spawned instances. Blank values normalize to NULL. 10 new tests.
   *Completed: 2026-08-31*

@@ -16,7 +16,7 @@ export default async function handler(
   try {
     switch (method) {
       case 'PUT':
-        const { content, status, due_date, end_time, addToPageId, next_action } = req.body;
+        const { content, status, due_date, end_time, addToPageId, next_action, commitment_level } = req.body;
         
         if (addToPageId) {
             const taskRes = await pool.query("SELECT content FROM tasks WHERE id = $1", [taskId]);
@@ -64,6 +64,15 @@ export default async function handler(
         const ruleToUse = recurrenceRule !== undefined ? recurrenceRule : recurrence_rule;
         if (ruleToUse !== undefined) fields.recurrence_rule = ruleToUse;
         if (next_action !== undefined) fields.next_action = typeof next_action === 'string' ? (next_action.trim() || null) : null;
+        if (commitment_level !== undefined) {
+          if (commitment_level === null) {
+            fields.commitment_level = null;
+          } else if (typeof commitment_level === 'string' && ['must', 'should', 'could'].includes(commitment_level)) {
+            fields.commitment_level = commitment_level;
+          } else {
+            return res.status(400).json({ error: 'commitment_level must be null, must, should, or could' });
+          }
+        }
 
         if (Object.keys(fields).length === 0) return res.status(200).json({ message: 'No updates' });
 

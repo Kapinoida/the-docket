@@ -6,13 +6,14 @@ import { CalendarEvent, isTrulyAllDay } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
 import { useSync } from '@/contexts/SyncContext';
 import { TaskItem } from './TaskItem';
-import { Clock, Plus, Calendar } from 'lucide-react';
+import { Clock, Plus, Calendar, Flag } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { TaskListSkeleton } from './Skeleton';
 import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
 import { apiFetch, AuthError } from '@/lib/api';
+import { groupTasksByCommitment, sortTodayTasks } from '@/lib/todayPlanning';
 
 export default function TodayView() {
   const { tasks, events, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
@@ -117,6 +118,12 @@ export default function TodayView() {
       return dueStr === todayStr;
   });
 
+  const groupedTodayTasks = groupTasksByCommitment(todayTasks);
+  const mustTasks = sortTodayTasks(groupedTodayTasks.must);
+  const shouldTasks = sortTodayTasks(groupedTodayTasks.should);
+  const couldTasks = sortTodayTasks(groupedTodayTasks.could);
+  const unassignedTasks = sortTodayTasks(groupedTodayTasks.unassigned);
+
   const todayEvents = events.filter(event => {
     const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
     const todayDate = new Date();
@@ -201,15 +208,87 @@ export default function TodayView() {
                          </div>
                     ) : (
                         <>
-                          {todayTasks.length > 0 && todayTasks.map(task => (
-                              <TaskItem 
-                                key={task.id} 
-                                task={task} 
-                                onToggle={handleToggle} 
-                                onUpdate={(updates) => handleUpdate(task.id, updates)}
-                                onDelete={() => handleDelete(task.id)}
-                              />
-                          ))}
+                          {/* Must Section */}
+                          {mustTasks.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm font-bold text-red-500 uppercase tracking-wide px-2">
+                                <Flag size={14} /> Must
+                              </div>
+                              <div className="bg-red-50 dark:bg-red-900/10 rounded-2xl p-1 border border-red-100 dark:border-red-800/30">
+                                {mustTasks.map(task => (
+                                  <TaskItem 
+                                    key={task.id} 
+                                    task={task} 
+                                    onToggle={handleToggle} 
+                                    onUpdate={(updates) => handleUpdate(task.id, updates)}
+                                    onDelete={() => handleDelete(task.id)}
+                                    showCommitment={true}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Should Section */}
+                          {shouldTasks.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm font-bold text-orange-500 uppercase tracking-wide px-2">
+                                <Flag size={14} /> Should
+                              </div>
+                              <div className="bg-orange-50 dark:bg-orange-900/10 rounded-2xl p-1 border border-orange-100 dark:border-orange-800/30">
+                                {shouldTasks.map(task => (
+                                  <TaskItem 
+                                    key={task.id} 
+                                    task={task} 
+                                    onToggle={handleToggle} 
+                                    onUpdate={(updates) => handleUpdate(task.id, updates)}
+                                    onDelete={() => handleDelete(task.id)}
+                                    showCommitment={true}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Could Section */}
+                          {couldTasks.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm font-bold text-blue-500 uppercase tracking-wide px-2">
+                                <Flag size={14} /> Could
+                              </div>
+                              <div className="bg-blue-50 dark:bg-blue-900/10 rounded-2xl p-1 border border-blue-100 dark:border-blue-800/30">
+                                {couldTasks.map(task => (
+                                  <TaskItem 
+                                    key={task.id} 
+                                    task={task} 
+                                    onToggle={handleToggle} 
+                                    onUpdate={(updates) => handleUpdate(task.id, updates)}
+                                    onDelete={() => handleDelete(task.id)}
+                                    showCommitment={true}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Unassigned Section */}
+                          {unassignedTasks.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm font-bold text-text-muted uppercase tracking-wide px-2">
+                                <Flag size={14} /> Unassigned
+                              </div>
+                              {unassignedTasks.map(task => (
+                                <TaskItem 
+                                  key={task.id} 
+                                  task={task} 
+                                  onToggle={handleToggle} 
+                                  onUpdate={(updates) => handleUpdate(task.id, updates)}
+                                  onDelete={() => handleDelete(task.id)}
+                                  showCommitment={true}
+                                />
+                              ))}
+                            </div>
+                          )}
                           
                           {todayEvents.length > 0 && (
                             <div className="space-y-3 mt-4">

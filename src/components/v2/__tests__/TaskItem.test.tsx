@@ -166,4 +166,61 @@ describe('TaskItem', () => {
     );
     expect(screen.queryByText('Call the insurance company')).not.toBeInTheDocument();
   });
+
+  // ── showCommitment ─────────────────────────────────────
+  it('renders commitment badge when showCommitment is true', () => {
+    const taskWithCommitment: Task = {
+      ...mockTask,
+      commitment_level: 'must'
+    };
+    customRender(
+      <TaskItem task={taskWithCommitment} onToggle={mockOnToggle} onUpdate={mockOnUpdate} showCommitment={true} />
+    );
+    expect(screen.getByText('must')).toBeInTheDocument();
+  });
+
+  it('does not render commitment badge when showCommitment is false', () => {
+    const taskWithCommitment: Task = {
+      ...mockTask,
+      commitment_level: 'must'
+    };
+    customRender(
+      <TaskItem task={taskWithCommitment} onToggle={mockOnToggle} onUpdate={mockOnUpdate} showCommitment={false} />
+    );
+    expect(screen.queryByText('Must')).not.toBeInTheDocument();
+  });
+
+  it('does not render commitment badge when showCommitment is not provided', () => {
+    const taskWithCommitment: Task = {
+      ...mockTask,
+      commitment_level: 'must'
+    };
+    customRender(
+      <TaskItem task={taskWithCommitment} onToggle={mockOnToggle} onUpdate={mockOnUpdate} />
+    );
+    expect(screen.queryByText('Must')).not.toBeInTheDocument();
+  });
+
+  it('renders Set label when commitment is null and showCommitment is true', () => {
+    const taskWithoutCommitment: Task = {
+      ...mockTask,
+      commitment_level: null
+    };
+    customRender(
+      <TaskItem task={taskWithoutCommitment} onToggle={mockOnToggle} onUpdate={mockOnUpdate} showCommitment={true} />
+    );
+    expect(screen.getByText('Set')).toBeInTheDocument();
+  });
+
+  it('does not render commitment badge when task is done', () => {
+    const doneTaskWithCommitment: Task = {
+      ...mockTask,
+      status: 'done',
+      commitment_level: 'must'
+    };
+    customRender(
+      <TaskItem task={doneTaskWithCommitment} onToggle={mockOnToggle} onUpdate={mockOnUpdate} showCommitment={true} />
+    );
+    expect(screen.queryByText('Must')).not.toBeInTheDocument();
+  });
 });
