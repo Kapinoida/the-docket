@@ -1,14 +1,14 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Clock, Inbox, Layout, ListTodo, Radio } from 'lucide-react';
+import { Clock, Inbox, Layout, ListTodo, ClipboardCheck } from 'lucide-react';
 
 const tabs = [
   { href: '/today', icon: Clock, label: 'Today' },
   { href: '/inbox', icon: Inbox, label: 'Inbox' },
-  { href: '/', icon: Layout, label: 'Dashboard' },
+  { href: '/review', icon: ClipboardCheck, label: 'Review' },
   { href: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { href: '/recordings', icon: Radio, label: 'Recordings' },
+  { href: '/', icon: Layout, label: 'Dashboard' },
 ];
 
 export default function BottomTabBar() {

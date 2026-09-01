@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-01] – Weekly Review screen
+- **What changed:**
+  Implemented a structured weekly review ritual at `/review`. Five sections: (1) Loose ends — inbox tasks, undated active tasks, tasks without page context, tasks without next_action, with counts and previews. (2) Stale items — active tasks untouched for 14+ days, showing age and last-updated date, clickable to open task editor. (3) Overdue decisions — each overdue task with four actions: Keep active (dismiss for session), Reschedule (date picker), Clarify (open task editor), Delete. Session-local dismissal tracks reviewed items. (4) Next 14 days — calendar look-ahead showing events and scheduled tasks. (5) Review closeout — three outcome inputs saved to journal via new `POST /api/v2/weekly-review` endpoint that safely prepends a dated section without overwriting today's journal entry. Created `src/lib/weeklyReview.ts` with pure selector functions (18 tests), `ReviewSection.tsx` reusable wrapper with `alwaysShowChildren` prop, `OverdueReviewItem.tsx` with action buttons. Added Review to desktop sidebar navigation and mobile bottom tab bar (replacing Recordings, which remains accessible via sidebar). 45 new tests total (18 pure function + 18 component + 6 API).
+- **Why:**
+  Implements the Weekly Review from `DOCKET-IMPROVEMENT-SYNOPSIS.md`. The Docket previously had no structured review process — tasks could sit stale for weeks, overdue items accumulated without prompting decisions, and projects went unreviewed. The weekly review brings together existing pieces (Inbox, Today, All Tasks, Calendar) into a single decision ritual that surfaces what needs attention and forces deliberate choices.
+- **Affected areas:** `src/lib/weeklyReview.ts` (new), `src/components/v2/WeeklyReview.tsx` (new), `src/components/v2/ReviewSection.tsx` (new), `src/components/v2/OverdueReviewItem.tsx` (new), `src/app/review/page.tsx` (new), `src/pages/api/v2/weekly-review.ts` (new), `src/components/v2/Sidebar.tsx` (nav link), `src/components/v2/BottomTabBar.tsx` (replaced Recordings with Review), `src/lib/__tests__/weeklyReview.test.ts` (new), `src/components/v2/__tests__/WeeklyReview.test.tsx` (new), `src/pages/api/v2/__tests__/weekly-review.test.ts` (new).
+- **Migration needed?** No.
+- **Testing:** All 347 tests pass (45 new). TypeScript clean. ESLint clean on new files.
+
+---
+
 ## [2026-09-01] – Dashboard redesign: action-oriented decision console
 - **What changed:**
   Replaced the passive dashboard (4 stat cards + WeeklyCalendar + RecentNotes) with an action-oriented decision console. Dashboard now consumes tasks/events from `useSync()` instead of fetching its own duplicate task list. Four action cards: "Needs attention" (overdue tasks with previews), "Needs processing" (inbox items), "Needs planning" (undated active tasks), "Today" (tasks + events with commitment breakdown). Added "Today's commitments" section showing Must/Should/Could breakdown with next_action hints. Greeting header with date-aware message. Created `DashboardActionCard.tsx` reusable component and `src/lib/dashboardPlanning.ts` with pure selector functions. Updated `RecentNotes.tsx` to use `apiFetch()` for consistent auth handling. Removed passive "Total Notes" and "Active Tasks" counters. 29 new tests (19 pure function tests + 10 component tests).

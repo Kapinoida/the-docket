@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Weekly Review screen** 🟢
+  Implemented a structured weekly review ritual at `/review`. Five sections: Loose ends (inbox, undated, no context, no next action), Stale items (14+ day threshold with age display), Overdue decisions (keep active/reschedule/clarify/delete actions with session-local dismissal), Next 14 days calendar look-ahead, and Review closeout (three outcome inputs saved to journal). Created `src/lib/weeklyReview.ts` with pure selector functions, `ReviewSection` reusable wrapper, `OverdueReviewItem` with action buttons. Added `POST /api/v2/weekly-review` endpoint for safe journal append. Review added to desktop sidebar and mobile bottom tab bar (replacing Recordings, which remains in sidebar). 45 new tests (18 pure function + 18 component + 6 API).
+  *Completed: 2026-09-01*
+
 - [x] **Dashboard redesign / makeover** 🟢
   Replaced passive stat cards with action-oriented decision cards. Dashboard now uses `useSync()` instead of duplicate task fetching. Four action cards: "Needs attention" (overdue tasks with previews), "Needs processing" (inbox items), "Needs planning" (undated active tasks), "Today" (tasks + events with commitment breakdown). Added "Today's commitments" section showing Must/Should/Could breakdown with next_action hints. Greeting header with date. Created `DashboardActionCard` reusable component and `src/lib/dashboardPlanning.ts` with pure selector functions (29 new tests). Updated `RecentNotes` to use `apiFetch()`. Removed passive "Total Notes" and "Active Tasks" counters.
   *Completed: 2026-09-01*
@@ -382,6 +386,12 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 - [ ] **Rich calendar drag & resize**  
   *Implement multi‑day drag, all‑day toggle, and visual feedback for event resizing in Month/Week views. Basic drag-to-move for events and tasks already works in DayView.*  
   **Status:** 🟡 Partial — DayView drag complete; multi-day and resize not yet done
+
+- [x] **Weekly Review screen** 🟢
+  *A recurring decision ritual that surfaces stale, overdue, waiting, undated, and unprocessed items and forces decisions.*
+  **Status:** 🟢 Complete
+  **Reported:** 2026-09-01 (via Hermes, from Dave)
+  *Completed: 2026-09-01*
 
 ### Refactors & Cleanup
 - [ ] **Extract TipTap extensions into independent packages**  
