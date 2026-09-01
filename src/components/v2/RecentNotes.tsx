@@ -3,33 +3,31 @@ import { useEffect, useState } from 'react';
 import { Page } from '@/types';
 import { FileText, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { apiFetch, AuthError } from '@/lib/api';
 
 export default function RecentNotes({ onNoteSelect }: { onNoteSelect: (page: Page) => void }) {
   const [notes, setNotes] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/v2/pages?view=recent')
-      .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Failed');
-      })
+    apiFetch<Page[]>('/api/v2/pages?view=recent')
       .then(data => {
-          setNotes(data);
-          setLoading(false);
+        setNotes(data);
+        setLoading(false);
       })
       .catch(e => {
-          console.error(e);
-          setLoading(false);
+        if (e instanceof AuthError) return;
+        console.error(e);
+        setLoading(false);
       });
   }, []);
 
   if (loading) {
-      return <div className="text-sm text-text-muted animate-pulse">Loading recent notes...</div>;
+    return <div className="text-sm text-text-muted animate-pulse">Loading recent notes...</div>;
   }
 
   if (notes.length === 0) {
-      return <div className="text-text-muted text-sm italic">No recent notes found</div>;
+    return <div className="text-text-muted text-sm italic">No recent notes found</div>;
   }
 
   return (
@@ -46,8 +44,8 @@ export default function RecentNotes({ onNoteSelect }: { onNoteSelect: (page: Pag
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">{note.title}</h4>
             <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                <Clock size={12} />
-                <span>{formatDistanceToNow(new Date(note.updated_at))} ago</span>
+              <Clock size={12} />
+              <span>{formatDistanceToNow(new Date(note.updated_at))} ago</span>
             </div>
           </div>
         </button>

@@ -69,165 +69,76 @@ Replace this section for each focused implementation pass.
 
 ### Current Objective
 
-Turn Inbox from a passive list of uncategorized tasks into a focused processing queue where Dave can make a deliberate decision about each captured item.
+The dashboard redesign is complete. The landing page is now an action-oriented decision console with four action cards (overdue, inbox, undated, today) and a Today's commitments section.
 
-This is the first vertical slice from `DOCKET-IMPROVEMENT-SYNOPSIS.md` and should remain independent of the later planning-model changes.
+The next vertical slice from `DOCKET-IMPROVEMENT-SYNOPSIS.md` is the **Weekly Review** screen — a recurring decision ritual that surfaces stale, overdue, waiting, undated, and unprocessed items and forces decisions.
 
 ### User Problem
 
-The Inbox currently stores tasks without page context, but it does not help decide what each captured thought means or what should happen next. A task can remain in Inbox indefinitely without being clarified, scheduled, moved, deferred, or deliberately discarded.
-
-The existing Inbox is a good capture surface. The missing behavior is a low-friction decision flow.
+The Docket currently has no structured review process. Tasks can sit stale for weeks without being noticed. Overdue items accumulate without prompting a decision. Projects go unreviewed. The weekly review would bring together the existing pieces (Inbox, Today, All Tasks, Calendar) into a single decision ritual.
 
 ### Confirmed Current Behavior
 
-- `src/components/v2/InboxView.tsx` derives Inbox items by filtering the shared SyncContext task list:
-  - no `page_name`
-  - status is not `done`
-  - content is not empty
-- The current Inbox supports:
-  - quick task creation
-  - completion
-  - inline content editing through `TaskItem`
-  - date editing through `DatePickerPopover`
-  - moving a task to a page through `MoveToPageModal`
-  - deletion
-- Inbox mutations now use `apiFetch()` and dispatch the standard task events.
-- `TaskEditContext` already provides the shared edit modal and task create/update/delete behavior.
-- `MoveToPageModal` still uses raw `fetch()` for page loading and has no centralized auth/error handling. If it is reused or expanded by processing mode, bring that fetch path into line with the existing API wrapper where appropriate.
-- The task model currently has no `processed`, `waiting`, or `someday` field. Do not add one for this pass.
+- Dashboard now shows action cards for overdue, inbox, undated, and today.
+- Today view has Must/Should/Could commitment sections.
+- Inbox has processing mode with keyboard shortcuts.
+- Tasks have `next_action`, `commitment_level`, `due_date`, `end_time`, `recurrence_rule`.
+- No `waiting` status, `someday` state, `review_at` field, or project/page type system yet.
 
 ### Desired Behavior
 
-Add a clearly discoverable **Process next** mode to Inbox.
+A Weekly Review screen that surfaces:
 
-Processing mode shows one Inbox item at a time with:
-
-- the task content and relevant existing metadata
-- visible progress, using neutral language such as `Needs a decision` and `3 of 12`
-- actions for:
-  - **Do** — confirm it is a real active task; no schema mutation is required
-  - **Schedule** — reuse the existing date/time editing workflow
-  - **Move** — reuse the existing move-to-page workflow
-  - **Clarify** — reuse the existing task editor or inline editing workflow
-  - **Delete** — delete the task
-  - **Skip** — leave the task unchanged and advance to the next item
-- a predictable completion state when the queue is exhausted
-- an obvious way to exit processing mode without changing the current item
-
-For the MVP, `Do` should leave the task active and advance. Do not invent a new processed flag merely to distinguish a confirmed task.
-
-Add desktop keyboard shortcuts:
-
-```text
-J / ArrowDown  next item
-K / ArrowUp    previous item
-Enter          clarify/edit
-D              schedule
-M              move to page
-X              delete
-Escape         leave processing mode
-```
-
-Keyboard shortcuts must not fire while focus is inside an `input`, `textarea`, `select`, or content-editable element. Mobile must remain fully usable without a keyboard.
+- **Loose ends**: Inbox items, undated active tasks, tasks without page context, tasks without next_action.
+- **Stale items**: Active tasks untouched for 14+ days, projects with no updates, tasks repeatedly rescheduled.
+- **Overdue items**: For each overdue item, prompt: "Still matters / Move date / Waiting / Someday / Delete".
+- **Projects**: Show project name, last updated, next action, blocked state.
+- **Calendar look-ahead**: Next 7–14 days of events, commitments, and deadlines.
+- **Review closeout**: "What are the three outcomes that matter most this week?"
 
 ### Scope
 
 - In scope:
-  - Inbox processing-mode state and UI
-  - One-item-at-a-time navigation
-  - Progress/count display
-  - Do, Schedule, Move, Clarify, Delete, and Skip actions
-  - Keyboard navigation with editable-field guards
-  - Reuse of existing task/date/page-edit flows
-  - Error handling and mutation behavior for processing actions
-  - Component tests for the new behavior
+  - Weekly review screen component
+  - Stale-item detection (14+ day threshold)
+  - Overdue decision prompts
+  - Calendar look-ahead
+  - Review closeout journal entry
 - Out of scope:
   - `waiting` status or waiting metadata
   - `someday` status or list
-  - Next-action field
-  - Project/page kinds or outcome fields
-  - Review dates or deadline-versus-target-date distinction
-  - Weekly review screen
-  - AI classification or automatic task interpretation
-  - Universal capture engine
-  - New database migrations unless inspection proves one is unavoidable
+  - Project/page type system
+  - Reschedule-count tracking
+  - AI classification
 
 ### Likely Files
 
-- `src/components/v2/InboxView.tsx`
-- `src/components/v2/TaskItem.tsx`
-- `src/components/v2/MoveToPageModal.tsx`
-- `src/contexts/TaskEditContext.tsx`
-- `src/contexts/SyncContext.tsx`
-- `src/lib/api.ts`
-- `src/types/index.ts`
-- Relevant Inbox/component tests under `src/components/**/__tests__/`
-- Relevant task API tests under `src/pages/api/v2/__tests__/`
-
-Inspect actual current test locations before editing; do not assume a test file exists solely because the component exists.
-
-### Data/API Changes
-
-No database or API schema change is expected for this slice.
-
-Use the existing routes and conventions:
-
-- `PUT /api/v2/tasks/[id]` for task updates and completion
-- `DELETE /api/v2/tasks/[id]` for deletion
-- existing date-picker save path for scheduling
-- existing `addToPageId` task update path for moving
-- `TaskEditContext` for shared clarification/edit behavior
-
-All new mutation calls must use `apiFetch()`, preserve `AuthError` behavior, show a user-visible error through the existing toast mechanism where appropriate, and avoid advancing past an item after a failed mutation.
-
-Continue emitting the standard events:
-
-- `taskUpdated`
-- `taskDeleted`
-
-Do not add a second processing-specific synchronization mechanism.
+- `src/components/v2/WeeklyReview.tsx` (new)
+- `src/lib/weeklyReview.ts` (new — pure selectors)
+- `src/app/review/page.tsx` (new route)
+- `src/components/v2/Sidebar.tsx` (navigation link)
+- `src/components/v2/BottomTabBar.tsx` (mobile tab)
+- `src/lib/db.ts` (stale-item queries if needed)
 
 ### Acceptance Criteria
 
-- [ ] Inbox exposes a clear `Process next` entry point without making normal list mode harder to use.
-- [ ] Processing mode presents exactly one current Inbox item at a time.
-- [ ] Progress and remaining-item state are visible and use neutral wording.
-- [ ] Do leaves the task active and advances without adding a new database field.
-- [ ] Skip leaves the task unchanged and advances.
-- [ ] Schedule opens or reuses the existing date/time workflow and advances only after a successful save.
-- [ ] Move opens or reuses the existing page-selection workflow and advances only after a successful move.
-- [ ] Clarify opens the existing edit workflow without duplicating task-edit logic.
-- [ ] Delete uses the existing authenticated mutation path and advances only after success.
-- [ ] Failed mutations show an error and keep the current item available for retry.
-- [ ] J/K, arrow navigation, Enter, D, M, X, and Escape work outside editable controls.
-- [ ] Keyboard shortcuts are ignored inside text inputs, textareas, selects, and content-editable elements.
-- [ ] Mobile processing mode works through visible touch controls alone.
-- [ ] Empty Inbox and exhausted processing queue have useful states and next actions.
-- [ ] Existing normal Inbox behavior remains intact.
-- [ ] No speculative waiting, someday, project, review, or AI behavior is introduced.
+- [ ] Weekly review screen is accessible from sidebar and bottom tab bar.
+- [ ] Loose ends section shows inbox count, undated count, tasks without context.
+- [ ] Stale items section shows tasks untouched for 14+ days.
+- [ ] Overdue section shows each overdue task with decision prompts.
+- [ ] Calendar look-ahead shows next 7–14 days.
+- [ ] Review closeout saves a journal entry.
+- [ ] Mobile and desktop layouts work.
 
 ### Verification
 
-- [ ] Add/update component tests for entering/exiting processing mode, current-item navigation, progress, Skip, Do, and empty/exhausted states.
-- [ ] Test keyboard shortcuts and editable-element guards.
-- [ ] Test successful and failed schedule/move/delete mutations, including no advancement on failure.
+- [ ] Add component tests for weekly review sections.
+- [ ] Add pure-function tests for stale-item detection.
 - [ ] Run `npm test`.
 - [ ] Run `npx tsc --noEmit`.
-- [ ] Run the project lint command and record any pre-existing baseline issues separately from new issues.
-- [ ] Run `npm run build`.
-- [ ] Review `git diff` for accidental changes outside this slice.
-- [ ] Update `DEVLOG.md` and `ROADMAP.md` if the slice is completed.
-- [ ] Commit with a descriptive conventional commit before deployment.
-- [ ] Deploy only after verification passes, using `bash update.sh`, then verify the production Inbox behavior if deployment is requested.
-
-### Open Questions / Risks
-
-- Decide whether processing state is local component state or encoded in the URL. Prefer local state for the MVP unless existing navigation/deep-link requirements make that insufficient.
-- Reuse existing modal/date-picker flows rather than creating processing-specific copies. The main risk is coordinating modal close/save callbacks with queue advancement.
-- Do not treat `page_name` as the complete context model in future work. The synopsis calls for all task contexts, but that is a separate planning-backbone slice.
-- The current `TaskItem` has long-press actions and several local interaction states. Avoid changing those behaviors unless required for processing mode.
-- Keep normal Inbox list mode available. Processing mode is an additional workflow, not a replacement until it has been validated.
+- [ ] Run lint.
+- [ ] Update `DEVLOG.md` and `ROADMAP.md`.
+- [ ] Commit and deploy.
 
 ## Operating Rhythm
 
