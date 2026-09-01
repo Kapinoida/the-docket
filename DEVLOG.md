@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-01] – Dashboard redesign: action-oriented decision console
+- **What changed:**
+  Replaced the passive dashboard (4 stat cards + WeeklyCalendar + RecentNotes) with an action-oriented decision console. Dashboard now consumes tasks/events from `useSync()` instead of fetching its own duplicate task list. Four action cards: "Needs attention" (overdue tasks with previews), "Needs processing" (inbox items), "Needs planning" (undated active tasks), "Today" (tasks + events with commitment breakdown). Added "Today's commitments" section showing Must/Should/Could breakdown with next_action hints. Greeting header with date-aware message. Created `DashboardActionCard.tsx` reusable component and `src/lib/dashboardPlanning.ts` with pure selector functions. Updated `RecentNotes.tsx` to use `apiFetch()` for consistent auth handling. Removed passive "Total Notes" and "Active Tasks" counters. 29 new tests (19 pure function tests + 10 component tests).
+- **Why:**
+  The dashboard previously showed passive counts (Total Notes, Active Tasks, Overdue, Due Today) that didn't imply action. The redesign follows the DOCKET-IMPROVEMENT-SYNOPSIS.md guidance: "The dashboard should be a decision console rather than an observability dashboard." Each card now has a count, description, empty-state message, and navigation target. Overdue tasks show previews. Today's commitments are grouped by Must/Should/Could.
+- **Affected areas:** `src/components/v2/DashboardView.tsx` (refactored), `src/components/v2/DashboardActionCard.tsx` (new), `src/lib/dashboardPlanning.ts` (new), `src/components/v2/RecentNotes.tsx` (apiFetch migration), `src/lib/__tests__/dashboardPlanning.test.ts` (new), `src/components/v2/__tests__/DashboardView.test.tsx` (new).
+- **Migration needed?** No.
+- **Testing:** All 302 tests pass (29 new). TypeScript clean. ESLint clean.
+
+---
+
 ## [2026-08-31] – TypeScript + high-confidence lint cleanup (Phase 1)
 - **What changed:**
   Fixed all 15 TypeScript errors and ~24 high-confidence ESLint errors across the codebase. TypeScript errors: guarded nullable `usePathname()` in BottomTabBar and LayoutWrapper, fixed `ICAL.Time.fromJSDate()` call signature in calendar event API, typed ProseMirror traversal callbacks in TaskExtension, typed `remoteObjects` in caldav/repair, added `web-push` type declarations, repaired 3 diagnostic scripts (debug-event-sync, test-v2-model, verify-ical-link). Lint errors: removed ~30 unused imports/variables, fixed 8 unescaped JSX quotes, fixed 6 `prefer-const` violations, replaced `require()` with import in SearchDialog, renamed `Hexagon.state` to `Hexagon.phase` to avoid false React state-mutation lint error, replaced 7 `@ts-ignore` with `@ts-expect-error` (with descriptions). Added `src/types/web-push.d.ts` for push notification types.

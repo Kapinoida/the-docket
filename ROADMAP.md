@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Dashboard redesign / makeover** 🟢
+  Replaced passive stat cards with action-oriented decision cards. Dashboard now uses `useSync()` instead of duplicate task fetching. Four action cards: "Needs attention" (overdue tasks with previews), "Needs processing" (inbox items), "Needs planning" (undated active tasks), "Today" (tasks + events with commitment breakdown). Added "Today's commitments" section showing Must/Should/Could breakdown with next_action hints. Greeting header with date. Created `DashboardActionCard` reusable component and `src/lib/dashboardPlanning.ts` with pure selector functions (29 new tests). Updated `RecentNotes` to use `apiFetch()`. Removed passive "Total Notes" and "Active Tasks" counters.
+  *Completed: 2026-09-01*
+
 - [x] **Today Commitment View (Must/Should/Could)** 🟢
   Implemented commitment-level system for deliberate daily planning. Added `commitment_level` field (nullable VARCHAR(10): 'must', 'should', 'could') to tasks via migration `009_task_commitment_level.sql`. Updated types/DB/API/recurrence. Created `todayPlanning.ts` with pure grouping/sorting functions. TaskEditor has Must/Should/Could segmented control. TaskItem has optional `showCommitment` prop with flag badge and dropdown menu. TodayView now displays tasks in four commitment sections (Must, Should, Could, Unassigned) with colored headers and backgrounds, sorted by due time then creation date. 28 new tests.
   *Completed: 2026-08-31*
@@ -357,10 +361,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   - If an AzuraCast station is offline, the `<audio>` element will fail silently. Add `onerror` handling with a toast notification.
   - The procedural music generator (`playNote`) uses `setTimeout` recursion. Make sure `stopMusic()` clears the timeout when switching to a stream source.
 
-- [ ] **Dashboard redesign / makeover** 🔴  
+- [ ] **Dashboard redesign / makeover** 🟢  
   *The current dashboard (`DashboardView.tsx`) is a basic single-column scroll: 4 stat cards → WeeklyCalendar → RecentNotes. Dave wants a proper makeover — better layout, more visual polish, smarter use of space. Consider: two-column desktop layout (calendar + tasks on one side, notes/quick actions on the other), ambient/stats widgets, quick-capture input, recent activity feed. Mobile: the current single-column scroll works but could use better visual hierarchy. The dashboard is the landing page — it should feel like a command center, not an afterthought.*  
-  **Status:** 🔴 Not Started  
-  **Reported:** 2026-07-08 (via Hermes, from Dave)
+  **Status:** 🟢 Complete  
+  **Reported:** 2026-07-08 (via Hermes, from Dave)  
+  *Completed: 2026-09-01*
 
 - [ ] **Inline page links in editor**  
   *Add autocomplete and proper back‑linking support via the `PageLinkExtension`; show backlinks panel.*  
