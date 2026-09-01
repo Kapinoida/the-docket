@@ -239,3 +239,50 @@ describe('commitmentLabel', () => {
     expect(commitmentLabel(undefined)).toBe('Unassigned');
   });
 });
+
+describe('someday exclusion', () => {
+  it('excludes someday from getActiveTasks', () => {
+    const tasks = [
+      createTask({ id: 1, status: 'todo' }),
+      createTask({ id: 2, status: 'someday' }),
+      createTask({ id: 3, status: 'waiting' }),
+    ];
+    const active = getActiveTasks(tasks);
+    expect(active).toHaveLength(2);
+    expect(active.map(t => t.id)).toEqual([1, 3]);
+  });
+
+  it('excludes someday from getInboxTasks', () => {
+    const tasks = [
+      createTask({ id: 1, page_name: undefined, status: 'todo' }),
+      createTask({ id: 2, page_name: undefined, status: 'someday' }),
+    ];
+    const inbox = getInboxTasks(tasks);
+    expect(inbox).toHaveLength(1);
+    expect(inbox[0].id).toBe(1);
+  });
+
+  it('excludes someday from getOverdueTasks', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tasks = [
+      createTask({ id: 1, due_date: yesterday.toISOString(), status: 'todo' }),
+      createTask({ id: 2, due_date: yesterday.toISOString(), status: 'someday' }),
+    ];
+    const overdue = getOverdueTasks(tasks);
+    expect(overdue).toHaveLength(1);
+    expect(overdue[0].id).toBe(1);
+  });
+
+  it('excludes someday from getTodayTasks', () => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const tasks = [
+      createTask({ id: 1, due_date: today.toISOString(), status: 'todo' }),
+      createTask({ id: 2, due_date: today.toISOString(), status: 'someday' }),
+    ];
+    const todayTasks = getTodayTasks(tasks);
+    expect(todayTasks).toHaveLength(1);
+    expect(todayTasks[0].id).toBe(1);
+  });
+});

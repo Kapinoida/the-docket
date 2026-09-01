@@ -25,8 +25,8 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
   const { openTaskEdit } = useTaskEdit();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const unscheduledTasks = tasks.filter(t => !t.due_date && t.status !== 'done');
-  const scheduledTasks = tasks.filter(t => t.due_date && t.status !== 'done');
+  const unscheduledTasks = tasks.filter(t => !t.due_date && t.status !== 'done' && t.status !== 'someday');
+  const scheduledTasks = tasks.filter(t => t.due_date && t.status !== 'done' && t.status !== 'someday');
   const completedTasks = tasks.filter(t => t.status === 'done');
 
   const handleQuickAdd = async (e: React.FormEvent) => {

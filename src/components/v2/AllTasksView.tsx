@@ -11,7 +11,7 @@ import { apiFetch, AuthError } from '@/lib/api';
 import { usePersistedState } from '../../lib/usePersistedState';
 import { TaskListSkeleton } from './Skeleton';
 
-type StatusFilter = 'all' | 'todo' | 'done';
+type StatusFilter = 'all' | 'todo' | 'waiting' | 'someday' | 'done';
 type SortOption = 'created' | 'dueDate' | 'oldest';
 
 export default function AllTasksView() {
@@ -32,7 +32,11 @@ export default function AllTasksView() {
     let result = tasks.filter(t => t.content !== '');
 
     if (statusFilter === 'todo') {
-      result = result.filter(t => t.status !== 'done');
+      result = result.filter(t => t.status !== 'done' && t.status !== 'someday');
+    } else if (statusFilter === 'waiting') {
+      result = result.filter(t => t.status === 'waiting');
+    } else if (statusFilter === 'someday') {
+      result = result.filter(t => t.status === 'someday');
     } else if (statusFilter === 'done') {
       result = result.filter(t => t.status === 'done');
     }
@@ -220,7 +224,19 @@ export default function AllTasksView() {
                 onClick={() => setStatusFilter('todo')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${statusFilter === 'todo' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
               >
-                  <Circle size={14} /> To Do
+                  <Circle size={14} /> Active
+              </button>
+              <button
+                onClick={() => setStatusFilter('waiting')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${statusFilter === 'waiting' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                  Waiting
+              </button>
+              <button
+                onClick={() => setStatusFilter('someday')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${statusFilter === 'someday' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                  Someday
               </button>
               <button
                 onClick={() => setStatusFilter('done')}

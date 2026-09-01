@@ -107,7 +107,7 @@ export default function CalendarViewV2() {
 
   const getItemsForDay = (date: Date) => {
     const dayTasks = tasks.filter(t =>
-      t.status !== 'done' && t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, date)
+      t.status !== 'done' && t.status !== 'someday' && t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, date)
     );
     const dayEvents = events.filter(e => {
       const eventDate = isTrulyAllDay(e) ? (parseLocalDateNode(e.start_time) as Date) : new Date(e.start_time);
@@ -144,7 +144,9 @@ export default function CalendarViewV2() {
 
   const today = startOfDay(new Date());
   const overdueTasks = tasks.filter(t =>
-    t.status !== 'done' && t.due_date && isBefore(parseLocalDateNode(t.due_date) as Date, today)
+    t.status !== 'done' &&
+    t.status !== 'someday' &&
+    t.due_date && isBefore(parseLocalDateNode(t.due_date) as Date, today)
   );
 
   // --- Shared: Day chip (used in mobile strips) ---
@@ -570,7 +572,7 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
 
   // Filter tasks for this day
   const dayTasks = tasks.filter(t => {
-    if (!t.due_date || t.status === 'done') return false;
+    if (!t.due_date || t.status === 'done' || t.status === 'someday') return false;
     const taskDate = parseLocalDateNode(t.due_date) as Date;
     return isSameDay(taskDate, day);
   });

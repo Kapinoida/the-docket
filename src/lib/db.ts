@@ -142,7 +142,7 @@ export async function getFocusTasks() {
   
   const query = `
     SELECT * FROM tasks 
-    WHERE status != 'done' 
+    WHERE status NOT IN ('done', 'someday') 
     AND due_date IS NOT NULL 
     ORDER BY due_date ASC
   `;
@@ -304,16 +304,16 @@ export async function getTasks(options: GetTasksOptions = {}): Promise<Task[]> {
     paramIdx = 2;
     query += ` FROM tasks t WHERE t.updated_at > $1`;
   } else if (options.due === 'today') {
-    query += ` FROM tasks t WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status != 'done') AND t.content != ''`;
+    query += ` FROM tasks t WHERE t.due_date::date <= CURRENT_DATE AND (t.status IS NULL OR t.status NOT IN ('done', 'someday')) AND t.content != ''`;
     query += ` ORDER BY t.due_date ASC, t.created_at ASC`;
   } else if (options.context === 'none') {
-    query += ` FROM tasks t WHERE t.content != '' AND (t.status IS NULL OR t.status != 'done')`;
+    query += ` FROM tasks t WHERE t.content != '' AND (t.status IS NULL OR t.status NOT IN ('done', 'someday'))`;
     query += ` AND NOT EXISTS (SELECT 1 FROM page_items WHERE child_task_id = t.id)`;
     query += ` ORDER BY t.created_at DESC`;
   } else {
     query += " FROM tasks t WHERE t.content != ''";
     if (options.status === 'todo') {
-      query += " AND (t.status IS NULL OR t.status != 'done')";
+      query += " AND (t.status IS NULL OR t.status NOT IN ('done', 'someday'))";
     } else if (options.status === 'done') {
       query += " AND t.status = 'done'";
     }
@@ -338,6 +338,9 @@ export interface UpdateTaskFields {
   next_action?: string | null;
   commitment_level?: string | null;
   recurrence_rule?: any;
+  waiting_on?: string | null;
+  waiting_since?: Date | string | null;
+  follow_up_date?: Date | string | null;
 }
 
 export async function updateTask(id: number, fields: UpdateTaskFields): Promise<Task | null> {
@@ -372,6 +375,18 @@ export async function updateTask(id: number, fields: UpdateTaskFields): Promise<
   if (fields.recurrence_rule !== undefined) {
     setClauses.push(`recurrence_rule = $${paramIdx++}`);
     values.push(fields.recurrence_rule);
+  }
+  if (fields.waiting_on !== undefined) {
+    setClauses.push(`waiting_on = $${paramIdx++}`);
+    values.push(fields.waiting_on);
+  }
+  if (fields.waiting_since !== undefined) {
+    setClauses.push(`waiting_since = $${paramIdx++}`);
+    values.push(fields.waiting_since);
+  }
+  if (fields.follow_up_date !== undefined) {
+    setClauses.push(`follow_up_date = $${paramIdx++}`);
+    values.push(fields.follow_up_date);
   }
 
   if (setClauses.length === 0) return null;

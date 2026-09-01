@@ -16,7 +16,7 @@ export default async function handler(
   try {
     switch (method) {
       case 'PUT':
-        const { content, status, due_date, end_time, addToPageId, next_action, commitment_level } = req.body;
+        const { content, status, due_date, end_time, addToPageId, next_action, commitment_level, waiting_on, follow_up_date } = req.body;
         
         if (addToPageId) {
             const taskRes = await pool.query("SELECT content FROM tasks WHERE id = $1", [taskId]);
@@ -43,6 +43,13 @@ export default async function handler(
             fields.status = status;
             if (status === 'done') {
                 await spawnNextRecurrence(taskId);
+            }
+            if (status === 'waiting') {
+                fields.waiting_since = new Date().toISOString();
+            } else {
+                fields.waiting_on = null;
+                fields.waiting_since = null;
+                fields.follow_up_date = null;
             }
         }
         if (due_date !== undefined) {
@@ -71,6 +78,16 @@ export default async function handler(
             fields.commitment_level = commitment_level;
           } else {
             return res.status(400).json({ error: 'commitment_level must be null, must, should, or could' });
+          }
+        }
+        if (waiting_on !== undefined) fields.waiting_on = typeof waiting_on === 'string' ? (waiting_on.trim() || null) : null;
+        if (follow_up_date !== undefined) {
+          if (follow_up_date === null) {
+            fields.follow_up_date = null;
+          } else {
+            const parsedFollowUp = new Date(follow_up_date);
+            if (isNaN(parsedFollowUp.getTime())) return res.status(400).json({ error: 'Invalid follow_up_date' });
+            fields.follow_up_date = parsedFollowUp;
           }
         }
 

@@ -29,7 +29,7 @@ function getCalendarDateStr(dateVal: Date | string): string {
 }
 
 export function getActiveTasks(tasks: Task[]): Task[] {
-  return tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
+  return tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && t.status !== 'someday');
 }
 
 export function getOverdueTasks(tasks: Task[]): Task[] {
@@ -42,7 +42,7 @@ export function getOverdueTasks(tasks: Task[]): Task[] {
 }
 
 export function getInboxTasks(tasks: Task[]): Task[] {
-  return tasks.filter(t => !t.page_name && t.status !== 'done' && t.content !== '');
+  return tasks.filter(t => !t.page_name && t.status !== 'done' && t.status !== 'someday' && t.content !== '');
 }
 
 export function getUndatedTasks(tasks: Task[]): Task[] {

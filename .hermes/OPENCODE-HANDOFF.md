@@ -69,94 +69,93 @@ Replace this section for each focused implementation pass.
 
 ### Current Objective
 
-The Weekly Review screen is complete. The landing page is now an action-oriented decision console, and the Weekly Review provides a structured ritual for reviewing loose ends, stale items, overdue decisions, and planning the week ahead.
+The Waiting and Someday task states are complete. Tasks can now be marked as `waiting` with metadata (waiting_on, waiting_since, follow_up_date) or `someday` to remove them from all active views.
 
 The next vertical slice from `DOCKET-IMPROVEMENT-SYNOPSIS.md` could be one of:
 
-1. **Waiting and Someday states** — Add `waiting` status with `waiting_on`, `waiting_since`, `follow_up_date` metadata. Add `someday` state that excludes tasks from active counts, Today, Overdue, calendar task banks, and Focus selection.
+1. **Decision records** — A `/decision` slash command that inserts a structured decision template with context, options, criteria, choice, reasoning, revisit date, and outcome. Useful decision actions: convert note section to decision, create tasks for unresolved criteria, link to project/page, show recent decisions during weekly review.
 
-2. **Decision records** — A `/decision` slash command that inserts a structured decision template with context, options, criteria, choice, reasoning, revisit date, and outcome. Useful decision actions: convert note section to decision, create tasks for unresolved criteria, link to project/page, show recent decisions during weekly review.
+2. **Project/page type system** — Add `PageKind` type (area, project, reference, journal, template). Project pages show desired outcome, current state, next action, waiting items, review date, related notes and tasks.
 
-3. **Project/page type system** — Add `PageKind` type (area, project, reference, journal, template). Project pages show desired outcome, current state, next action, waiting items, review date, related notes and tasks.
+3. **Effort and energy metadata** — Add optional `effort_minutes` field to tasks with presets (5m, 15m, 30m, 60m, 2h+). Enables capacity feedback: "You have 11 hours of tasks scheduled into 5 hours of available time."
 
-4. **Effort and energy metadata** — Add optional `effort_minutes` field to tasks with presets (5m, 15m, 30m, 60m, 2h+). Enables capacity feedback: "You have 11 hours of tasks scheduled into 5 hours of available time."
+4. **Full-text search improvements** — Index page content, journal entries, decisions, and projects. Add content-type filters, context filters, date filters. Show matching text snippets.
 
-5. **Full-text search improvements** — Index page content, journal entries, decisions, and projects. Add content-type filters, context filters, date filters. Show matching text snippets.
+5. **Reschedule-count tracking** — Track how many times a task has been rescheduled. After repeated movement, offer helpful interventions: "This task keeps moving. What should happen? [Break it down] [Move to someday] [Mark waiting] [Delete] [Keep]"
 
 ### User Problem
 
-The Docket now has strong capture (Inbox), planning (Today commitments), and review (Weekly Review) surfaces. The missing pieces are:
+The Docket now has strong capture (Inbox), planning (Today commitments), review (Weekly Review), and deferral (Waiting/Someday) surfaces. The missing pieces are:
 
-- **Waiting/Someday**: Tasks that are blocked or deferred have no formal state. They clutter active lists and confuse priority calculations.
 - **Decision records**: Important decisions are buried in general notes. There's no structured way to capture options, criteria, choice, and rationale.
 - **Project model**: Pages are flat. There's no distinction between ongoing areas, finite projects, and reference material.
 - **Effort estimates**: Tasks have no size indicator. Capacity planning is impossible without knowing how long things take.
 - **Search**: Current search covers titles and tags but not full content. Finding information across pages, journals, and decisions is difficult.
+- **Reschedule detection**: Tasks that keep getting moved give useful signal but there's no tracking or intervention.
 
 ### Confirmed Current Behavior
 
 - Dashboard shows action cards for overdue, inbox, undated, and today.
 - Today view has Must/Should/Could commitment sections.
 - Inbox has processing mode with keyboard shortcuts.
-- Weekly Review has five sections: loose ends, stale items, overdue decisions, calendar look-ahead, review closeout.
-- Tasks have `next_action`, `commitment_level`, `due_date`, `end_time`, `recurrence_rule`.
-- No `waiting` status, `someday` state, `review_at` field, project/page type system, or effort estimates yet.
+- Weekly Review has seven sections: loose ends, stale items, overdue decisions, waiting for, someday, calendar look-ahead, review closeout.
+- Tasks have `next_action`, `commitment_level`, `due_date`, `end_time`, `recurrence_rule`, `waiting_on`, `waiting_since`, `follow_up_date`.
+- Task statuses: `todo`, `in_progress`, `done`, `cancelled`, `waiting`, `someday`.
+- No decision records, project/page type system, effort estimates, or reschedule tracking yet.
 
 ### Recommended Next Slice
 
-**Waiting and Someday states** is the highest-value next slice because:
+**Decision records** is the highest-value next slice because:
 
-1. It unblocks the Weekly Review's "Waiting" and "Someday" actions for overdue items.
-2. It cleans up active task lists by moving blocked/deferred items out.
-3. It enables follow-up date tracking for waiting items.
-4. It's a small schema change (add status values + optional metadata fields) with clear UI implications.
-5. It aligns with the synopsis's recommendation to "separate deadlines, target dates, and review dates."
+1. It captures important decisions that are currently lost in general notes.
+2. It provides a structured format for options, criteria, choice, and rationale.
+3. It supports revisit dates to prevent endless re-litigation.
+4. It integrates with the Weekly Review (show recent decisions).
+5. It's a pure addition — no schema changes to existing tables, just a new page type or content block.
 
-### Scope (Waiting/Someday)
+### Scope (Decision Records)
 
 - In scope:
-  - Add `waiting` and `someday` to `TaskStatus` type
-  - Add `waiting_on` (TEXT), `waiting_since` (TIMESTAMP), `follow_up_date` (TIMESTAMP) optional fields
-  - Update task API routes to accept/return new fields
-  - Update task editor UI with waiting metadata inputs
-  - Exclude `someday` tasks from active counts, Today, Overdue, calendar task banks
-  - Add "Waiting for" and "Someday" sections to Weekly Review
-  - Update dashboard action cards to reflect new states
+  - `/decision` slash command in editor
+  - Decision template with context, options, criteria, choice, reasoning, revisit date, outcome
+  - Decision storage (as a page type or structured content block)
+  - Decision list view / recent decisions panel
+  - Integration with Weekly Review (show recent decisions)
+  - Convert note section to decision
+  - Create tasks from unresolved criteria
 - Out of scope:
   - Project/page type system
-  - Decision records
   - Effort estimates
-  - Review dates
+  - Full-text search improvements
+  - Reschedule-count tracking
   - AI classification
 
-### Likely Files (Waiting/Someday)
+### Likely Files (Decision Records)
 
-- `src/migrations/010_task_waiting_someday.sql` (new)
-- `src/types/index.ts` (update `TaskStatus`, add fields to `Task`)
-- `src/lib/db.ts` (update queries to handle new fields)
-- `src/pages/api/v2/tasks.ts` and `[id].ts` (accept/return new fields)
-- `src/components/TaskEditor.tsx` (add waiting metadata UI)
-- `src/components/v2/WeeklyReview.tsx` (add Waiting/Someday sections)
-- `src/lib/weeklyReview.ts` (add selectors for waiting/someday)
-- `src/lib/dashboardPlanning.ts` (exclude someday from counts)
+- `src/components/v2/editor/extensions/DecisionExtension.tsx` (new — TipTap extension)
+- `src/components/v2/editor/DecisionBlock.tsx` (new — decision rendering component)
+- `src/migrations/011_decisions.sql` (new — decisions table or page type)
+- `src/lib/db.ts` (decision CRUD helpers)
+- `src/pages/api/v2/decisions.ts` (new — API routes)
+- `src/components/v2/WeeklyReview.tsx` (add recent decisions section)
+- `src/components/v2/editor/extensions/SlashCommand.tsx` (add /decision command)
 
-### Acceptance Criteria (Waiting/Someday)
+### Acceptance Criteria (Decision Records)
 
-- [ ] Tasks can be marked as `waiting` with optional `waiting_on`, `waiting_since`, `follow_up_date`.
-- [ ] Tasks can be marked as `someday`.
-- [ ] `someday` tasks are excluded from active task counts, Today, Overdue, and calendar task banks.
-- [ ] `waiting` tasks appear in a "Waiting for" section in Weekly Review.
-- [ ] `someday` tasks appear in a "Someday" section in Weekly Review.
-- [ ] Task editor shows waiting metadata inputs when status is `waiting`.
-- [ ] Dashboard action cards exclude `someday` tasks from counts.
-- [ ] Migration is additive and safe on existing data.
+- [ ] `/decision` slash command inserts a decision template.
+- [ ] Decision template has fields: context, options, criteria, choice, reasoning, revisit date, outcome.
+- [ ] Decisions are stored and retrievable.
+- [ ] Recent decisions panel shows last N decisions.
+- [ ] Weekly Review shows recent decisions section.
+- [ ] Can convert a note section to a decision.
+- [ ] Can create tasks from unresolved criteria.
+- [ ] Revisit date triggers a reminder (optional — could be in Weekly Review).
 
-### Verification (Waiting/Someday)
+### Verification (Decision Records)
 
-- [ ] Add migration tests.
-- [ ] Add API tests for new fields.
-- [ ] Add component tests for task editor waiting UI.
-- [ ] Add component tests for Weekly Review waiting/someday sections.
+- [ ] Add TipTap extension tests.
+- [ ] Add API tests for decision CRUD.
+- [ ] Add component tests for decision block rendering.
 - [ ] Run `npm test`.
 - [ ] Run `npx tsc --noEmit`.
 - [ ] Run lint.

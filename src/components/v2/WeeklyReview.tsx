@@ -26,6 +26,8 @@ import {
   Calendar,
   Flag,
   Clock,
+  Pause,
+  Cloud,
 } from 'lucide-react';
 
 export default function WeeklyReview() {
@@ -288,6 +290,83 @@ export default function WeeklyReview() {
                 isDismissed={dismissedOverdue.has(task.id)}
               />
             ))}
+          </div>
+        </ReviewSection>
+
+        {/* Waiting For */}
+        <ReviewSection
+          title="Waiting for"
+          icon={Pause}
+          iconColor="text-amber-600 dark:text-amber-400"
+          iconBg="bg-amber-100 dark:bg-amber-900/30"
+          count={summary.waitingTasks.length}
+          emptyMessage="Nothing waiting"
+        >
+          <div className="space-y-2">
+            {summary.waitingTasks.map(task => {
+              const waitingDays = task.waiting_since ? getTaskAgeDays({ ...task, updated_at: task.waiting_since }) : 0;
+              const followUpPast = task.follow_up_date && new Date(task.follow_up_date) < new Date();
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => openTaskEdit(task)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 text-left hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                    <div className="text-xs text-text-muted flex flex-wrap gap-x-3 gap-y-1">
+                      {task.waiting_on && <span>Waiting on: {task.waiting_on}</span>}
+                      {waitingDays > 0 && <span>{waitingDays}d waiting</span>}
+                      {task.follow_up_date && (
+                        <span className={followUpPast ? 'text-red-500 font-medium' : ''}>
+                          Follow up: {new Date(task.follow_up_date).toLocaleDateString()}
+                          {followUpPast && ' (past due)'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ReviewSection>
+
+        {/* Someday */}
+        <ReviewSection
+          title="Someday"
+          icon={Cloud}
+          iconColor="text-gray-500 dark:text-gray-400"
+          iconBg="bg-gray-100 dark:bg-gray-800"
+          count={summary.somedayTasks.length}
+          emptyMessage="No someday tasks"
+          action={
+            summary.somedayTasks.length > 0 ? (
+              <button onClick={() => router.push('/tasks')} className="text-xs text-gray-500 hover:text-gray-600">
+                View in tasks →
+              </button>
+            ) : undefined
+          }
+        >
+          <div className="space-y-2">
+            {summary.somedayTasks.slice(0, 5).map(task => (
+              <button
+                key={task.id}
+                onClick={() => openTaskEdit(task)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 text-left hover:shadow-sm transition-shadow"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                  {task.next_action && (
+                    <div className="text-xs text-text-muted mt-0.5">Next: {task.next_action}</div>
+                  )}
+                </div>
+              </button>
+            ))}
+            {summary.somedayTasks.length > 5 && (
+              <div className="text-xs text-text-muted text-center py-2">
+                +{summary.somedayTasks.length - 5} more someday tasks
+              </div>
+            )}
           </div>
         </ReviewSection>
 
