@@ -35,6 +35,10 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | undefined>(task?.recurrence_rule);
   const [nextAction, setNextAction] = useState(task?.next_action || '');
   const [commitmentLevel, setCommitmentLevel] = useState<CommitmentLevel | null>(task?.commitment_level || null);
+  const [waitingOn, setWaitingOn] = useState(task?.waiting_on || '');
+  const [followUpDate, setFollowUpDate] = useState(
+    task?.follow_up_date ? format(parseLocalDateNode(task.follow_up_date) as Date, 'yyyy-MM-dd') : ''
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<Task['status']>(task?.status || 'todo');
@@ -59,6 +63,8 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
       setStatus(task.status || 'todo');
       setNextAction(task.next_action || '');
       setCommitmentLevel(task.commitment_level || null);
+      setWaitingOn(task.waiting_on || '');
+      setFollowUpDate(task.follow_up_date ? format(parseLocalDateNode(task.follow_up_date) as Date, 'yyyy-MM-dd') : '');
     }
   }, [task]);
 
@@ -73,6 +79,7 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
     setIsSaving(true);
     try {
       const startTime = dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : null;
+      const parsedFollowUp = followUpDate ? new Date(`${followUpDate}T12:00:00`) : null;
       const updates: any = {
         content: content.trim(),
         due_date: startTime,
@@ -81,6 +88,8 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
         status,
         next_action: nextAction.trim() || null,
         commitment_level: commitmentLevel,
+        waiting_on: status === 'waiting' ? (waitingOn.trim() || null) : null,
+        follow_up_date: status === 'waiting' ? parsedFollowUp : null,
       };
 
       console.log('[TaskEditor] Saving:', {
@@ -307,24 +316,92 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
 
           {/* Task Status */}
           {task && (
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="task-completed"
-                checked={isDone}
-                onChange={(e) => setStatus(e.target.checked ? 'done' : 'todo')}
-                className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
-              />
-              <label
-                htmlFor="task-completed"
-                className={`text-sm font-medium cursor-pointer ${
-                  isDone
-                    ? 'text-green-700 dark:text-green-400 line-through'
-                    : 'text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                Mark as completed
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Status
               </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatus('todo')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    status === 'todo'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus('waiting')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    status === 'waiting'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Waiting
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus('someday')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    status === 'someday'
+                      ? 'bg-gray-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Someday
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus('done')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    status === 'done'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Waiting Metadata */}
+          {task && status === 'waiting' && (
+            <div className="space-y-4 pl-4 border-l-2 border-amber-300 dark:border-amber-700">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Waiting on
+                </label>
+                <input
+                  type="text"
+                  value={waitingOn}
+                  onChange={(e) => setWaitingOn(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                  placeholder="Who or what are you waiting on?"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Follow-up date
+                </label>
+                <input
+                  type="date"
+                  value={followUpDate}
+                  onChange={(e) => setFollowUpDate(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              {task.waiting_since && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Waiting since {format(new Date(task.waiting_since), 'MMMM d, yyyy')}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -350,10 +427,10 @@ export default function TaskEditor({ task, onSave, onClose, isInTab = false }: T
                 className={`px-4 py-2 text-sm rounded transition-colors ${
                   isDone
                     ? 'bg-orange-500 text-white hover:bg-orange-600'
-                    : 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
               >
-                {isDone ? 'Mark Incomplete' : 'Mark Complete'}
+                {isDone ? 'Reopen' : 'Complete'}
               </button>
             )}
             <button

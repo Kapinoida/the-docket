@@ -58,6 +58,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
 
   const overdueTasks = tasks.filter(task =>
     task.status !== 'done' &&
+    task.status !== 'someday' &&
     task.due_date &&
     isBefore(parseLocalDateNode(task.due_date) as Date, today)
   );
@@ -67,6 +68,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
   const getItemsForDay = (date: Date) => {
     const dayTasks = tasks.filter(task =>
       task.status !== 'done' &&
+      task.status !== 'someday' &&
       task.due_date &&
       isSameDay(parseLocalDateNode(task.due_date) as Date, date)
     );

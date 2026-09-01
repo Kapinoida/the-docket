@@ -31,7 +31,7 @@ export default function InboxView() {
   const scheduleButtonRef = useRef<HTMLButtonElement>(null);
 
   const inboxTasks = useMemo(
-    () => tasks.filter(t => !t.page_name && t.status !== 'done' && t.content !== ''),
+    () => tasks.filter(t => !t.page_name && t.status !== 'done' && t.status !== 'someday' && t.content !== ''),
     [tasks]
   );
 

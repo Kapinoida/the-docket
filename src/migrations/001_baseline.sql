@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   next_action TEXT,
   commitment_level VARCHAR(10),
   recurrence_rule JSONB,
+  waiting_on TEXT,
+  waiting_since TIMESTAMP,
+  follow_up_date TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT chk_tasks_end_time_after_due

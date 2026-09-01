@@ -7,6 +7,8 @@ import {
   getReviewSummary,
   getTaskAgeDays,
   getWeekRange,
+  getWaitingTasks,
+  getSomedayTasks,
 } from '@/lib/weeklyReview';
 import { Task, CalendarEvent } from '@/types';
 
@@ -237,5 +239,84 @@ describe('getWeekRange', () => {
     const range = getWeekRange();
     const diffDays = Math.floor((range.end.getTime() - range.start.getTime()) / (24 * 60 * 60 * 1000));
     expect(diffDays).toBe(6);
+  });
+});
+
+describe('getWaitingTasks', () => {
+  it('returns only waiting tasks', () => {
+    const tasks = [
+      createTask({ id: 1, status: 'todo' }),
+      createTask({ id: 2, status: 'waiting', waiting_on: 'Bob' }),
+      createTask({ id: 3, status: 'someday' }),
+      createTask({ id: 4, status: 'waiting', waiting_on: 'Alice' }),
+    ];
+    const waiting = getWaitingTasks(tasks);
+    expect(waiting).toHaveLength(2);
+    expect(waiting.map(t => t.id)).toEqual([2, 4]);
+  });
+
+  it('returns empty array when no waiting tasks', () => {
+    const tasks = [createTask({ id: 1, status: 'todo' })];
+    expect(getWaitingTasks(tasks)).toHaveLength(0);
+  });
+});
+
+describe('getSomedayTasks', () => {
+  it('returns only someday tasks', () => {
+    const tasks = [
+      createTask({ id: 1, status: 'todo' }),
+      createTask({ id: 2, status: 'someday' }),
+      createTask({ id: 3, status: 'waiting' }),
+      createTask({ id: 4, status: 'someday' }),
+    ];
+    const someday = getSomedayTasks(tasks);
+    expect(someday).toHaveLength(2);
+    expect(someday.map(t => t.id)).toEqual([2, 4]);
+  });
+});
+
+describe('someday exclusion', () => {
+  it('excludes someday from getLooseEnds inbox', () => {
+    const tasks = [
+      createTask({ id: 1, page_name: undefined, status: 'todo' }),
+      createTask({ id: 2, page_name: undefined, status: 'someday' }),
+    ];
+    const loose = getLooseEnds(tasks);
+    expect(loose.inbox).toHaveLength(1);
+    expect(loose.inbox[0].id).toBe(1);
+  });
+
+  it('excludes someday from getStaleTasks', () => {
+    const old = new Date();
+    old.setDate(old.getDate() - 20);
+    const tasks = [
+      createTask({ id: 1, updated_at: old.toISOString(), status: 'todo' }),
+      createTask({ id: 2, updated_at: old.toISOString(), status: 'someday' }),
+    ];
+    const stale = getStaleTasks(tasks);
+    expect(stale).toHaveLength(1);
+    expect(stale[0].id).toBe(1);
+  });
+
+  it('excludes someday from getOverdueTasks', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tasks = [
+      createTask({ id: 1, due_date: yesterday.toISOString(), status: 'todo' }),
+      createTask({ id: 2, due_date: yesterday.toISOString(), status: 'someday' }),
+    ];
+    const overdue = getOverdueTasks(tasks);
+    expect(overdue).toHaveLength(1);
+    expect(overdue[0].id).toBe(1);
+  });
+
+  it('includes waiting tasks in review summary', () => {
+    const tasks = [
+      createTask({ id: 1, status: 'waiting', waiting_on: 'Bob' }),
+      createTask({ id: 2, status: 'someday' }),
+    ];
+    const summary = getReviewSummary(tasks, []);
+    expect(summary.waitingTasks).toHaveLength(1);
+    expect(summary.somedayTasks).toHaveLength(1);
   });
 });

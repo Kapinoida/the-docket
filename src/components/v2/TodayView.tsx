@@ -107,13 +107,13 @@ export default function TodayView() {
   const todayStr = getCalendarDateStr(new Date());
 
   const overdueTasks = tasks.filter(t => {
-      if (!t.due_date || t.status === 'done') return false;
+      if (!t.due_date || t.status === 'done' || t.status === 'someday') return false;
       const dueStr = getCalendarDateStr(t.due_date);
       return dueStr < todayStr;
   });
 
   const todayTasks = tasks.filter(t => {
-      if (!t.due_date || t.status === 'done') return false;
+      if (!t.due_date || t.status === 'done' || t.status === 'someday') return false;
       const dueStr = getCalendarDateStr(t.due_date);
       return dueStr === todayStr;
   });

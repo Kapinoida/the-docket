@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Waiting and Someday task states** 🟢
+  Added `waiting` and `someday` status values to tasks. Migration `010_task_waiting_someday.sql` adds `waiting_on`, `waiting_since`, and `follow_up_date` columns. TaskEditor now has a segmented status control (Active / Waiting / Someday / Done) with waiting metadata inputs (waiting on, follow-up date). `someday` tasks are excluded from all active views: Today, Overdue, Inbox, Calendar, Focus, Dashboard, and Weekly Review. All Tasks view has new filter tabs for Waiting and Someday. Weekly Review shows "Waiting for" section (with waiting_on, age, follow-up date) and "Someday" section. API routes accept and validate new fields; auto-set `waiting_since` on transition to waiting; clear waiting metadata on transition away. 11 new tests.
+  *Completed: 2026-09-01*
+
 - [x] **Weekly Review screen** 🟢
   Implemented a structured weekly review ritual at `/review`. Five sections: Loose ends (inbox, undated, no context, no next action), Stale items (14+ day threshold with age display), Overdue decisions (keep active/reschedule/clarify/delete actions with session-local dismissal), Next 14 days calendar look-ahead, and Review closeout (three outcome inputs saved to journal). Created `src/lib/weeklyReview.ts` with pure selector functions, `ReviewSection` reusable wrapper, `OverdueReviewItem` with action buttons. Added `POST /api/v2/weekly-review` endpoint for safe journal append. Review added to desktop sidebar and mobile bottom tab bar (replacing Recordings, which remains in sidebar). 45 new tests (18 pure function + 18 component + 6 API).
   *Completed: 2026-09-01*
@@ -389,6 +393,12 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 - [x] **Weekly Review screen** 🟢
   *A recurring decision ritual that surfaces stale, overdue, waiting, undated, and unprocessed items and forces decisions.*
+  **Status:** 🟢 Complete
+  **Reported:** 2026-09-01 (via Hermes, from Dave)
+  *Completed: 2026-09-01*
+
+- [x] **Waiting and Someday task states** 🟢
+  *Add `waiting` status with `waiting_on`, `waiting_since`, `follow_up_date` metadata. Add `someday` state that excludes tasks from active counts, Today, Overdue, calendar task banks, and Focus selection.*
   **Status:** 🟢 Complete
   **Reported:** 2026-09-01 (via Hermes, from Dave)
   *Completed: 2026-09-01*

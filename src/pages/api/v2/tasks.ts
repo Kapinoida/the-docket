@@ -54,7 +54,7 @@ export default async function handler(
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'Task ID is required for update' });
-        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, endTime: newEndTime, end_time: newEndTimeSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake, next_action: newNextAction, commitment_level: newCommitmentLevel } = req.body;
+        const { content: newContent, status, dueDate: newDueDate, due_date: newDueDateSnake, endTime: newEndTime, end_time: newEndTimeSnake, recurrenceRule: newRecurrenceRule, recurrence_rule: newRecurrenceRuleSnake, next_action: newNextAction, commitment_level: newCommitmentLevel, waiting_on: newWaitingOn, follow_up_date: newFollowUpDate } = req.body;
         
         const resolvedDueDate = newDueDateSnake !== undefined ? newDueDateSnake : newDueDate;
         const resolvedRecurrenceRule = newRecurrenceRuleSnake !== undefined ? newRecurrenceRuleSnake : newRecurrenceRule;
@@ -62,7 +62,16 @@ export default async function handler(
         
         const fields: Record<string, any> = {};
         if (newContent !== undefined) fields.content = newContent;
-        if (status !== undefined) fields.status = status;
+        if (status !== undefined) {
+          fields.status = status;
+          if (status === 'waiting') {
+            fields.waiting_since = new Date().toISOString();
+          } else {
+            fields.waiting_on = null;
+            fields.waiting_since = null;
+            fields.follow_up_date = null;
+          }
+        }
         if (resolvedDueDate !== undefined) {
           const parsedDue = normalizeDateToNoon(resolvedDueDate);
           fields.due_date = parsedDue;
@@ -85,6 +94,16 @@ export default async function handler(
             fields.commitment_level = newCommitmentLevel;
           } else {
             return res.status(400).json({ error: 'commitment_level must be null, must, should, or could' });
+          }
+        }
+        if (newWaitingOn !== undefined) fields.waiting_on = typeof newWaitingOn === 'string' ? (newWaitingOn.trim() || null) : null;
+        if (newFollowUpDate !== undefined) {
+          if (newFollowUpDate === null) {
+            fields.follow_up_date = null;
+          } else {
+            const parsedFollowUp = new Date(newFollowUpDate);
+            if (isNaN(parsedFollowUp.getTime())) return res.status(400).json({ error: 'Invalid follow_up_date' });
+            fields.follow_up_date = parsedFollowUp;
           }
         }
         

@@ -17,7 +17,7 @@ function getCalendarDateStr(dateVal: Date | string): string {
 }
 
 function getActiveTasks(tasks: Task[]): Task[] {
-  return tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
+  return tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && t.status !== 'someday');
 }
 
 export interface LooseEnds {
@@ -30,7 +30,7 @@ export interface LooseEnds {
 export function getLooseEnds(tasks: Task[]): LooseEnds {
   const active = getActiveTasks(tasks);
   return {
-    inbox: tasks.filter(t => !t.page_name && t.status !== 'done' && t.content !== ''),
+    inbox: tasks.filter(t => !t.page_name && t.status !== 'done' && t.status !== 'someday' && t.content !== ''),
     undated: active.filter(t => !t.due_date),
     withoutContext: active.filter(t => !t.page_name),
     withoutNextAction: active.filter(t => !t.next_action),
@@ -53,6 +53,14 @@ export function getOverdueTasks(tasks: Task[]): Task[] {
     const dueStr = getCalendarDateStr(t.due_date);
     return dueStr < todayStr;
   });
+}
+
+export function getWaitingTasks(tasks: Task[]): Task[] {
+  return tasks.filter(t => t.status === 'waiting');
+}
+
+export function getSomedayTasks(tasks: Task[]): Task[] {
+  return tasks.filter(t => t.status === 'someday');
 }
 
 export function getLookaheadEvents(events: CalendarEvent[]): CalendarEvent[] {
@@ -81,6 +89,8 @@ export interface ReviewSummary {
   looseEnds: LooseEnds;
   staleTasks: Task[];
   overdueTasks: Task[];
+  waitingTasks: Task[];
+  somedayTasks: Task[];
   lookaheadEvents: CalendarEvent[];
   lookaheadTasks: Task[];
 }
@@ -90,6 +100,8 @@ export function getReviewSummary(tasks: Task[], events: CalendarEvent[]): Review
     looseEnds: getLooseEnds(tasks),
     staleTasks: getStaleTasks(tasks),
     overdueTasks: getOverdueTasks(tasks),
+    waitingTasks: getWaitingTasks(tasks),
+    somedayTasks: getSomedayTasks(tasks),
     lookaheadEvents: getLookaheadEvents(events),
     lookaheadTasks: getLookaheadTasks(tasks),
   };
