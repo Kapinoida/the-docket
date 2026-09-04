@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/types';
 import { CalendarEvent } from '@/lib/calendar';
@@ -55,6 +55,7 @@ export default function WeeklyReview() {
   const [decisionsLoading, setDecisionsLoading] = useState(true);
 
   const fetchDecisions = useCallback(async () => {
+    if (typeof window === 'undefined') return;
     setDecisionsLoading(true);
     try {
       const data = await apiFetch('/api/v2/decisions?limit=10') as DecisionRecord[];
@@ -68,7 +69,7 @@ export default function WeeklyReview() {
     }
   }, []);
 
-  useMemo(() => {
+  useEffect(() => {
     fetchDecisions();
   }, [fetchDecisions]);
 
