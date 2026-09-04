@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const newNodes: any[] = [];
       const hasContent = content.content.some((n: any) => 
-        (n.content && n.content.length > 0) || (n.type === 'image') || (n.type === 'taskItem')
+        (n.content && n.content.length > 0) || (n.type === 'image') || (n.type === 'taskItem') || (n.type === 'decision')
       );
 
       const todayIndex = existingNodes.findIndex((n: any) => 

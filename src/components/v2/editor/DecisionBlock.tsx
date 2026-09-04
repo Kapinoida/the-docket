@@ -9,9 +9,16 @@ import {
   ChevronRight,
   Plus,
   X,
+  ExternalLink,
 } from 'lucide-react';
 
 export type DecisionStatus = 'active' | 'decided' | 'reconsideration';
+
+export interface DecisionCriterion {
+  id: string;
+  text: string;
+  task_id: number | null;
+}
 
 export interface DecisionAttrs {
   id: string;
@@ -20,6 +27,7 @@ export interface DecisionAttrs {
   context: string;
   options: string;
   criteria: string;
+  structured_criteria: DecisionCriterion[];
   choice: string;
   reasoning: string;
   revisit_date: string;
@@ -38,6 +46,29 @@ function generateId(): string {
   return `dec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function generateCriterionId(): string {
+  return `crit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function parseRevisitDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function migrateCriteria(attrs: DecisionAttrs): DecisionCriterion[] {
+  if (attrs.structured_criteria && attrs.structured_criteria.length > 0) {
+    return attrs.structured_criteria;
+  }
+  if (attrs.criteria) {
+    return attrs.criteria.split('\n').filter(Boolean).map(text => ({
+      id: generateCriterionId(),
+      text,
+      task_id: null,
+    }));
+  }
+  return [];
+}
+
 interface DecisionBlockProps {
   node: { attrs: DecisionAttrs | Record<string, unknown> };
   updateAttributes: (attrs: Partial<DecisionAttrs>) => void;
@@ -49,7 +80,7 @@ export default function DecisionBlock({ node, updateAttributes, selected }: Deci
   const [collapsed, setCollapsed] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     if (editingTitle && titleInputRef.current) {
@@ -59,17 +90,21 @@ export default function DecisionBlock({ node, updateAttributes, selected }: Deci
   }, [editingTitle]);
 
   useEffect(() => {
+    const currentDebounceRefs = debounceRefs.current;
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      currentDebounceRefs.forEach((timeout) => clearTimeout(timeout));
     };
   }, []);
 
   const handleFieldChange = useCallback(
     (field: keyof DecisionAttrs, value: string) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
+      const existing = debounceRefs.current.get(field);
+      if (existing) clearTimeout(existing);
+      const timeout = setTimeout(() => {
         updateAttributes({ [field]: value, updated_at: new Date().toISOString() });
+        debounceRefs.current.delete(field);
       }, 300);
+      debounceRefs.current.set(field, timeout);
     },
     [updateAttributes],
   );
@@ -80,14 +115,14 @@ export default function DecisionBlock({ node, updateAttributes, selected }: Deci
 
   const statusConfig = STATUS_CONFIG[attrs.status] || STATUS_CONFIG.active;
 
-  const revisitDate = attrs.revisit_date ? new Date(attrs.revisit_date) : null;
+  const revisitDate = attrs.revisit_date ? parseRevisitDate(attrs.revisit_date) : null;
   const isRevisitOverdue = revisitDate ? revisitDate < new Date() : false;
   const isRevisitToday = revisitDate
     ? revisitDate.toDateString() === new Date().toDateString()
     : false;
 
   const optionsList = (attrs.options || '').split('\n').filter(Boolean);
-  const criteriaList = (attrs.criteria || '').split('\n').filter(Boolean);
+  const criteriaList = migrateCriteria(attrs);
 
   if (collapsed) {
     return (
@@ -211,11 +246,10 @@ export default function DecisionBlock({ node, updateAttributes, selected }: Deci
             items={optionsList}
           />
 
-          <DecisionListField
-            label="Criteria"
-            onChange={(v) => handleFieldChange('criteria', v)}
-            placeholder="Add a criterion..."
-            items={criteriaList}
+          <DecisionCriteriaField
+            criteria={criteriaList}
+            onChange={(criteria) => updateAttributes({ structured_criteria: criteria, updated_at: new Date().toISOString() })}
+            pageId={typeof window !== 'undefined' ? getPageId() : null}
           />
 
           <DecisionField
@@ -242,7 +276,7 @@ export default function DecisionBlock({ node, updateAttributes, selected }: Deci
               className="flex-1 text-sm bg-transparent border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
               value={attrs.revisit_date ? attrs.revisit_date.slice(0, 10) : ''}
               onChange={(e) =>
-                handleFieldChange('revisit_date', e.target.value ? new Date(e.target.value).toISOString() : '')
+                handleFieldChange('revisit_date', e.target.value || '')
               }
             />
             {attrs.revisit_date && (
@@ -304,6 +338,150 @@ function DecisionField({
           placeholder={placeholder}
         />
       )}
+    </div>
+  );
+}
+
+function DecisionCriteriaField({
+  criteria,
+  onChange,
+  pageId,
+}: {
+  criteria: DecisionCriterion[];
+  onChange: (criteria: DecisionCriterion[]) => void;
+  pageId: number | null;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [creatingTaskId, setCreatingTaskId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (adding && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [adding]);
+
+  const addItem = () => {
+    if (!adding) {
+      setAdding(true);
+      return;
+    }
+    const val = inputRef.current?.value.trim();
+    if (val) {
+      const newCriteria = [...criteria, { id: generateCriterionId(), text: val, task_id: null }];
+      onChange(newCriteria);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const removeItem = (index: number) => {
+    const newCriteria = criteria.filter((_, i) => i !== index);
+    onChange(newCriteria);
+  };
+
+  const createTask = async (criterion: DecisionCriterion) => {
+    if (!pageId || creatingTaskId) return;
+    setCreatingTaskId(criterion.id);
+    try {
+      const res = await fetch('/api/v2/decisions/create-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          criterionId: criterion.id,
+          criterionText: criterion.text,
+          pageId,
+        }),
+      });
+      if (res.ok) {
+        const { task_id, task } = await res.json();
+        const updated = criteria.map(c =>
+          c.id === criterion.id ? { ...c, task_id } : c
+        );
+        onChange(updated);
+        window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'decision' } }));
+      }
+    } catch (err) {
+      console.error('Failed to create task from criterion', err);
+    } finally {
+      setCreatingTaskId(null);
+    }
+  };
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+        Criteria
+      </label>
+      <div className="space-y-1">
+        {criteria.map((criterion, i) => (
+          <div key={criterion.id} className="flex items-center gap-1.5 group">
+            <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{criterion.text}</span>
+            {criterion.task_id ? (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.dispatchEvent(new CustomEvent('openTaskEdit', { detail: { taskId: criterion.task_id } }));
+                }}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600"
+                title="Open task"
+              >
+                <ExternalLink size={12} />
+                Task
+              </a>
+            ) : (
+              <button
+                onClick={() => createTask(criterion)}
+                disabled={creatingTaskId === criterion.id || !pageId}
+                className="text-xs text-gray-400 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={pageId ? 'Create task from this criterion' : 'Save page first to create tasks'}
+              >
+                {creatingTaskId === criterion.id ? '...' : '+ Task'}
+              </button>
+            )}
+            <button
+              onClick={() => removeItem(i)}
+              className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+              title="Remove"
+            >
+              <X size={12} className="text-gray-400" />
+            </button>
+          </div>
+        ))}
+        {adding ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={inputRef}
+              type="text"
+              className="flex-1 text-sm bg-transparent border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+              placeholder="Add a criterion..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addItem();
+                }
+                if (e.key === 'Escape') {
+                  setAdding(false);
+                }
+              }}
+              onBlur={() => {
+                if (inputRef.current?.value.trim()) {
+                  addItem();
+                }
+                setAdding(false);
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            onClick={addItem}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <Plus size={12} />
+            Add criterion
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -402,4 +580,9 @@ function DecisionListField({
   );
 }
 
-export { generateId, STATUS_CONFIG };
+export { generateId, generateCriterionId, STATUS_CONFIG, migrateCriteria };
+
+function getPageId(): number | null {
+  const match = window.location.pathname.match(/\/page\/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}

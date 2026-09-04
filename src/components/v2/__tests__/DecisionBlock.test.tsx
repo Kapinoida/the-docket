@@ -11,6 +11,7 @@ function makeAttrs(overrides: Partial<DecisionAttrs> = {}): DecisionAttrs {
     context: 'Some context',
     options: 'Option A\nOption B',
     criteria: 'Cost\nQuality',
+    structured_criteria: [],
     choice: 'Option A',
     reasoning: 'It was cheaper',
     revisit_date: '',
@@ -177,7 +178,7 @@ describe('DecisionBlock', () => {
     const updateAttributes = jest.fn();
     render(
       <DecisionBlock
-        node={{ attrs: makeAttrs({ revisit_date: '2026-10-15T12:00:00Z' }) }}
+        node={{ attrs: makeAttrs({ revisit_date: '2026-10-15' }) }}
         updateAttributes={updateAttributes}
         selected={false}
       />,

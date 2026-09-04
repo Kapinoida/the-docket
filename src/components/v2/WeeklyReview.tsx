@@ -366,10 +366,15 @@ export default function WeeklyReview() {
           emptyMessage="No decisions recorded"
           action={
             decisions.length > 0 ? (
-              <span className="text-xs text-text-muted">
+              <span className="text-xs text-text-muted flex gap-2">
                 {decisions.filter(d => isDecisionOverdueForRevisit(d)).length > 0 && (
                   <span className="text-red-500 font-medium">
                     {decisions.filter(d => isDecisionOverdueForRevisit(d)).length} overdue revisit
+                  </span>
+                )}
+                {decisions.filter(d => (d.structured_criteria?.filter(c => !c.task_id).length || 0) > 0).length > 0 && (
+                  <span className="text-orange-500 font-medium">
+                    {decisions.reduce((sum, d) => sum + (d.structured_criteria?.filter(c => !c.task_id).length || 0), 0)} unresolved
                   </span>
                 )}
               </span>
@@ -386,6 +391,7 @@ export default function WeeklyReview() {
               {decisions.slice(0, 5).map(decision => {
                 const overdue = isDecisionOverdueForRevisit(decision);
                 const dueToday = isDecisionDueToday(decision);
+                const unresolvedCount = decision.structured_criteria?.filter(c => !c.task_id).length || 0;
                 return (
                   <button
                     key={decision.id}
@@ -420,6 +426,11 @@ export default function WeeklyReview() {
                             Revisit: {new Date(decision.revisit_date).toLocaleDateString()}
                             {overdue && ' (overdue)'}
                             {dueToday && !overdue && ' (today)'}
+                          </span>
+                        )}
+                        {unresolvedCount > 0 && (
+                          <span className="text-orange-500 font-medium">
+                            {unresolvedCount} unresolved criteria
                           </span>
                         )}
                         <span className="text-text-muted/60">{decision.page_title}</span>

@@ -241,6 +241,9 @@ export const GlobalDragHandle: React.FC<GlobalDragHandleProps> = ({ editor, page
             case 'task':
                 chain.setNode('v2Task', { pageId }).run();
                 break;
+            case 'decision':
+                chain.convertToDecision().run();
+                break;
         }
     };
 
@@ -318,6 +321,7 @@ function getCurrentBlockType(editor: Editor, pos: number | null): BlockType | nu
             case 'blockquote': return 'quote';
             case 'codeBlock': return 'code';
             case 'v2PageLink': return 'subpage';
+            case 'decision': return 'decision';
             default: return null;
         }
     } catch {

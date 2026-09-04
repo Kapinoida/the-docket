@@ -6,6 +6,8 @@ import {
   getDecidedDecisions,
   isDecisionOverdueForRevisit,
   isDecisionDueToday,
+  getUnresolvedCriteria,
+  hasUnresolvedCriteria,
   DecisionRecord,
 } from '../decisionPlanning';
 
@@ -17,6 +19,7 @@ function makeDecision(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
     context: 'Test context',
     options: ['Option A', 'Option B'],
     criteria: ['Cost', 'Quality'],
+    structured_criteria: [],
     choice: 'Option A',
     reasoning: 'It was cheaper',
     revisit_date: null,
@@ -62,6 +65,7 @@ describe('extractDecisions', () => {
             context: 'Need transportation',
             options: 'Tesla\nBMW\nHonda',
             criteria: 'Cost\nReliability',
+            structured_criteria: [],
             choice: 'Honda',
             reasoning: 'Most reliable',
             revisit_date: null,
@@ -82,6 +86,7 @@ describe('extractDecisions', () => {
       context: 'Need transportation',
       options: ['Tesla', 'BMW', 'Honda'],
       criteria: ['Cost', 'Reliability'],
+      structured_criteria: [],
       choice: 'Honda',
       reasoning: 'Most reliable',
       revisit_date: null,
@@ -259,8 +264,8 @@ describe('getRecentDecisions', () => {
 describe('getDecisionsDueForReview', () => {
   it('returns decisions with revisit_date in the past', () => {
     const decisions = [
-      makeDecision({ id: 'past', revisit_date: '2020-01-01T00:00:00Z' }),
-      makeDecision({ id: 'future', revisit_date: '2099-01-01T00:00:00Z' }),
+      makeDecision({ id: 'past', revisit_date: '2020-01-01' }),
+      makeDecision({ id: 'future', revisit_date: '2099-01-01' }),
       makeDecision({ id: 'none', revisit_date: null }),
     ];
 
@@ -270,10 +275,13 @@ describe('getDecisionsDueForReview', () => {
   });
 
   it('returns decisions with revisit_date today', () => {
-    const today = new Date().toISOString();
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const tomorrow = new Date(Date.now() + 86400000);
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
     const decisions = [
-      makeDecision({ id: 'today', revisit_date: today }),
-      makeDecision({ id: 'tomorrow', revisit_date: new Date(Date.now() + 86400000).toISOString() }),
+      makeDecision({ id: 'today', revisit_date: todayStr }),
+      makeDecision({ id: 'tomorrow', revisit_date: tomorrowStr }),
     ];
 
     const due = getDecisionsDueForReview(decisions);
@@ -282,8 +290,8 @@ describe('getDecisionsDueForReview', () => {
 
   it('sorts by revisit_date ascending', () => {
     const decisions = [
-      makeDecision({ id: 'later', revisit_date: '2020-06-01T00:00:00Z' }),
-      makeDecision({ id: 'earlier', revisit_date: '2020-01-01T00:00:00Z' }),
+      makeDecision({ id: 'later', revisit_date: '2020-06-01' }),
+      makeDecision({ id: 'earlier', revisit_date: '2020-01-01' }),
     ];
 
     const due = getDecisionsDueForReview(decisions);
@@ -321,12 +329,12 @@ describe('getDecidedDecisions', () => {
 
 describe('isDecisionOverdueForRevisit', () => {
   it('returns true for past revisit date', () => {
-    const decision = makeDecision({ revisit_date: '2020-01-01T00:00:00Z' });
+    const decision = makeDecision({ revisit_date: '2020-01-01' });
     expect(isDecisionOverdueForRevisit(decision)).toBe(true);
   });
 
   it('returns false for future revisit date', () => {
-    const decision = makeDecision({ revisit_date: '2099-01-01T00:00:00Z' });
+    const decision = makeDecision({ revisit_date: '2099-01-01' });
     expect(isDecisionOverdueForRevisit(decision)).toBe(false);
   });
 
@@ -338,17 +346,81 @@ describe('isDecisionOverdueForRevisit', () => {
 
 describe('isDecisionDueToday', () => {
   it('returns true for today revisit date', () => {
-    const decision = makeDecision({ revisit_date: new Date().toISOString() });
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const decision = makeDecision({ revisit_date: todayStr });
     expect(isDecisionDueToday(decision)).toBe(true);
   });
 
   it('returns false for different date', () => {
-    const decision = makeDecision({ revisit_date: '2020-01-01T00:00:00Z' });
+    const decision = makeDecision({ revisit_date: '2020-01-01' });
     expect(isDecisionDueToday(decision)).toBe(false);
   });
 
   it('returns false for null revisit date', () => {
     const decision = makeDecision({ revisit_date: null });
     expect(isDecisionDueToday(decision)).toBe(false);
+  });
+});
+
+describe('getUnresolvedCriteria', () => {
+  it('returns criteria without task_id', () => {
+    const decision = makeDecision({
+      structured_criteria: [
+        { id: 'crit_1', text: 'Criterion 1', task_id: null },
+        { id: 'crit_2', text: 'Criterion 2', task_id: 42 },
+        { id: 'crit_3', text: 'Criterion 3', task_id: null },
+      ],
+    });
+
+    const unresolved = getUnresolvedCriteria(decision);
+    expect(unresolved).toHaveLength(2);
+    expect(unresolved[0].id).toBe('crit_1');
+    expect(unresolved[1].id).toBe('crit_3');
+  });
+
+  it('returns empty array when all criteria have tasks', () => {
+    const decision = makeDecision({
+      structured_criteria: [
+        { id: 'crit_1', text: 'Criterion 1', task_id: 42 },
+        { id: 'crit_2', text: 'Criterion 2', task_id: 43 },
+      ],
+    });
+
+    const unresolved = getUnresolvedCriteria(decision);
+    expect(unresolved).toHaveLength(0);
+  });
+
+  it('returns empty array when no structured_criteria', () => {
+    const decision = makeDecision({ structured_criteria: [] });
+    const unresolved = getUnresolvedCriteria(decision);
+    expect(unresolved).toHaveLength(0);
+  });
+});
+
+describe('hasUnresolvedCriteria', () => {
+  it('returns true when there are unresolved criteria', () => {
+    const decision = makeDecision({
+      structured_criteria: [
+        { id: 'crit_1', text: 'Criterion 1', task_id: null },
+      ],
+    });
+
+    expect(hasUnresolvedCriteria(decision)).toBe(true);
+  });
+
+  it('returns false when all criteria have tasks', () => {
+    const decision = makeDecision({
+      structured_criteria: [
+        { id: 'crit_1', text: 'Criterion 1', task_id: 42 },
+      ],
+    });
+
+    expect(hasUnresolvedCriteria(decision)).toBe(false);
+  });
+
+  it('returns false when no structured_criteria', () => {
+    const decision = makeDecision({ structured_criteria: [] });
+    expect(hasUnresolvedCriteria(decision)).toBe(false);
   });
 });
