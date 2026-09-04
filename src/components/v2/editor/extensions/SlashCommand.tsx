@@ -19,6 +19,7 @@ import {
   Table as TableIcon,
   FileText,
   ChevronRight,
+  Brain,
 } from 'lucide-react';
 import React from 'react';
 
@@ -138,6 +139,15 @@ const CommandListItems: SlashCommandItem[] = [
     group: 'advanced',
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertCollapsibleBlock().run();
+    },
+  },
+  {
+    title: 'Decision',
+    description: 'Structured decision record with options and criteria.',
+    icon: <Brain size={18} />,
+    group: 'advanced',
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertDecision().run();
     },
   },
   {

@@ -142,24 +142,24 @@ The Docket now has strong capture (Inbox), planning (Today commitments), review 
 
 ### Acceptance Criteria (Decision Records)
 
-- [ ] `/decision` slash command inserts a decision template.
-- [ ] Decision template has fields: context, options, criteria, choice, reasoning, revisit date, outcome.
-- [ ] Decisions are stored and retrievable.
-- [ ] Recent decisions panel shows last N decisions.
-- [ ] Weekly Review shows recent decisions section.
-- [ ] Can convert a note section to a decision.
-- [ ] Can create tasks from unresolved criteria.
-- [ ] Revisit date triggers a reminder (optional — could be in Weekly Review).
+- [x] `/decision` slash command inserts a decision template.
+- [x] Decision template has fields: context, options, criteria, choice, reasoning, revisit date, outcome.
+- [x] Decisions are stored and retrievable.
+- [x] Recent decisions panel shows last N decisions.
+- [x] Weekly Review shows recent decisions section.
+- [ ] Can convert a note section to a decision. *(Deferred to follow-up)*
+- [ ] Can create tasks from unresolved criteria. *(Deferred to follow-up)*
+- [x] Revisit date triggers a reminder (optional — could be in Weekly Review).
 
 ### Verification (Decision Records)
 
-- [ ] Add TipTap extension tests.
-- [ ] Add API tests for decision CRUD.
-- [ ] Add component tests for decision block rendering.
-- [ ] Run `npm test`.
-- [ ] Run `npx tsc --noEmit`.
+- [x] Add TipTap extension tests.
+- [x] Add API tests for decision CRUD.
+- [x] Add component tests for decision block rendering.
+- [x] Run `npm test`.
+- [x] Run `npx tsc --noEmit`.
 - [ ] Run lint.
-- [ ] Update `DEVLOG.md` and `ROADMAP.md`.
+- [x] Update `DEVLOG.md` and `ROADMAP.md`.
 - [ ] Commit and deploy.
 
 ## Operating Rhythm

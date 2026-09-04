@@ -28,7 +28,10 @@ import {
   Clock,
   Pause,
   Cloud,
+  Brain,
 } from 'lucide-react';
+import type { DecisionRecord } from '@/lib/decisionPlanning';
+import { isDecisionOverdueForRevisit, isDecisionDueToday } from '@/lib/decisionPlanning';
 
 export default function WeeklyReview() {
   const router = useRouter();
@@ -47,6 +50,27 @@ export default function WeeklyReview() {
   const [closeoutOutcomes, setCloseoutOutcomes] = useState(['', '', '']);
   const [isSavingCloseout, setIsSavingCloseout] = useState(false);
   const [closeoutSaved, setCloseoutSaved] = useState(false);
+
+  const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
+  const [decisionsLoading, setDecisionsLoading] = useState(true);
+
+  const fetchDecisions = useCallback(async () => {
+    setDecisionsLoading(true);
+    try {
+      const data = await apiFetch('/api/v2/decisions?limit=10') as DecisionRecord[];
+      setDecisions(data);
+    } catch (error) {
+      if (!(error instanceof AuthError)) {
+        console.error('Failed to fetch decisions:', error);
+      }
+    } finally {
+      setDecisionsLoading(false);
+    }
+  }, []);
+
+  useMemo(() => {
+    fetchDecisions();
+  }, [fetchDecisions]);
 
   const totalLooseEnds =
     summary.looseEnds.inbox.length +
@@ -329,6 +353,87 @@ export default function WeeklyReview() {
               );
             })}
           </div>
+        </ReviewSection>
+
+        {/* Decision Records */}
+        <ReviewSection
+          title="Decision records"
+          icon={Brain}
+          iconColor="text-indigo-600 dark:text-indigo-400"
+          iconBg="bg-indigo-100 dark:bg-indigo-900/30"
+          count={decisions.length}
+          emptyMessage="No decisions recorded"
+          action={
+            decisions.length > 0 ? (
+              <span className="text-xs text-text-muted">
+                {decisions.filter(d => isDecisionOverdueForRevisit(d)).length > 0 && (
+                  <span className="text-red-500 font-medium">
+                    {decisions.filter(d => isDecisionOverdueForRevisit(d)).length} overdue revisit
+                  </span>
+                )}
+              </span>
+            ) : undefined
+          }
+        >
+          {decisionsLoading ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-12 bg-bg-tertiary rounded" />
+              <div className="h-12 bg-bg-tertiary rounded" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {decisions.slice(0, 5).map(decision => {
+                const overdue = isDecisionOverdueForRevisit(decision);
+                const dueToday = isDecisionDueToday(decision);
+                return (
+                  <button
+                    key={decision.id}
+                    onClick={() => router.push(`/page/${decision.page_id}`)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left hover:shadow-sm transition-shadow ${
+                      overdue
+                        ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'
+                        : dueToday
+                          ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30'
+                          : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-text-primary truncate">
+                        {decision.title || 'Untitled Decision'}
+                      </div>
+                      <div className="text-xs text-text-muted flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          decision.status === 'decided'
+                            ? 'text-emerald-500 bg-emerald-500/10'
+                            : decision.status === 'reconsideration'
+                              ? 'text-amber-500 bg-amber-500/10'
+                              : 'text-blue-500 bg-blue-500/10'
+                        }`}>
+                          {decision.status}
+                        </span>
+                        {decision.choice && (
+                          <span className="truncate max-w-[200px]">Choice: {decision.choice}</span>
+                        )}
+                        {decision.revisit_date && (
+                          <span className={overdue ? 'text-red-500 font-medium' : dueToday ? 'text-amber-500 font-medium' : ''}>
+                            Revisit: {new Date(decision.revisit_date).toLocaleDateString()}
+                            {overdue && ' (overdue)'}
+                            {dueToday && !overdue && ' (today)'}
+                          </span>
+                        )}
+                        <span className="text-text-muted/60">{decision.page_title}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+              {decisions.length > 5 && (
+                <div className="text-xs text-text-muted text-center py-2">
+                  +{decisions.length - 5} more decisions
+                </div>
+              )}
+            </div>
+          )}
         </ReviewSection>
 
         {/* Someday */}

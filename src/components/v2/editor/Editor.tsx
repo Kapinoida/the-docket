@@ -17,6 +17,7 @@ import { PageLinkExtension } from './extensions/PageLinkExtension';
 import { SlashCommand } from './extensions/SlashCommand';
 import { TagExtension } from './extensions/TagExtension';
 import { CollapsibleBlockExtension } from './extensions/CollapsibleBlockExtension';
+import { DecisionExtension } from './extensions/DecisionExtension';
 import { Markdown } from 'tiptap-markdown';
 import { useEffect, useState, useRef } from 'react';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
@@ -127,6 +128,7 @@ export default function V2Editor({ pageId, pageTitle, initialContent, initialUpd
       SlashCommand,
       TagExtension,
       CollapsibleBlockExtension,
+      DecisionExtension,
       Markdown.configure({
           html: false,
           transformCopiedText: true,

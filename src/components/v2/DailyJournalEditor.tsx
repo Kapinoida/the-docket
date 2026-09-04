@@ -19,6 +19,7 @@ import { TaskExtension } from './editor/extensions/TaskExtension';
 import { PageLinkExtension } from './editor/extensions/PageLinkExtension';
 import { SlashCommand } from './editor/extensions/SlashCommand';
 import { TagExtension } from './editor/extensions/TagExtension';
+import { DecisionExtension } from './editor/extensions/DecisionExtension';
 import { useEffect, useState, useRef } from 'react';
 import { Save, ExternalLink } from 'lucide-react';
 import { EditorToolbar } from './editor/EditorToolbar';
@@ -118,6 +119,7 @@ export default function DailyJournalEditor() {
       }),
       SlashCommand,
       TagExtension,
+      DecisionExtension,
     ],
     content: content, 
     immediatelyRender: false,

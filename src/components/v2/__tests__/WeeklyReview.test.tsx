@@ -116,7 +116,12 @@ describe('WeeklyReview', () => {
       createTask: jest.fn(),
       closeTaskEdit: jest.fn(),
     });
-    mockApiFetch.mockResolvedValue({ success: true });
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/v2/decisions')) {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve({ success: true });
+    });
   });
 
   it('renders header with Weekly Review title', () => {
