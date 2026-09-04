@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Decision Records Follow-up: Conversion, Criteria Tasks, and Bug Fixes** 🟢
+  Fixed three critical bugs: daily journal persistence for decision nodes, per-field debounce to prevent edit conflicts, and timezone-safe date parsing. Added structured criteria with stable IDs and task linkage (DecisionCriterion[] with id, text, task_id). Added convertToDecision command to convert notes into decisions. Added Decision option to BlockTypePopover and GlobalDragHandle. Created POST /api/v2/decisions/create-task endpoint for transactional task creation from criteria. Added "Create Task" action to unresolved criteria in DecisionBlock. Weekly Review now shows unresolved criteria count. 13 new tests (413 total).
+  *Completed: 2026-09-04*
+
 - [x] **Decision Records** 🟢
   Added structured decision records as a new TipTap block node, accessible via `/decision` slash command in both page editor and daily journal. Created `DecisionExtension.tsx` (TipTap block node with structured attributes: id, title, status, context, options, criteria, choice, reasoning, revisit_date, outcome, timestamps) and `DecisionBlock.tsx` (React node view with editable fields, status toggle, collapsible UI, revisit date display with overdue/today highlighting). Created `decisionPlanning.ts` with pure extraction functions that recursively walk TipTap JSON to find decision nodes, plus filtering helpers. Added `GET /api/v2/decisions` endpoint that queries all pages, extracts decisions, and returns them sorted/filtered. Weekly Review now shows a "Decision records" section displaying recent decisions with status badges, choice summaries, revisit dates, and overdue/today highlighting. 42 new tests (28 decisionPlanning + 7 API + 13 component).
   *Completed: 2026-09-04*

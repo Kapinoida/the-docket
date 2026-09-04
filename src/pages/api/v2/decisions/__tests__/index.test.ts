@@ -9,7 +9,7 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-const mockPoolQuery = (pool as any).query as jest.Mock;
+const mockPoolQuery = (pool as unknown as { query: jest.Mock }).query;
 
 function createMockReqRes(method: string, query: Record<string, string> = {}): { req: NextApiRequest; res: NextApiResponse } {
   const req = {
@@ -127,9 +127,9 @@ describe('GET /api/v2/decisions', () => {
           content: {
             type: 'doc',
             content: [
-              { type: 'decision', attrs: { id: 'dec_past', title: 'Past', status: 'active', context: '', options: '', criteria: '', choice: '', reasoning: '', revisit_date: '2020-01-01T00:00:00Z', outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
-              { type: 'decision', attrs: { id: 'dec_future', title: 'Future', status: 'active', context: '', options: '', criteria: '', choice: '', reasoning: '', revisit_date: '2099-01-01T00:00:00Z', outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
-              { type: 'decision', attrs: { id: 'dec_none', title: 'None', status: 'active', context: '', options: '', criteria: '', choice: '', reasoning: '', revisit_date: null, outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
+              { type: 'decision', attrs: { id: 'dec_past', title: 'Past', status: 'active', context: '', options: '', criteria: '', structured_criteria: [], choice: '', reasoning: '', revisit_date: '2020-01-01', outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
+              { type: 'decision', attrs: { id: 'dec_future', title: 'Future', status: 'active', context: '', options: '', criteria: '', structured_criteria: [], choice: '', reasoning: '', revisit_date: '2099-01-01', outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
+              { type: 'decision', attrs: { id: 'dec_none', title: 'None', status: 'active', context: '', options: '', criteria: '', structured_criteria: [], choice: '', reasoning: '', revisit_date: null, outcome: '', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' } },
             ],
           },
         },

@@ -11,10 +11,11 @@ import {
     X,
     Quote,
     Code,
-    Check
+    Check,
+    Brain
 } from 'lucide-react';
 
-export type BlockType = 'paragraph' | 'heading1' | 'heading2' | 'bulletList' | 'orderedList' | 'task' | 'subpage' | 'quote' | 'code';
+export type BlockType = 'paragraph' | 'heading1' | 'heading2' | 'bulletList' | 'orderedList' | 'task' | 'subpage' | 'quote' | 'code' | 'decision';
 
 interface BlockTypePopoverProps {
     onSelect: (type: BlockType) => void;
@@ -40,6 +41,7 @@ const OPTIONS: BlockOption[] = [
     { type: 'subpage', label: 'Sub-page', icon: FileText, description: 'Link to a page inside this page.' },
     { type: 'quote', label: 'Quote', icon: Quote, description: 'Capture a quote.' },
     { type: 'code', label: 'Code', icon: Code, description: 'Capture a code snippet.' },
+    { type: 'decision', label: 'Decision', icon: Brain, description: 'Structured decision record.' },
 ];
 
 export function BlockTypePopover({ onSelect, onClose, position, currentType }: BlockTypePopoverProps) {

@@ -1,4 +1,4 @@
-import type { DecisionStatus } from '../components/v2/editor/DecisionBlock';
+import type { DecisionStatus, DecisionCriterion } from '../components/v2/editor/DecisionBlock';
 
 export interface DecisionRecord {
   id: string;
@@ -7,6 +7,7 @@ export interface DecisionRecord {
   context: string;
   options: string[];
   criteria: string[];
+  structured_criteria: DecisionCriterion[];
   choice: string;
   reasoning: string;
   revisit_date: string | null;
@@ -15,6 +16,11 @@ export interface DecisionRecord {
   updated_at: string;
   page_id: number;
   page_title: string;
+}
+
+function parseRevisitDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 export function extractDecisions(
@@ -81,6 +87,10 @@ function normalizeDecision(
     ? attrs.criteria.split('\n').filter(Boolean)
     : [];
 
+  const structured_criteria = Array.isArray(attrs.structured_criteria)
+    ? (attrs.structured_criteria as DecisionCriterion[])
+    : [];
+
   return {
     id: attrs.id as string,
     title: (attrs.title as string) || '',
@@ -88,6 +98,7 @@ function normalizeDecision(
     context: (attrs.context as string) || '',
     options,
     criteria,
+    structured_criteria,
     choice: (attrs.choice as string) || '',
     reasoning: (attrs.reasoning as string) || '',
     revisit_date: (attrs.revisit_date as string) || null,
@@ -110,15 +121,20 @@ export function getRecentDecisions(
 
 export function getDecisionsDueForReview(decisions: DecisionRecord[]): DecisionRecord[] {
   const now = new Date();
-  const todayStr = now.toDateString();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return decisions
     .filter((d) => {
       if (!d.revisit_date) return false;
-      const revisitDate = new Date(d.revisit_date);
-      return revisitDate <= now || revisitDate.toDateString() === todayStr;
+      const revisitDate = parseRevisitDate(d.revisit_date);
+      return revisitDate <= now;
     })
-    .sort((a, b) => new Date(a.revisit_date!).getTime() - new Date(b.revisit_date!).getTime());
+    .sort((a, b) => {
+      const dateA = parseRevisitDate(a.revisit_date!);
+      const dateB = parseRevisitDate(b.revisit_date!);
+      return dateA.getTime() - dateB.getTime();
+    });
 }
 
 export function getActiveDecisions(decisions: DecisionRecord[]): DecisionRecord[] {
@@ -131,7 +147,7 @@ export function getDecidedDecisions(decisions: DecisionRecord[]): DecisionRecord
 
 export function isDecisionOverdueForRevisit(decision: DecisionRecord): boolean {
   if (!decision.revisit_date) return false;
-  const revisitDate = new Date(decision.revisit_date);
+  const revisitDate = parseRevisitDate(decision.revisit_date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return revisitDate < today;
@@ -139,6 +155,19 @@ export function isDecisionOverdueForRevisit(decision: DecisionRecord): boolean {
 
 export function isDecisionDueToday(decision: DecisionRecord): boolean {
   if (!decision.revisit_date) return false;
-  const revisitDate = new Date(decision.revisit_date);
-  return revisitDate.toDateString() === new Date().toDateString();
+  const revisitDate = parseRevisitDate(decision.revisit_date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return revisitDate.getTime() === today.getTime();
+}
+
+export function getUnresolvedCriteria(decision: DecisionRecord): DecisionCriterion[] {
+  if (decision.structured_criteria && decision.structured_criteria.length > 0) {
+    return decision.structured_criteria.filter(c => !c.task_id);
+  }
+  return [];
+}
+
+export function hasUnresolvedCriteria(decision: DecisionRecord): boolean {
+  return getUnresolvedCriteria(decision).length > 0;
 }

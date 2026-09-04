@@ -147,8 +147,8 @@ The Docket now has strong capture (Inbox), planning (Today commitments), review 
 - [x] Decisions are stored and retrievable.
 - [x] Recent decisions panel shows last N decisions.
 - [x] Weekly Review shows recent decisions section.
-- [ ] Can convert a note section to a decision. *(Deferred to follow-up)*
-- [ ] Can create tasks from unresolved criteria. *(Deferred to follow-up)*
+- [x] Can convert a note section to a decision.
+- [x] Can create tasks from unresolved criteria.
 - [x] Revisit date triggers a reminder (optional — could be in Weekly Review).
 
 ### Verification (Decision Records)
@@ -158,7 +158,7 @@ The Docket now has strong capture (Inbox), planning (Today commitments), review 
 - [x] Add component tests for decision block rendering.
 - [x] Run `npm test`.
 - [x] Run `npx tsc --noEmit`.
-- [ ] Run lint.
+- [x] Run lint.
 - [x] Update `DEVLOG.md` and `ROADMAP.md`.
 - [ ] Commit and deploy.
 
