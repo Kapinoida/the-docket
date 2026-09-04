@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Decision Records** 🟢
+  Added structured decision records as a new TipTap block node, accessible via `/decision` slash command in both page editor and daily journal. Created `DecisionExtension.tsx` (TipTap block node with structured attributes: id, title, status, context, options, criteria, choice, reasoning, revisit_date, outcome, timestamps) and `DecisionBlock.tsx` (React node view with editable fields, status toggle, collapsible UI, revisit date display with overdue/today highlighting). Created `decisionPlanning.ts` with pure extraction functions that recursively walk TipTap JSON to find decision nodes, plus filtering helpers. Added `GET /api/v2/decisions` endpoint that queries all pages, extracts decisions, and returns them sorted/filtered. Weekly Review now shows a "Decision records" section displaying recent decisions with status badges, choice summaries, revisit dates, and overdue/today highlighting. 42 new tests (28 decisionPlanning + 7 API + 13 component).
+  *Completed: 2026-09-04*
+
 - [x] **Waiting and Someday task states** 🟢
   Added `waiting` and `someday` status values to tasks. Migration `010_task_waiting_someday.sql` adds `waiting_on`, `waiting_since`, and `follow_up_date` columns. TaskEditor now has a segmented status control (Active / Waiting / Someday / Done) with waiting metadata inputs (waiting on, follow-up date). `someday` tasks are excluded from all active views: Today, Overdue, Inbox, Calendar, Focus, Dashboard, and Weekly Review. All Tasks view has new filter tabs for Waiting and Someday. Weekly Review shows "Waiting for" section (with waiting_on, age, follow-up date) and "Someday" section. API routes accept and validate new fields; auto-set `waiting_since` on transition to waiting; clear waiting metadata on transition away. 11 new tests.
   *Completed: 2026-09-01*
