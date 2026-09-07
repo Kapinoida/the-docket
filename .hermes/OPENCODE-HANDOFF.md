@@ -65,102 +65,76 @@ Use this from `/Users/dcplaskett/MyServer/the-docket`:
 
 ## Handoff Template
 
-Replace this section for each focused implementation pass.
-
 ### Current Objective
 
-The Waiting and Someday task states are complete. Tasks can now be marked as `waiting` with metadata (waiting_on, waiting_since, follow_up_date) or `someday` to remove them from all active views.
+Dave queued a batch of improvements from the **Docket Improvements page** (2026-09-07). The full queue lives in `ROADMAP.md`; the one confirmed bug is `BUG-016` in `BUGS.md`. This handoff covers the first coherent vertical slice: **Weekly Review polish** (BUG-016 + two adjacent gaps Dave flagged). Everything else is queued under "Queued Next Slices" — pick those up as separate passes.
 
-The next vertical slice from `DOCKET-IMPROVEMENT-SYNOPSIS.md` could be one of:
+### Weekly Review slice (this pass)
 
-1. **Decision records** — A `/decision` slash command that inserts a structured decision template with context, options, criteria, choice, reasoning, revisit date, and outcome. Useful decision actions: convert note section to decision, create tasks for unresolved criteria, link to project/page, show recent decisions during weekly review.
-
-2. **Project/page type system** — Add `PageKind` type (area, project, reference, journal, template). Project pages show desired outcome, current state, next action, waiting items, review date, related notes and tasks.
-
-3. **Effort and energy metadata** — Add optional `effort_minutes` field to tasks with presets (5m, 15m, 30m, 60m, 2h+). Enables capacity feedback: "You have 11 hours of tasks scheduled into 5 hours of available time."
-
-4. **Full-text search improvements** — Index page content, journal entries, decisions, and projects. Add content-type filters, context filters, date filters. Show matching text snippets.
-
-5. **Reschedule-count tracking** — Track how many times a task has been rescheduled. After repeated movement, offer helpful interventions: "This task keeps moving. What should happen? [Break it down] [Move to someday] [Mark waiting] [Delete] [Keep]"
+1. **BUG-016 — "Next 14 days" has no dates, no sort, no labels.** See BUGS.md for root cause. Merge `summary.lookaheadEvents` + `summary.lookaheadTasks` into one chronological list, group/label by day (Today / Tomorrow / weekday dates), and show each item's date/time.
+2. **Loose ends are not actionable.** Loose ends render as muted text previews (`WeeklyReview.tsx:201-255`) with no per-item actions. Give each loose end the same action pattern as Overdue items (`OverdueReviewItem`): open editor, schedule (date picker), mark waiting, move to a page, delete. The "No page context" bucket especially needs a "Move to page" action.
+3. **Stale items can't be processed or scheduled out.** Stale items (`WeeklyReview.tsx:257-295`) only open the task editor on click. Add inline actions: schedule (the reschedule `DatePickerPopover` at `WeeklyReview.tsx:490-502` already exists), mark waiting, keep active, delete.
 
 ### User Problem
 
-The Docket now has strong capture (Inbox), planning (Today commitments), review (Weekly Review), and deferral (Waiting/Someday) surfaces. The missing pieces are:
-
-- **Decision records**: Important decisions are buried in general notes. There's no structured way to capture options, criteria, choice, and rationale.
-- **Project model**: Pages are flat. There's no distinction between ongoing areas, finite projects, and reference material.
-- **Effort estimates**: Tasks have no size indicator. Capacity planning is impossible without knowing how long things take.
-- **Search**: Current search covers titles and tags but not full content. Finding information across pages, journals, and decisions is difficult.
-- **Reschedule detection**: Tasks that keep getting moved give useful signal but there's no tracking or intervention.
+The Weekly Review is Dave's decision ritual, but its two most common sections are passive. Loose ends and Stale items surface problems without letting him resolve them from the screen, and the 14-day look-ahead is an unsorted, undated blob that doesn't communicate what's actually coming up.
 
 ### Confirmed Current Behavior
 
-- Dashboard shows action cards for overdue, inbox, undated, and today.
-- Today view has Must/Should/Could commitment sections.
-- Inbox has processing mode with keyboard shortcuts.
-- Weekly Review has seven sections: loose ends, stale items, overdue decisions, waiting for, someday, calendar look-ahead, review closeout.
-- Tasks have `next_action`, `commitment_level`, `due_date`, `end_time`, `recurrence_rule`, `waiting_on`, `waiting_since`, `follow_up_date`.
-- Task statuses: `todo`, `in_progress`, `done`, `cancelled`, `waiting`, `someday`.
-- No decision records, project/page type system, effort estimates, or reschedule tracking yet.
+- Weekly Review at `/review`: Loose ends, Stale items, Overdue decisions, Waiting for, Someday, Next 14 days, Review closeout.
+- Overdue items have Keep Active / Reschedule / Clarify / Delete actions (`OverdueReviewItem`).
+- Loose ends: text previews only, max 3 items per bucket, single "Process inbox →" link.
+- Stale items: click opens the task edit modal; no inline actions.
+- Next 14 days: events first, then tasks — no sort, no date labels, no grouping.
+- `src/lib/weeklyReview.ts` `getLookaheadEvents`/`getLookaheadTasks` filter by range but do not sort.
 
-### Recommended Next Slice
+### Scope (Weekly Review polish)
 
-**Decision records** is the highest-value next slice because:
+- **In scope:**
+  - BUG-016: chronological merge + date labels/grouping for Next 14 days
+  - Loose ends per-item actions (edit, schedule, waiting, move-to-page, delete)
+  - Stale items per-item actions (schedule, waiting, keep active, delete)
+  - Tests for any new pure functions and action handlers
+- **Out of scope (queued in ROADMAP.md, separate passes):**
+  - Dashboard overhaul round 2 / remove Recent Notes
+  - Calendar styling + function improvements, holidays, workday-aware recurrence
+  - Recording page styling + Sportarr integration
+  - Data-update UX
+  - Security audit
 
-1. It captures important decisions that are currently lost in general notes.
-2. It provides a structured format for options, criteria, choice, and rationale.
-3. It supports revisit dates to prevent endless re-litigation.
-4. It integrates with the Weekly Review (show recent decisions).
-5. It's a pure addition — no schema changes to existing tables, just a new page type or content block.
+### Likely Files (Weekly Review polish)
 
-### Scope (Decision Records)
+- `src/components/v2/WeeklyReview.tsx` (all three areas)
+- `src/lib/weeklyReview.ts` (lookahead merge/sort/group helpers)
+- `src/components/v2/OverdueReviewItem.tsx` (reference pattern for per-item actions)
+- Tests: `src/lib/__tests__/weeklyReview.test.ts`, `src/components/v2/__tests__/WeeklyReview.test.tsx`
 
-- In scope:
-  - `/decision` slash command in editor
-  - Decision template with context, options, criteria, choice, reasoning, revisit date, outcome
-  - Decision storage (as a page type or structured content block)
-  - Decision list view / recent decisions panel
-  - Integration with Weekly Review (show recent decisions)
-  - Convert note section to decision
-  - Create tasks from unresolved criteria
-- Out of scope:
-  - Project/page type system
-  - Effort estimates
-  - Full-text search improvements
-  - Reschedule-count tracking
-  - AI classification
+### Acceptance Criteria (Weekly Review polish)
 
-### Likely Files (Decision Records)
+- [ ] Next 14 days shows one chronologically merged list, grouped/labeled by date, each item showing date/time
+- [ ] Loose end items have per-item actions; "No page context" items can be moved to a page
+- [ ] Stale items have inline actions: schedule, mark waiting, keep active, delete
+- [ ] All existing tests pass; new tests for the sort/group helpers and action handlers
+- [ ] DEVLOG.md + ROADMAP.md updated
 
-- `src/components/v2/editor/extensions/DecisionExtension.tsx` (new — TipTap extension)
-- `src/components/v2/editor/DecisionBlock.tsx` (new — decision rendering component)
-- `src/migrations/011_decisions.sql` (new — decisions table or page type)
-- `src/lib/db.ts` (decision CRUD helpers)
-- `src/pages/api/v2/decisions.ts` (new — API routes)
-- `src/components/v2/WeeklyReview.tsx` (add recent decisions section)
-- `src/components/v2/editor/extensions/SlashCommand.tsx` (add /decision command)
+### Verification (Weekly Review polish)
 
-### Acceptance Criteria (Decision Records)
+- [ ] Add unit tests for the lookahead merge/group function
+- [ ] Add component tests for the new action buttons
+- [ ] Run `npm test`
+- [ ] Run `npx tsc --noEmit`
+- [ ] Run lint
+- [ ] Update `DEVLOG.md` and `ROADMAP.md`
+- [ ] Commit and deploy
 
-- [x] `/decision` slash command inserts a decision template.
-- [x] Decision template has fields: context, options, criteria, choice, reasoning, revisit date, outcome.
-- [x] Decisions are stored and retrievable.
-- [x] Recent decisions panel shows last N decisions.
-- [x] Weekly Review shows recent decisions section.
-- [x] Can convert a note section to a decision.
-- [x] Can create tasks from unresolved criteria.
-- [x] Revisit date triggers a reminder (optional — could be in Weekly Review).
+### Queued Next Slices (Docket Improvements page, 2026-09-07)
 
-### Verification (Decision Records)
-
-- [x] Add TipTap extension tests.
-- [x] Add API tests for decision CRUD.
-- [x] Add component tests for decision block rendering.
-- [x] Run `npm test`.
-- [x] Run `npx tsc --noEmit`.
-- [x] Run lint.
-- [x] Update `DEVLOG.md` and `ROADMAP.md`.
-- [ ] Commit and deploy.
+1. **Dashboard overhaul round 2** — more tools at hand, styling, functions, accessibility; **remove Recent Notes** (quick win, separate card).
+2. **Calendar improvements** — "bigger and better" styling + functions; overlaps existing "Rich calendar drag & resize" (🟡 Partial).
+3. **Holidays in calendar** + **workday/holiday-aware recurrence** — recurring tasks skip or move off conflicting days automatically.
+4. **Data-update UX** — nicer data updates in menus and dashboards (optimistic updates / loading states).
+5. **Recording page** — styling/feel pass, and pull recordings from **Sportarr** (the new recording engine).
+6. **Security audit** — verify every endpoint requires auth; add rate limiting / DDoS protection. (App icon redesign is already queued in ROADMAP.md near-term.)
 
 ## Operating Rhythm
 
