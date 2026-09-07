@@ -144,11 +144,31 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete  
   *Completed: 2026-06-22*
 
+- [ ] **Security audit: auth on every endpoint + DDoS/rate limiting** 🔴
+  *Dave: "Do a security check, make sure things aren't accessible without auth and DDOS protected." Audit every `/api/**` route (including `/api/widget/today`, CalDAV routes, and the public middleware whitelist) to confirm nothing sensitive is reachable without auth. Then add rate limiting (e.g., per-IP/per-token) and hardening headers (helmet-style) on the nginx/Docker layer. Deliverable: audit checklist with pass/fail per route + fixes for anything exposed.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #628)
+
 ### Calendar & Sync Improvements
 - [ ] **CalDAV multi‑account support**  
   *Extend `caldav.ts` to handle multiple servers (currently only one set of credentials active).*  
   **Status:** 🔴 Not Started  
   **Context:** Marked as TODO in codebase; users need multiple calendar sources.
+
+- [ ] **Calendar improvements: "bigger and better" styling + functions** 🔴
+  *Dave: "Really need some bigger and better calendar improvements. Styling functions." Broad styling and functional pass on the calendar views. Overlaps the existing "Rich calendar drag & resize" item (🟡 Partial) — coordinate so the two don't double up on the same code.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #617)
+
+- [ ] **Holidays in the calendar** 🔴
+  *Add US holidays (and any calendar Dave opts in) to the calendar views as non-interactive all-day markers, visually distinct from tasks/events.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #626)
+
+- [ ] **Workday/holiday-aware recurrence** 🔴
+  *Recurring tasks scheduled on a workday/holiday conflict should automatically move to the next valid day. E.g., a recurring task due on a holiday shifts to the next business day instead of landing on the conflict. Builds on the holidays-in-calendar work.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #627)
 
 - [~] **Calendar Day View UX overhaul** 🟢  
   *Dave wants the day view to be a proper time-blocking tool, not just a read-only grid. Several interconnected improvements:*  
@@ -275,6 +295,41 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🎯 Near‑term (1–3 months)
 
 ### Feature Work
+- [ ] **Dashboard overhaul round 2** 🔴
+  *Dave: "Dashboard cleanup - Need overhaul and better tools on hand. Styling, functions, accessibility. Drag and drop calendaring, etc." The round-1 action-card redesign (2026-09-01) landed; this is the follow-up pass: more tools available directly from the dashboard, styling polish, accessibility, and drag-and-drop calendaring on the dashboard surface.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #578)
+
+- [ ] **Dashboard: remove Recent Notes** 🔴
+  *Dave: "Dashboard - get rid of Recent Notes." Delete the Recent Notes section from the dashboard. Small, self-contained quick win.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #623)
+
+- [ ] **Data-update UX: nicer updates in menus and dashboards** 🔴
+  *Dave: "In general, a nicer way to have data update, especially in menus and dashboards." Audit how menus/dashboards reflect data changes — optimistic updates, loading skeletons, stale-data indicators, toast feedback. Improve perceived responsiveness of the most common surfaces.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #618)
+
+- [ ] **Review: Loose ends actionable** 🔴
+  *Dave: "Review - Loose ends has no way to act on those." Give Loose ends per-item actions: open editor, schedule, mark waiting, move to a page, delete. Covered by the current Weekly Review slice in `.hermes/OPENCODE-HANDOFF.md`.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #621)
+
+- [ ] **Review: Stale items process/schedule** 🔴
+  *Dave: "Review - Stale Items, should be able to process and schedule out." Add inline actions to Stale items (schedule, mark waiting, keep active, delete). Covered by the current Weekly Review slice in `.hermes/OPENCODE-HANDOFF.md`.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #622)
+
+- [ ] **Recording page styling pass** 🔴
+  *Dave: "Recording styling - Look at improving the feel of the page." Polish the `/recordings` dashboard — visual hierarchy, status readability, mobile feel. The module is functionally complete (Phases 1-6); this is presentation only.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #579)
+
+- [ ] **Recording: pull from Sportarr (new engine)** 🔴
+  *Dave: "Recording - Need to pull from Sportarr, as that is the new engine." Wire the recordings module to Sportarr (the current IPTV recording engine) so schedules/recordings flow from Sportarr into The Docket instead of the legacy pipeline.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #624)
+
 - [ ] **App icon redesign** 🔴
   *The current icon (white clipboard + green checkmark on navy blue) has been the same since initial PWA setup. It's clean but generic — every Docket/app icon in Dave's launcher is some variation of a clipboard with a checkmark. Time for something distinct. The icon should reflect a dark-mode native aesthetic (the app is dark-only, `bg-gray-950`) and feel like it belongs on a home screen next to Things, Fantastical, and Obsidian — not like a stock placeholder.*
   **Status:** 🔴 Not Started

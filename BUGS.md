@@ -561,6 +561,26 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ---
 
+## BUG-016: Weekly Review "Next 14 days" section shows no dates — not sorted, not labeled
+
+- **Status:** 🐛 Open
+- **Severity:** Medium
+- **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #620)
+- **Description:** In the Weekly Review (`/review`), the "Next 14 days" calendar look-ahead section renders events and tasks as a flat, mixed list. Items show no dates, are not sorted chronologically, and are not labeled or grouped by day. Dave: "the 14 day doesn't include dates, Sort and order by the date, label them."
+- **Steps to reproduce:**
+  1. Open `/review`
+  2. Scroll to the "Next 14 days" section
+  3. Observe: all events render first, then all tasks — no date labels, no date grouping, no chronological order
+- **Expected:** Items sorted by date (soonest first), grouped and labeled by day (e.g., "Today", "Tue Sep 8"), each item showing its date/time.
+- **Actual:** `WeeklyReview.tsx` lines 519–524 render `summary.lookaheadEvents.map(...)` then `summary.lookaheadTasks.map(...)` — two sequential renders. The data functions `getLookaheadEvents()` and `getLookaheadTasks()` in `src/lib/weeklyReview.ts` (lines 66–86) filter by range but do **not** sort. No date is displayed on either card type in this context.
+- **Affected files:**
+  - `src/components/v2/WeeklyReview.tsx` lines 504–526 (Next 14 days section)
+  - `src/lib/weeklyReview.ts` lines 66–86 (`getLookaheadEvents`, `getLookaheadTasks` — filter only, no sort)
+- **Hermes notes:** The fix needs a single chronologically-merged list: map both events and tasks to a common `{ date, label, node }` shape, sort by start/due time, then group by calendar day. `parseLocalDateNode` (already imported in `weeklyReview.ts`) handles the date parsing. Existing tests covering the lookahead selectors: `src/lib/__tests__/weeklyReview.test.ts` lines 152–175.
+- **Related ROADMAP:** "Review: Loose ends actionable" + "Review: Stale items process/schedule" — same screen, adjacent work (see OPENCODE-HANDOFF.md Weekly Review slice).
+
+---
+
 ## Template for new bugs
 
 ```
