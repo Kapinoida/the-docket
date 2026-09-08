@@ -563,7 +563,7 @@ Statuses: `🐛 Open` | `🔧 In Progress` | `✅ Fixed` | `🙅 Won't Fix` | `�
 
 ## BUG-016: Weekly Review "Next 14 days" section shows no dates — not sorted, not labeled
 
-- **Status:** 🐛 Open
+- **Status:** ✅ Fixed
 - **Severity:** Medium
 - **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #620)
 - **Description:** In the Weekly Review (`/review`), the "Next 14 days" calendar look-ahead section renders events and tasks as a flat, mixed list. Items show no dates, are not sorted chronologically, and are not labeled or grouped by day. Dave: "the 14 day doesn't include dates, Sort and order by the date, label them."

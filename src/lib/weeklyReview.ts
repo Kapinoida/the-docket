@@ -85,6 +85,84 @@ export function getLookaheadTasks(tasks: Task[]): Task[] {
   });
 }
 
+export type LookaheadItem =
+  | { kind: 'event'; date: Date; event: CalendarEvent }
+  | { kind: 'task'; date: Date; task: Task };
+
+export function getLookaheadItems(events: CalendarEvent[], tasks: Task[]): LookaheadItem[] {
+  const now = new Date();
+  const end = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
+
+  const eventItems: LookaheadItem[] = events
+    .filter(event => {
+      const eventDate = isTrulyAllDay(event)
+        ? (parseLocalDateNode(event.start_time) as Date)
+        : new Date(event.start_time);
+      return eventDate >= now && eventDate <= end;
+    })
+    .map(event => ({
+      kind: 'event' as const,
+      date: isTrulyAllDay(event)
+        ? (parseLocalDateNode(event.start_time) as Date)
+        : new Date(event.start_time),
+      event,
+    }));
+
+  const taskItems: LookaheadItem[] = getActiveTasks(tasks)
+    .filter(t => {
+      if (!t.due_date) return false;
+      const dueDate = parseLocalDateNode(t.due_date);
+      if (!dueDate) return false;
+      return dueDate >= now && dueDate <= end;
+    })
+    .map(task => ({
+      kind: 'task' as const,
+      date: parseLocalDateNode(task.due_date) as Date,
+      task,
+    }));
+
+  return [...eventItems, ...taskItems].sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+export interface LookaheadDayGroup {
+  dateKey: string;
+  label: string;
+  items: LookaheadItem[];
+}
+
+function getDayLabel(date: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  const diffMs = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+export function groupLookaheadByDay(items: LookaheadItem[]): LookaheadDayGroup[] {
+  const groups = new Map<string, LookaheadDayGroup>();
+
+  for (const item of items) {
+    const dateKey = getCalendarDateStr(item.date);
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, {
+        dateKey,
+        label: getDayLabel(item.date),
+        items: [],
+      });
+    }
+    groups.get(dateKey)!.items.push(item);
+  }
+
+  return Array.from(groups.values());
+}
+
 export interface ReviewSummary {
   looseEnds: LooseEnds;
   staleTasks: Task[];
@@ -93,9 +171,12 @@ export interface ReviewSummary {
   somedayTasks: Task[];
   lookaheadEvents: CalendarEvent[];
   lookaheadTasks: Task[];
+  lookaheadItems: LookaheadItem[];
+  lookaheadDayGroups: LookaheadDayGroup[];
 }
 
 export function getReviewSummary(tasks: Task[], events: CalendarEvent[]): ReviewSummary {
+  const lookaheadItems = getLookaheadItems(events, tasks);
   return {
     looseEnds: getLooseEnds(tasks),
     staleTasks: getStaleTasks(tasks),
@@ -104,6 +185,8 @@ export function getReviewSummary(tasks: Task[], events: CalendarEvent[]): Review
     somedayTasks: getSomedayTasks(tasks),
     lookaheadEvents: getLookaheadEvents(events),
     lookaheadTasks: getLookaheadTasks(tasks),
+    lookaheadItems,
+    lookaheadDayGroups: groupLookaheadByDay(lookaheadItems),
   };
 }
 

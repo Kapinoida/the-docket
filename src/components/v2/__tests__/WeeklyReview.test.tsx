@@ -162,7 +162,8 @@ describe('WeeklyReview', () => {
 
   it('shows stale task with age', () => {
     render(<WeeklyReview />);
-    expect(screen.getByText('Stale task')).toBeInTheDocument();
+    const staleElements = screen.getAllByText('Stale task');
+    expect(staleElements.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Last updated \d+ days ago/)).toBeInTheDocument();
   });
 
@@ -190,15 +191,17 @@ describe('WeeklyReview', () => {
 
   it('dismisses overdue item when keep active is clicked', () => {
     render(<WeeklyReview />);
-    const keepActiveButton = screen.getByText('Keep active');
-    fireEvent.click(keepActiveButton);
+    const keepActiveButtons = screen.getAllByText('Keep active');
+    const overdueKeepActive = keepActiveButtons[keepActiveButtons.length - 1];
+    fireEvent.click(overdueKeepActive);
     expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 
   it('calls delete API when delete is clicked on overdue item', async () => {
     render(<WeeklyReview />);
-    const deleteButton = screen.getByText('Delete');
-    fireEvent.click(deleteButton);
+    const deleteButtons = screen.getAllByText('Delete');
+    const overdueDelete = deleteButtons[deleteButtons.length - 1];
+    fireEvent.click(overdueDelete);
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v2/tasks/1', { method: 'DELETE' });
     });
@@ -270,5 +273,86 @@ describe('WeeklyReview', () => {
     render(<WeeklyReview />);
     const loadingElements = document.querySelectorAll('.animate-pulse');
     expect(loadingElements.length).toBeGreaterThan(0);
+  });
+
+  it('renders lookahead items with date group labels', () => {
+    const inOneHour = new Date(Date.now() + 3600000);
+    const todayTask = {
+      ...mockTasks[2],
+      id: 10,
+      content: 'Today task',
+      due_date: inOneHour.toISOString(),
+    };
+    mockUseSync.mockReturnValue({
+      tasks: [...mockTasks, todayTask],
+      events: mockEvents,
+      initialLoading: false,
+      isFetching: false,
+      refetch: jest.fn(),
+      updateLocalTask: jest.fn(),
+      removeLocalTask: jest.fn(),
+      addLocalTask: jest.fn(),
+    });
+    render(<WeeklyReview />);
+    expect(screen.getByText('Today')).toBeInTheDocument();
+  });
+
+  it('renders loose end tasks as actionable rows', () => {
+    render(<WeeklyReview />);
+    const clarifyButtons = screen.getAllByTitle('Clarify');
+    expect(clarifyButtons.length).toBeGreaterThan(0);
+    const scheduleButtons = screen.getAllByTitle('Schedule');
+    expect(scheduleButtons.length).toBeGreaterThan(0);
+  });
+
+  it('calls mark waiting API when waiting button is clicked on loose end', async () => {
+    render(<WeeklyReview />);
+    const waitingButtons = screen.getAllByTitle('Mark waiting');
+    fireEvent.click(waitingButtons[0]);
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/v2\/tasks\/\d+/),
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"status":"waiting"'),
+        })
+      );
+    });
+  });
+
+  it('opens move-to-page modal when move button is clicked', () => {
+    render(<WeeklyReview />);
+    const moveButtons = screen.getAllByTitle('Move to page');
+    fireEvent.click(moveButtons[0]);
+    expect(screen.getByText('Move Task to Page')).toBeInTheDocument();
+  });
+
+  it('renders stale items with action buttons', () => {
+    render(<WeeklyReview />);
+    const waitingButtons = screen.getAllByText('Waiting');
+    expect(waitingButtons.length).toBeGreaterThan(0);
+  });
+
+  it('calls mark waiting API when waiting is clicked on stale item', async () => {
+    render(<WeeklyReview />);
+    const waitingButtons = screen.getAllByText('Waiting');
+    fireEvent.click(waitingButtons[0]);
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/v2\/tasks\/\d+/),
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"status":"waiting"'),
+        })
+      );
+    });
+  });
+
+  it('dismisses stale item when keep active is clicked', () => {
+    render(<WeeklyReview />);
+    const keepActiveButtons = screen.getAllByText('Keep active');
+    const staleKeepActive = keepActiveButtons[0];
+    fireEvent.click(staleKeepActive);
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 });

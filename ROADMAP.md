@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Weekly Review polish: BUG-016, actionable loose ends, actionable stale items** 🟢
+  Fixed BUG-016 (Next 14 days had no dates, no sort, no labels). Added `getLookaheadItems()` and `groupLookaheadByDay()` pure helpers in `weeklyReview.ts` that merge events and tasks into one chronologically-sorted list, grouped by day with labels (Today / Tomorrow / weekday dates). Replaced passive loose-end text previews with per-item actionable rows (clarify, schedule, mark waiting, move to page, delete) across all four buckets (inbox, undated, no page context, no next action). Added inline actions to stale items (schedule, mark waiting, keep active, delete) with session-local dismissal. Added MoveToPageModal integration. 7 new component tests + 10 new unit tests (429 total).
+  *Completed: 2026-09-08*
+
 - [x] **Decision Records Follow-up: Conversion, Criteria Tasks, and Bug Fixes** 🟢
   Fixed three critical bugs: daily journal persistence for decision nodes, per-field debounce to prevent edit conflicts, and timezone-safe date parsing. Added structured criteria with stable IDs and task linkage (DecisionCriterion[] with id, text, task_id). Added convertToDecision command to convert notes into decisions. Added Decision option to BlockTypePopover and GlobalDragHandle. Created POST /api/v2/decisions/create-task endpoint for transactional task creation from criteria. Added "Create Task" action to unresolved criteria in DecisionBlock. Weekly Review now shows unresolved criteria count. 13 new tests (413 total).
   *Completed: 2026-09-04*
@@ -310,15 +314,17 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #618)
 
-- [ ] **Review: Loose ends actionable** 🔴
+- [x] **Review: Loose ends actionable** 🟢
   *Dave: "Review - Loose ends has no way to act on those." Give Loose ends per-item actions: open editor, schedule, mark waiting, move to a page, delete. Covered by the current Weekly Review slice in `.hermes/OPENCODE-HANDOFF.md`.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #621)
+  *Completed: 2026-09-08*
 
-- [ ] **Review: Stale items process/schedule** 🔴
+- [x] **Review: Stale items process/schedule** 🟢
   *Dave: "Review - Stale Items, should be able to process and schedule out." Add inline actions to Stale items (schedule, mark waiting, keep active, delete). Covered by the current Weekly Review slice in `.hermes/OPENCODE-HANDOFF.md`.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #622)
+  *Completed: 2026-09-08*
 
 - [ ] **Recording page styling pass** 🔴
   *Dave: "Recording styling - Look at improving the feel of the page." Polish the `/recordings` dashboard — visual hierarchy, status readability, mobile feel. The module is functionally complete (Phases 1-6); this is presentation only.*

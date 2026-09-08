@@ -4,6 +4,8 @@ import {
   getOverdueTasks,
   getLookaheadEvents,
   getLookaheadTasks,
+  getLookaheadItems,
+  groupLookaheadByDay,
   getReviewSummary,
   getTaskAgeDays,
   getWeekRange,
@@ -189,6 +191,156 @@ describe('getLookaheadTasks', () => {
   it('excludes undated tasks', () => {
     const tasks = [createTask({ id: 1, due_date: null })];
     expect(getLookaheadTasks(tasks)).toHaveLength(0);
+  });
+});
+
+describe('getLookaheadItems', () => {
+  it('merges events and tasks sorted chronologically', () => {
+    const in1Day = new Date();
+    in1Day.setDate(in1Day.getDate() + 1);
+    in1Day.setHours(9, 0, 0, 0);
+
+    const in2Days = new Date();
+    in2Days.setDate(in2Days.getDate() + 2);
+    in2Days.setHours(14, 0, 0, 0);
+
+    const in3Days = new Date();
+    in3Days.setDate(in3Days.getDate() + 3);
+    in3Days.setHours(10, 0, 0, 0);
+
+    const events = [
+      createEvent({ id: 'evt-1', start_time: in1Day.toISOString() }),
+      createEvent({ id: 'evt-2', start_time: in3Days.toISOString() }),
+    ];
+    const tasks = [
+      createTask({ id: 1, due_date: in2Days.toISOString() }),
+    ];
+
+    const items = getLookaheadItems(events, tasks);
+    expect(items).toHaveLength(3);
+    expect(items[0].kind).toBe('event');
+    expect(items[1].kind).toBe('task');
+    expect(items[2].kind).toBe('event');
+  });
+
+  it('sorts same-day items by time', () => {
+    const today9am = new Date();
+    today9am.setHours(9, 0, 0, 0);
+
+    const today2pm = new Date();
+    today2pm.setHours(14, 0, 0, 0);
+
+    const today5pm = new Date();
+    today5pm.setHours(17, 0, 0, 0);
+
+    const events = [
+      createEvent({ id: 'evt-1', start_time: today5pm.toISOString() }),
+    ];
+    const tasks = [
+      createTask({ id: 1, due_date: today9am.toISOString() }),
+      createTask({ id: 2, due_date: today2pm.toISOString() }),
+    ];
+
+    const items = getLookaheadItems(events, tasks);
+    expect(items).toHaveLength(3);
+    expect(items[0].kind).toBe('task');
+    expect(items[1].kind).toBe('task');
+    expect(items[2].kind).toBe('event');
+  });
+
+  it('excludes done and cancelled tasks', () => {
+    const in2Days = new Date();
+    in2Days.setDate(in2Days.getDate() + 2);
+
+    const tasks = [
+      createTask({ id: 1, due_date: in2Days.toISOString(), status: 'todo' }),
+      createTask({ id: 2, due_date: in2Days.toISOString(), status: 'done' }),
+      createTask({ id: 3, due_date: in2Days.toISOString(), status: 'cancelled' }),
+    ];
+
+    const items = getLookaheadItems([], tasks);
+    expect(items).toHaveLength(1);
+  });
+
+  it('excludes past events and tasks', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const events = [createEvent({ id: 'evt-1', start_time: yesterday.toISOString() })];
+    const tasks = [createTask({ id: 1, due_date: yesterday.toISOString() })];
+
+    const items = getLookaheadItems(events, tasks);
+    expect(items).toHaveLength(0);
+  });
+
+  it('returns empty array when nothing is scheduled', () => {
+    const items = getLookaheadItems([], []);
+    expect(items).toHaveLength(0);
+  });
+});
+
+describe('groupLookaheadByDay', () => {
+  it('groups items by calendar date', () => {
+    const today9am = new Date();
+    today9am.setHours(9, 0, 0, 0);
+
+    const today2pm = new Date();
+    today2pm.setHours(14, 0, 0, 0);
+
+    const tomorrow10am = new Date();
+    tomorrow10am.setDate(tomorrow10am.getDate() + 1);
+    tomorrow10am.setHours(10, 0, 0, 0);
+
+    const items = [
+      { kind: 'task' as const, date: today9am, task: createTask({ id: 1 }) },
+      { kind: 'task' as const, date: today2pm, task: createTask({ id: 2 }) },
+      { kind: 'event' as const, date: tomorrow10am, event: createEvent({ id: 'evt-1' }) },
+    ];
+
+    const groups = groupLookaheadByDay(items);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].label).toBe('Today');
+    expect(groups[0].items).toHaveLength(2);
+    expect(groups[1].label).toBe('Tomorrow');
+    expect(groups[1].items).toHaveLength(1);
+  });
+
+  it('labels today and tomorrow correctly', () => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(12, 0, 0, 0);
+
+    const items = [
+      { kind: 'task' as const, date: today, task: createTask({ id: 1 }) },
+      { kind: 'task' as const, date: tomorrow, task: createTask({ id: 2 }) },
+    ];
+
+    const groups = groupLookaheadByDay(items);
+    expect(groups[0].label).toBe('Today');
+    expect(groups[1].label).toBe('Tomorrow');
+  });
+
+  it('uses weekday+date for days beyond tomorrow', () => {
+    const in5Days = new Date();
+    in5Days.setDate(in5Days.getDate() + 5);
+    in5Days.setHours(12, 0, 0, 0);
+
+    const items = [
+      { kind: 'task' as const, date: in5Days, task: createTask({ id: 1 }) },
+    ];
+
+    const groups = groupLookaheadByDay(items);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).not.toBe('Today');
+    expect(groups[0].label).not.toBe('Tomorrow');
+    expect(groups[0].label).toMatch(/\w{3},?\s\w{3} \d{1,2}/);
+  });
+
+  it('returns empty array for empty input', () => {
+    const groups = groupLookaheadByDay([]);
+    expect(groups).toHaveLength(0);
   });
 });
 

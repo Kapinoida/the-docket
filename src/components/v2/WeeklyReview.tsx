@@ -12,6 +12,7 @@ import {
   getReviewSummary,
   getWeekRange,
   getTaskAgeDays,
+  LookaheadItem,
 } from '@/lib/weeklyReview';
 import ReviewSection from './ReviewSection';
 import OverdueReviewItem from './OverdueReviewItem';
@@ -29,7 +30,13 @@ import {
   Pause,
   Cloud,
   Brain,
+  Edit2,
+  Trash2,
+  CheckCircle,
+  ArrowRight,
+  PauseCircle,
 } from 'lucide-react';
+import MoveToPageModal from './MoveToPageModal';
 import type { DecisionRecord } from '@/lib/decisionPlanning';
 import { isDecisionOverdueForRevisit, isDecisionDueToday } from '@/lib/decisionPlanning';
 
@@ -43,9 +50,11 @@ export default function WeeklyReview() {
   const weekRange = getWeekRange();
 
   const [dismissedOverdue, setDismissedOverdue] = useState<Set<number>>(new Set());
+  const [processedStale, setProcessedStale] = useState<Set<number>>(new Set());
   const [rescheduleTaskId, setRescheduleTaskId] = useState<number | null>(null);
   const rescheduleButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [moveTaskId, setMoveTaskId] = useState<number | null>(null);
 
   const [closeoutOutcomes, setCloseoutOutcomes] = useState(['', '', '']);
   const [isSavingCloseout, setIsSavingCloseout] = useState(false);
@@ -126,6 +135,45 @@ export default function WeeklyReview() {
       refetch();
     }
   }, [removeLocalTask, refetch, showToast]);
+
+  const handleMarkWaiting = useCallback(async (taskId: number) => {
+    const updates: Partial<Task> = { status: 'waiting' };
+    updateLocalTask(taskId, updates);
+    try {
+      await apiFetch(`/api/v2/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId, source: 'weeklyReview' } }));
+    } catch (error) {
+      if (error instanceof AuthError) return;
+      showToast('Failed to update task', 'error');
+      refetch();
+    }
+  }, [updateLocalTask, refetch, showToast]);
+
+  const handleMoveToPage = useCallback(async (pageId: number) => {
+    if (!moveTaskId) return;
+    setMoveTaskId(null);
+    try {
+      await apiFetch(`/api/v2/tasks/${moveTaskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addToPageId: pageId }),
+      });
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail: { taskId: moveTaskId, source: 'weeklyReview' } }));
+      refetch();
+    } catch (error) {
+      if (error instanceof AuthError) return;
+      showToast('Failed to move task', 'error');
+      refetch();
+    }
+  }, [moveTaskId, refetch, showToast]);
+
+  const handleKeepActiveStale = useCallback((taskId: number) => {
+    setProcessedStale(prev => new Set(prev).add(taskId));
+  }, []);
 
   const handleSaveCloseout = useCallback(async () => {
     const filledOutcomes = closeoutOutcomes.filter(o => o.trim());
@@ -214,40 +262,108 @@ export default function WeeklyReview() {
             ) : undefined
           }
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
             {summary.looseEnds.inbox.length > 0 && (
               <div>
-                <div className="text-xs font-bold text-blue-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-bold text-blue-500 uppercase tracking-wide mb-2">
                   Inbox ({summary.looseEnds.inbox.length})
                 </div>
-                <div className="text-sm text-text-muted">
-                  {summary.looseEnds.inbox.slice(0, 3).map(t => t.content).join(', ')}
-                  {summary.looseEnds.inbox.length > 3 && ` +${summary.looseEnds.inbox.length - 3} more`}
+                <div className="space-y-2">
+                  {summary.looseEnds.inbox.slice(0, 5).map(task => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => openTaskEdit(task)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded" title="Clarify"><Edit2 size={14} /></button>
+                        <button onClick={() => setRescheduleTaskId(task.id)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Schedule"><Calendar size={14} /></button>
+                        <button onClick={() => handleMarkWaiting(task.id)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Mark waiting"><PauseCircle size={14} /></button>
+                        <button onClick={() => setMoveTaskId(task.id)} className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded" title="Move to page"><ArrowRight size={14} /></button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {summary.looseEnds.inbox.length > 5 && (
+                    <div className="text-xs text-text-muted text-center py-1">+{summary.looseEnds.inbox.length - 5} more</div>
+                  )}
                 </div>
               </div>
             )}
             {summary.looseEnds.undated.length > 0 && (
               <div>
-                <div className="text-xs font-bold text-amber-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-bold text-amber-500 uppercase tracking-wide mb-2">
                   Undated ({summary.looseEnds.undated.length})
                 </div>
-                <div className="text-sm text-text-muted">
-                  {summary.looseEnds.undated.slice(0, 3).map(t => t.content).join(', ')}
-                  {summary.looseEnds.undated.length > 3 && ` +${summary.looseEnds.undated.length - 3} more`}
+                <div className="space-y-2">
+                  {summary.looseEnds.undated.slice(0, 5).map(task => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => openTaskEdit(task)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded" title="Clarify"><Edit2 size={14} /></button>
+                        <button onClick={() => setRescheduleTaskId(task.id)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Schedule"><Calendar size={14} /></button>
+                        <button onClick={() => handleMarkWaiting(task.id)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Mark waiting"><PauseCircle size={14} /></button>
+                        <button onClick={() => setMoveTaskId(task.id)} className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded" title="Move to page"><ArrowRight size={14} /></button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {summary.looseEnds.undated.length > 5 && (
+                    <div className="text-xs text-text-muted text-center py-1">+{summary.looseEnds.undated.length - 5} more</div>
+                  )}
                 </div>
               </div>
             )}
             {summary.looseEnds.withoutContext.length > 0 && (
               <div>
-                <div className="text-xs font-bold text-purple-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-bold text-purple-500 uppercase tracking-wide mb-2">
                   No page context ({summary.looseEnds.withoutContext.length})
+                </div>
+                <div className="space-y-2">
+                  {summary.looseEnds.withoutContext.slice(0, 5).map(task => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => openTaskEdit(task)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded" title="Clarify"><Edit2 size={14} /></button>
+                        <button onClick={() => setRescheduleTaskId(task.id)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Schedule"><Calendar size={14} /></button>
+                        <button onClick={() => handleMarkWaiting(task.id)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Mark waiting"><PauseCircle size={14} /></button>
+                        <button onClick={() => setMoveTaskId(task.id)} className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded" title="Move to page"><ArrowRight size={14} /></button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {summary.looseEnds.withoutContext.length > 5 && (
+                    <div className="text-xs text-text-muted text-center py-1">+{summary.looseEnds.withoutContext.length - 5} more</div>
+                  )}
                 </div>
               </div>
             )}
             {summary.looseEnds.withoutNextAction.length > 0 && (
               <div>
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
                   No next action ({summary.looseEnds.withoutNextAction.length})
+                </div>
+                <div className="space-y-2">
+                  {summary.looseEnds.withoutNextAction.slice(0, 5).map(task => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => openTaskEdit(task)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded" title="Clarify"><Edit2 size={14} /></button>
+                        <button onClick={() => setRescheduleTaskId(task.id)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Schedule"><Calendar size={14} /></button>
+                        <button onClick={() => handleMarkWaiting(task.id)} className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Mark waiting"><PauseCircle size={14} /></button>
+                        <button onClick={() => setMoveTaskId(task.id)} className="p-1.5 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded" title="Move to page"><ArrowRight size={14} /></button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {summary.looseEnds.withoutNextAction.length > 5 && (
+                    <div className="text-xs text-text-muted text-center py-1">+{summary.looseEnds.withoutNextAction.length - 5} more</div>
+                  )}
                 </div>
               </div>
             )}
@@ -271,21 +387,50 @@ export default function WeeklyReview() {
           }
         >
           <div className="space-y-2">
-            {summary.staleTasks.slice(0, 5).map(task => (
-              <button
-                key={task.id}
-                onClick={() => openTaskEdit(task)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 text-left hover:shadow-sm transition-shadow"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
-                  <div className="text-xs text-text-muted">
-                    Last updated {getTaskAgeDays(task)} days ago
-                    {task.page_name && ` · ${task.page_name}`}
+            {summary.staleTasks.slice(0, 5).map(task => {
+              const isProcessed = processedStale.has(task.id);
+              if (isProcessed) {
+                return (
+                  <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 opacity-60">
+                    <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-muted line-through truncate">{task.content}</div>
+                      <div className="text-xs text-text-muted">Reviewed</div>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={task.id} className="flex flex-col gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+                  <button
+                    onClick={() => openTaskEdit(task)}
+                    className="w-full flex items-center gap-3 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-text-primary truncate">{task.content}</div>
+                      <div className="text-xs text-text-muted">
+                        Last updated {getTaskAgeDays(task)} days ago
+                        {task.page_name && ` · ${task.page_name}`}
+                      </div>
+                    </div>
+                  </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => setRescheduleTaskId(task.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                      <Calendar size={12} /> Schedule
+                    </button>
+                    <button onClick={() => handleMarkWaiting(task.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors">
+                      <PauseCircle size={12} /> Waiting
+                    </button>
+                    <button onClick={() => handleKeepActiveStale(task.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
+                      <CheckCircle size={12} /> Keep active
+                    </button>
+                    <button onClick={() => handleDelete(task.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">
+                      <Trash2 size={12} /> Delete
+                    </button>
                   </div>
                 </div>
-              </button>
-            ))}
+              );
+            })}
             {summary.staleTasks.length > 5 && (
               <div className="text-xs text-text-muted text-center py-2">
                 +{summary.staleTasks.length - 5} more stale tasks
@@ -507,7 +652,7 @@ export default function WeeklyReview() {
           icon={Calendar}
           iconColor="text-purple-600 dark:text-purple-400"
           iconBg="bg-purple-100 dark:bg-purple-900/30"
-          count={summary.lookaheadEvents.length + summary.lookaheadTasks.length}
+          count={summary.lookaheadItems.length}
           emptyMessage="Nothing scheduled"
           action={
             <button onClick={() => router.push('/calendar')} className="text-xs text-purple-500 hover:text-purple-600">
@@ -515,12 +660,22 @@ export default function WeeklyReview() {
             </button>
           }
         >
-          <div className="space-y-2">
-            {summary.lookaheadEvents.map(event => (
-              <EventCard key={`evt-${event.id}`} event={event} onClick={() => setSelectedEvent(event)} />
-            ))}
-            {summary.lookaheadTasks.map(task => (
-              <CalendarTaskCard key={task.id} task={task} onToggle={() => {}} onClick={() => openTaskEdit(task)} />
+          <div className="space-y-4">
+            {summary.lookaheadDayGroups.map(group => (
+              <div key={group.dateKey}>
+                <div className="text-xs font-bold text-purple-500 uppercase tracking-wide mb-2">
+                  {group.label}
+                </div>
+                <div className="space-y-2">
+                  {group.items.map((item: LookaheadItem) =>
+                    item.kind === 'event' ? (
+                      <EventCard key={`evt-${item.event.id}`} event={item.event} onClick={() => setSelectedEvent(item.event)} />
+                    ) : (
+                      <CalendarTaskCard key={item.task.id} task={item.task} onToggle={() => {}} onClick={() => openTaskEdit(item.task)} />
+                    )
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </ReviewSection>
@@ -529,6 +684,12 @@ export default function WeeklyReview() {
           isOpen={!!selectedEvent}
           onClose={() => setSelectedEvent(null)}
           event={selectedEvent}
+        />
+
+        <MoveToPageModal
+          isOpen={!!moveTaskId}
+          onClose={() => setMoveTaskId(null)}
+          onSelect={handleMoveToPage}
         />
 
         {/* Review Closeout */}
