@@ -224,21 +224,17 @@ describe('getLookaheadItems', () => {
   });
 
   it('sorts same-day items by time', () => {
-    const today9am = new Date();
-    today9am.setHours(9, 0, 0, 0);
-
-    const today2pm = new Date();
-    today2pm.setHours(14, 0, 0, 0);
-
-    const today5pm = new Date();
-    today5pm.setHours(17, 0, 0, 0);
+    const now = new Date();
+    const in1Hour = new Date(now.getTime() + 3600000);
+    const in2Hours = new Date(now.getTime() + 7200000);
+    const in3Hours = new Date(now.getTime() + 10800000);
 
     const events = [
-      createEvent({ id: 'evt-1', start_time: today5pm.toISOString() }),
+      createEvent({ id: 'evt-1', start_time: in3Hours.toISOString() }),
     ];
     const tasks = [
-      createTask({ id: 1, due_date: today9am.toISOString() }),
-      createTask({ id: 2, due_date: today2pm.toISOString() }),
+      createTask({ id: 1, due_date: in1Hour.toISOString() }),
+      createTask({ id: 2, due_date: in2Hours.toISOString() }),
     ];
 
     const items = getLookaheadItems(events, tasks);
