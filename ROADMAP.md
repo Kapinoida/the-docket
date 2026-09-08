@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Dashboard overhaul round 2** 🟢
+  Removed Recent Notes section per Dave's request. Added loading skeleton for initial load state. Added "Updating..." indicator for background sync. Made overdue task previews and Today commitment rows clickable to open task editor. Added Quick Actions section with Process Inbox, Today, Weekly Review, and All Tasks buttons. Improved accessibility with aria-labels and focus-visible rings on all interactive elements. 6 new tests (435 total).
+  *Completed: 2026-09-08*
+
 - [x] **Weekly Review polish: BUG-016, actionable loose ends, actionable stale items** 🟢
   Fixed BUG-016 (Next 14 days had no dates, no sort, no labels). Added `getLookaheadItems()` and `groupLookaheadByDay()` pure helpers in `weeklyReview.ts` that merge events and tasks into one chronologically-sorted list, grouped by day with labels (Today / Tomorrow / weekday dates). Replaced passive loose-end text previews with per-item actionable rows (clarify, schedule, mark waiting, move to page, delete) across all four buckets (inbox, undated, no page context, no next action). Added inline actions to stale items (schedule, mark waiting, keep active, delete) with session-local dismissal. Added MoveToPageModal integration. 7 new component tests + 10 new unit tests (429 total).
   *Completed: 2026-09-08*
@@ -299,15 +303,17 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🎯 Near‑term (1–3 months)
 
 ### Feature Work
-- [ ] **Dashboard overhaul round 2** 🔴
+- [x] **Dashboard overhaul round 2** 🟢
   *Dave: "Dashboard cleanup - Need overhaul and better tools on hand. Styling, functions, accessibility. Drag and drop calendaring, etc." The round-1 action-card redesign (2026-09-01) landed; this is the follow-up pass: more tools available directly from the dashboard, styling polish, accessibility, and drag-and-drop calendaring on the dashboard surface.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #578)
+  *Completed: 2026-09-08*
 
-- [ ] **Dashboard: remove Recent Notes** 🔴
+- [x] **Dashboard: remove Recent Notes** 🟢
   *Dave: "Dashboard - get rid of Recent Notes." Delete the Recent Notes section from the dashboard. Small, self-contained quick win.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #623)
+  *Completed: 2026-09-08*
 
 - [ ] **Data-update UX: nicer updates in menus and dashboards** 🔴
   *Dave: "In general, a nicer way to have data update, especially in menus and dashboards." Audit how menus/dashboards reflect data changes — optimistic updates, loading skeletons, stale-data indicators, toast feedback. Improve perceived responsiveness of the most common surfaces.*

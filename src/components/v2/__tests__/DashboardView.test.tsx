@@ -1,25 +1,23 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import DashboardView from '../DashboardView';
 import { useSync } from '@/contexts/SyncContext';
+import { useTaskEdit } from '@/contexts/TaskEditContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   usePathname: () => '/',
 }));
 jest.mock('@/contexts/SyncContext');
+jest.mock('@/contexts/TaskEditContext');
 jest.mock('../WeeklyCalendar', () => {
   const MockWeeklyCalendar = () => <div data-testid="weekly-calendar" />;
   MockWeeklyCalendar.displayName = 'MockWeeklyCalendar';
   return MockWeeklyCalendar;
 });
-jest.mock('../RecentNotes', () => {
-  const MockRecentNotes = () => <div data-testid="recent-notes" />;
-  MockRecentNotes.displayName = 'MockRecentNotes';
-  return MockRecentNotes;
-});
 
 const mockUseSync = useSync as jest.MockedFunction<typeof useSync>;
+const mockUseTaskEdit = useTaskEdit as jest.MockedFunction<typeof useTaskEdit>;
 
 const yesterday = new Date();
 yesterday.setDate(yesterday.getDate() - 1);
@@ -87,6 +85,11 @@ describe('DashboardView', () => {
       removeLocalTask: jest.fn(),
       addLocalTask: jest.fn(),
     });
+    mockUseTaskEdit.mockReturnValue({
+      openTaskEdit: jest.fn(),
+      createTask: jest.fn(),
+      closeTaskEdit: jest.fn(),
+    });
   });
 
   it('renders greeting', () => {
@@ -110,7 +113,9 @@ describe('DashboardView', () => {
     expect(screen.getByText('Needs attention')).toBeInTheDocument();
     expect(screen.getByText('Needs processing')).toBeInTheDocument();
     expect(screen.getByText('Needs planning')).toBeInTheDocument();
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    // "Today" appears in both action card and quick actions, so use getAllByText
+    const todayElements = screen.getAllByText('Today');
+    expect(todayElements.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows overdue count', () => {
@@ -136,6 +141,81 @@ describe('DashboardView', () => {
     expect(screen.getByText('Inbox is clear')).toBeInTheDocument();
     expect(screen.getByText('All tasks are scheduled')).toBeInTheDocument();
     expect(screen.getByText('Nothing scheduled today')).toBeInTheDocument();
+  });
+
+  it('does not render Recent Notes section', () => {
+    render(<DashboardView />);
+    expect(screen.queryByText('Recent Notes')).not.toBeInTheDocument();
+  });
+
+  it('shows loading skeleton on initial load', () => {
+    mockUseSync.mockReturnValue({
+      tasks: [],
+      events: [],
+      initialLoading: true,
+      isFetching: false,
+      refetch: jest.fn(),
+      updateLocalTask: jest.fn(),
+      removeLocalTask: jest.fn(),
+      addLocalTask: jest.fn(),
+    });
+    render(<DashboardView />);
+    const skeletons = document.querySelectorAll('.animate-pulse');
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it('shows updating indicator when background fetching', () => {
+    mockUseSync.mockReturnValue({
+      tasks: mockTasks,
+      events: [],
+      initialLoading: false,
+      isFetching: true,
+      refetch: jest.fn(),
+      updateLocalTask: jest.fn(),
+      removeLocalTask: jest.fn(),
+      addLocalTask: jest.fn(),
+    });
+    render(<DashboardView />);
+    expect(screen.getByText('Updating...')).toBeInTheDocument();
+  });
+
+  it('does not show updating indicator on initial load', () => {
+    mockUseSync.mockReturnValue({
+      tasks: [],
+      events: [],
+      initialLoading: true,
+      isFetching: true,
+      refetch: jest.fn(),
+      updateLocalTask: jest.fn(),
+      removeLocalTask: jest.fn(),
+      addLocalTask: jest.fn(),
+    });
+    render(<DashboardView />);
+    expect(screen.queryByText('Updating...')).not.toBeInTheDocument();
+  });
+
+  it('shows quick actions section', () => {
+    render(<DashboardView />);
+    expect(screen.getByText('Quick actions')).toBeInTheDocument();
+    expect(screen.getByText('Process Inbox')).toBeInTheDocument();
+    // "Today" appears in both action card and quick actions, use aria-label for specificity
+    expect(screen.getByLabelText('Open today view')).toBeInTheDocument();
+    expect(screen.getByText('Weekly Review')).toBeInTheDocument();
+    expect(screen.getByText('All Tasks')).toBeInTheDocument();
+  });
+
+  it('opens task editor when clicking overdue task preview', () => {
+    render(<DashboardView />);
+    const overdueTaskButton = screen.getByLabelText(/Edit overdue task: Overdue task/);
+    fireEvent.click(overdueTaskButton);
+    expect(mockUseTaskEdit().openTaskEdit).toHaveBeenCalledWith(mockTasks[0]);
+  });
+
+  it('opens task editor when clicking commitment row', () => {
+    render(<DashboardView />);
+    const mustTaskButton = screen.getByLabelText(/Edit must-do task: Today must task/);
+    fireEvent.click(mustTaskButton);
+    expect(mockUseTaskEdit().openTaskEdit).toHaveBeenCalledWith(mockTasks[3]);
   });
 
   it('shows today commitments section when tasks are due today', () => {
@@ -173,11 +253,6 @@ describe('DashboardView', () => {
   it('renders weekly calendar', () => {
     render(<DashboardView />);
     expect(screen.getByTestId('weekly-calendar')).toBeInTheDocument();
-  });
-
-  it('renders recent notes', () => {
-    render(<DashboardView />);
-    expect(screen.getByTestId('recent-notes')).toBeInTheDocument();
   });
 
   it('shows overdue task previews', () => {
