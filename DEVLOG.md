@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-08] – Dashboard overhaul round 2
+- **What changed:**
+  Completed Dashboard overhaul round 2. (1) Removed Recent Notes section entirely per Dave's request — deleted `RecentNotes.tsx` component and removed its import/usage from DashboardView. (2) Added loading skeleton with animated placeholders for initial load state, showing skeleton cards and content sections. (3) Added "Updating..." indicator with pulsing dot that appears during background sync (when `isFetching` is true but not initial load). (4) Made overdue task previews clickable — each preview now opens the task editor via `openTaskEdit()`. (5) Made Today commitment rows clickable — each task row (Must/Should/Could/Unassigned) now opens the task editor. (6) Added Quick Actions section with four buttons: Process Inbox, Today, Weekly Review, All Tasks — providing direct navigation to key views. (7) Improved accessibility throughout — added `aria-label`s on all interactive elements, `focus-visible:ring-2` for keyboard navigation, semantic `<button>` elements instead of clickable divs. 6 new tests (435 total).
+- **Why:**
+  The dashboard needed to be more actionable and provide better tools at hand. Recent Notes was taking up space without providing immediate value. The loading skeleton provides better UX during initial load. The updating indicator gives feedback during background sync. Clickable task rows and quick actions make the dashboard a true decision console rather than just an overview.
+- **Affected areas:** `src/components/v2/DashboardView.tsx` (removed RecentNotes, added loading skeleton, updating indicator, quick actions, clickable rows), `src/components/v2/RecentNotes.tsx` (deleted), `src/components/v2/__tests__/DashboardView.test.tsx` (6 new tests).
+- **Migration needed?** No.
+- **Testing:** All 435 tests pass (6 new). TypeScript clean. Lint clean on modified files.
+
+---
+
 ## [2026-09-08] – Weekly Review polish: BUG-016, actionable loose ends, actionable stale items
 - **What changed:**
   Fixed BUG-016 and completed the Weekly Review polish slice from the Hermes handoff. (1) Next 14 days: merged `lookaheadEvents` and `lookaheadTasks` into one chronologically-sorted list via new `getLookaheadItems()` helper. Added `groupLookaheadByDay()` that groups items by local calendar date with labels (Today / Tomorrow / weekday+date). Each item shows its date/time via existing EventCard/CalendarTaskCard components. (2) Loose ends: replaced passive comma-separated text previews with per-item actionable rows across all four buckets (inbox, undated, no page context, no next action). Each row has five icon-button actions: Clarify (open editor), Schedule (date picker), Mark waiting (sets status to waiting), Move to page (opens MoveToPageModal), Delete. Shows up to 5 items per bucket with "+N more" overflow. (3) Stale items: added inline action buttons (Schedule, Waiting, Keep active, Delete) to each stale task card. Keep active dismisses the item for the session. Mark waiting sends `{ status: 'waiting' }` via the existing API. Added `handleMarkWaiting`, `handleMoveToPage`, `handleKeepActiveStale` handlers with optimistic local updates and error toasts. Added MoveToPageModal integration. 17 new tests (10 unit + 7 component). Total: 429 tests pass.
