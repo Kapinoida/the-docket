@@ -41,6 +41,7 @@ services:
       - app
     networks:
       - internal-net
+      - proxy-net
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
 
@@ -73,3 +74,6 @@ volumes:
 networks:
   internal-net:
     driver: bridge
+  proxy-net:
+    external: true
+    name: proxy_default
