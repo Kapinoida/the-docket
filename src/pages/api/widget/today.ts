@@ -6,6 +6,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const expectedToken = process.env.WIDGET_TOKEN;
+  if (!expectedToken) {
+    return res.status(503).json({ error: 'Widget not configured' });
+  }
+
+  const providedToken = req.query.token;
+  if (!providedToken || providedToken !== expectedToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const result = await pool.query(
     `SELECT content, due_date
      FROM tasks

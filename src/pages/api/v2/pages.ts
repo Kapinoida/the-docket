@@ -269,9 +269,7 @@ if (parentPageId) {
   } catch (error: any) {
     console.error('API Error:', error);
     return res.status(500).json({ 
-        error: 'Internal Server Error',
-        details: error.message,
-        stack: error.stack
+        error: 'Internal Server Error'
     });
   }
 }

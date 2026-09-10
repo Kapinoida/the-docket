@@ -152,10 +152,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete  
   *Completed: 2026-06-22*
 
-- [ ] **Security audit: auth on every endpoint + DDoS/rate limiting** 🔴
-  *Dave: "Do a security check, make sure things aren't accessible without auth and DDOS protected." Audit every `/api/**` route (including `/api/widget/today`, CalDAV routes, and the public middleware whitelist) to confirm nothing sensitive is reachable without auth. Then add rate limiting (e.g., per-IP/per-token) and hardening headers (helmet-style) on the nginx/Docker layer. Deliverable: audit checklist with pass/fail per route + fixes for anything exposed.*
-  **Status:** 🔴 Not Started
+- [x] **Security audit: auth on every endpoint + DDoS/rate limiting** 🟢
+  *Comprehensive security hardening completed. Middleware now uses exact route matching instead of prefix matching. Removed sensitive endpoints from public allowlist (caldav/sync, push/send, widget/today). Added shared API auth helper with JWT validation (issuer, audience, algorithm). Added nginx rate limiting (10r/s for API, 1r/s for login) and security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy). Moved uploads out of public directory to authenticated endpoint. Removed runtime migration endpoint. Stopped publishing PostgreSQL port. Upgraded Next.js to 15.5.25 to fix critical vulnerabilities. Sanitized all error responses to prevent information leakage. Added WIDGET_TOKEN for launcher widget authentication.*
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #628)
+  *Completed: 2026-09-10*
 
 ### Calendar & Sync Improvements
 - [ ] **CalDAV multi‑account support**  

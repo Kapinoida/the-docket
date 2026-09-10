@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getPushSubscriptions, getTasksDueSoon, recordPushNotification, removePushSubscriptionById } from '../../../lib/db';
 import webpush from 'web-push';
+import { withAuth } from '../../../lib/apiAuth';
 
 const vapidKeys = {
   publicKey: process.env.VAPID_PUBLIC_KEY || '',
@@ -15,7 +16,7 @@ if (vapidKeys.publicKey && vapidKeys.privateKey) {
   );
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).end();
@@ -72,6 +73,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ sent });
   } catch (error: any) {
     console.error('Push send error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Push notification failed' });
   }
-}
+});

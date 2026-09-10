@@ -6,31 +6,35 @@ if (!process.env.JWT_SECRET) {
 }
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/api/auth/me', '/api/caldav/sync', '/api/push/send', '/api/widget/today'];
+const PUBLIC_ROUTES = new Set(['/login', '/api/auth/login', '/api/auth/me']);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes through
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.has(pathname)) {
     return NextResponse.next();
   }
 
-  // Allow static files and Next.js internals
   if (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/images/') ||
-    pathname.includes('.')
+    pathname.startsWith('/icon-') ||
+    pathname.startsWith('/apple-touch-icon') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith('/manifest.json') ||
+    pathname.startsWith('/sw.js')
   ) {
     return NextResponse.next();
   }
 
-  // Check token from cookie
+  if (pathname.endsWith('.ico') || pathname.endsWith('.png') || pathname.endsWith('.svg')) {
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get('token')?.value;
 
   if (!token) {
-    // Redirect to login for page requests
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -40,10 +44,13 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    await jwtVerify(token, JWT_SECRET);
+    await jwtVerify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'the-docket',
+      audience: 'the-docket',
+    });
     return NextResponse.next();
   } catch {
-    // Token expired or invalid
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
