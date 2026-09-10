@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate JWT token (7-day expiry)
     const token = await new SignJWT({ sub: 'dave', role: 'user' })
       .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer('the-docket')
+      .setAudience('the-docket')
       .setIssuedAt()
       .setExpirationTime('7d')
       .sign(JWT_SECRET);
