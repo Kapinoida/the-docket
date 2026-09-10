@@ -6,7 +6,7 @@ if (!process.env.JWT_SECRET) {
 }
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-const PUBLIC_ROUTES = new Set(['/login', '/api/auth/login', '/api/auth/me']);
+const PUBLIC_ROUTES = new Set(['/login', '/api/auth/login', '/api/auth/me', '/api/widget/today']);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
