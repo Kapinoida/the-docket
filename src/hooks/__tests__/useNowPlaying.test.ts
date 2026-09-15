@@ -9,10 +9,12 @@ import { fetchNowPlaying } from '@/lib/azuracast';
 const mockFetchNowPlaying = fetchNowPlaying as jest.MockedFunction<typeof fetchNowPlaying>;
 
 const mockStation = {
-  id: 1,
-  name: 'Runtime Loop',
-  shortcode: 'runtime_loop',
-  listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  station: {
+    id: 1,
+    name: 'Runtime Loop',
+    shortcode: 'runtime_loop',
+    listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  },
   listeners: { total: 5, unique: 3, current: 5 },
   now_playing: {
     song: {
@@ -24,9 +26,11 @@ const mockStation = {
     },
     elapsed: 30,
     duration: 180,
+    played_at: 1700000000,
   },
   playing_next: null,
   song_history: [],
+  is_online: true,
 };
 
 describe('useNowPlaying', () => {
@@ -46,7 +50,7 @@ describe('useNowPlaying', () => {
 
     await waitFor(() => {
       expect(result.current.stations['runtime_loop']).toBeDefined();
-      expect(result.current.stations['runtime_loop'].shortcode).toBe('runtime_loop');
+      expect(result.current.stations['runtime_loop'].station.shortcode).toBe('runtime_loop');
     });
 
     expect(result.current.isOffline).toBe(false);
@@ -78,9 +82,12 @@ describe('useNowPlaying', () => {
   it('keys stations by shortcode', async () => {
     const warmBootStation = {
       ...mockStation,
-      id: 2,
-      name: 'Warm Boot',
-      shortcode: 'warm_boot',
+      station: {
+        ...mockStation.station,
+        id: 2,
+        name: 'Warm Boot',
+        shortcode: 'warm_boot',
+      },
     };
     mockFetchNowPlaying.mockResolvedValue([mockStation, warmBootStation]);
 

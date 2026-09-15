@@ -120,10 +120,12 @@ describe('FloatingSoundIndicator', () => {
     mockNowPlayingState = {
       stations: {
         runtime_loop: {
-          id: 1,
-          name: 'Runtime Loop',
-          shortcode: 'runtime_loop',
-          listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          station: {
+            id: 1,
+            name: 'Runtime Loop',
+            shortcode: 'runtime_loop',
+            listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          },
           listeners: { total: 5, unique: 3, current: 5 },
           now_playing: {
             song: {
@@ -135,9 +137,11 @@ describe('FloatingSoundIndicator', () => {
             },
             elapsed: 30,
             duration: 180,
+            played_at: 1700000000,
           },
           playing_next: null,
           song_history: [],
+          is_online: true,
         },
       },
       isOffline: false,
@@ -166,18 +170,22 @@ describe('FloatingSoundIndicator', () => {
     mockNowPlayingState = {
       stations: {
         runtime_loop: {
-          id: 1,
-          name: 'Runtime Loop',
-          shortcode: 'runtime_loop',
-          listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          station: {
+            id: 1,
+            name: 'Runtime Loop',
+            shortcode: 'runtime_loop',
+            listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          },
           listeners: { total: 5, unique: 3, current: 5 },
           now_playing: {
             song: { id: 'abc', text: 'Track', artist: 'A', title: 'T', art: null },
             elapsed: 0,
             duration: 100,
+            played_at: 1700000000,
           },
           playing_next: null,
           song_history: [],
+          is_online: true,
         },
       },
       isOffline: false,
@@ -193,18 +201,22 @@ describe('FloatingSoundIndicator', () => {
     mockNowPlayingState = {
       stations: {
         runtime_loop: {
-          id: 1,
-          name: 'Runtime Loop',
-          shortcode: 'runtime_loop',
-          listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          station: {
+            id: 1,
+            name: 'Runtime Loop',
+            shortcode: 'runtime_loop',
+            listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+          },
           listeners: { total: 5, unique: 3, current: 5 },
           now_playing: {
             song: { id: 'abc', text: 'Track', artist: 'A', title: 'T', art: null },
             elapsed: 0,
             duration: 100,
+            played_at: 1700000000,
           },
           playing_next: null,
           song_history: [],
+          is_online: true,
         },
       },
       isOffline: false,
