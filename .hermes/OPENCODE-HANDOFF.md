@@ -67,74 +67,66 @@ Use this from `/Users/dcplaskett/MyServer/the-docket`:
 
 ### Current Objective
 
-Dave queued a batch of improvements from the **Docket Improvements page** (2026-09-07). The full queue lives in `ROADMAP.md`; the one confirmed bug is `BUG-016` in `BUGS.md`. This handoff covers the first coherent vertical slice: **Weekly Review polish** (BUG-016 + two adjacent gaps Dave flagged). Everything else is queued under "Queued Next Slices" — pick those up as separate passes.
+Dave wants the radio front-and-center in The Docket (from The Lyre / localhost-radio room, 2026-09-15). Current slice: **Radio mini-player in the app shell** — Now Playing data plumbing + upgrade `FloatingSoundIndicator` into an adaptive mini-player (slim station selector when idle; full mini-player with art / live track / controls while playing). The `/radio` page is queued as the next slice.
 
-### Weekly Review slice (this pass)
+### Radio mini-player slice (this pass)
 
-1. **BUG-016 — "Next 14 days" has no dates, no sort, no labels.** See BUGS.md for root cause. Merge `summary.lookaheadEvents` + `summary.lookaheadTasks` into one chronological list, group/label by day (Today / Tomorrow / weekday dates), and show each item's date/time.
-2. **Loose ends are not actionable.** Loose ends render as muted text previews (`WeeklyReview.tsx:201-255`) with no per-item actions. Give each loose end the same action pattern as Overdue items (`OverdueReviewItem`): open editor, schedule (date picker), mark waiting, move to a page, delete. The "No page context" bucket especially needs a "Move to page" action.
-3. **Stale items can't be processed or scheduled out.** Stale items (`WeeklyReview.tsx:257-295`) only open the task editor on click. Add inline actions: schedule (the reschedule `DatePickerPopover` at `WeeklyReview.tsx:490-502` already exists), mark waiting, keep active, delete.
+1. **AzuraCast client** — `src/lib/azuracast.ts` with `fetchNowPlaying()`. The endpoint is public, no auth, CORS `*` (verified 2026-09-15) — call it directly from the browser, no server proxy. Timeout + `null` on failure. Types in `src/types/azuracast.ts`.
+2. **`src/hooks/useNowPlaying.ts`** — 30s polling; pause when the tab is hidden (`document.visibilityState`); stations keyed by shortcode; offline flag.
+3. **Station registry** — `src/lib/radioStations.ts` (shortcode → display name + listen URL). Refactor `useAmbience.ts`'s hardcoded `STREAM_URLS` to import from it so station list lives in one place.
+4. **Rework `FloatingSoundIndicator.tsx`** into the adaptive mini-player:
+   - Idle (nothing playing): slim selector pill (radio icon → popover with today's ambience + music options).
+   - Stream playing: album art thumbnail, station name, live track ("artist — title"), play/pause (pause → `stopAll()` + source `'none'`; play → re-select station), station switch (Warm Boot ↔ Runtime Loop), stop (X).
+   - Ambience/pentatonic only: keep today's label pill behavior.
+   - AzuraCast unreachable: pill persists in a muted "off air" state — no crash.
+5. **Tests** — hook test (mocked fetch: success / failure / malformed shape) + component test (mocked `useSound` + API; idle / playing / offline states).
 
 ### User Problem
 
-The Weekly Review is Dave's decision ritual, but its two most common sections are passive. Loose ends and Stale items surface problems without letting him resolve them from the screen, and the 14-day look-ahead is an unsorted, undated blob that doesn't communicate what's actually coming up.
+The radio is buried. To play a station Dave opens Focus → Sound settings → picks a station; while playing, the only visible surface is a small pill bottom-left showing just the source name ("Warm Boot") — no track, no art, no quick switching, and nothing at all when idle. He wants the radio visible and controllable from anywhere in the app, plus a proper main page for it.
 
 ### Confirmed Current Behavior
 
-- Weekly Review at `/review`: Loose ends, Stale items, Overdue decisions, Waiting for, Someday, Next 14 days, Review closeout.
-- Overdue items have Keep Active / Reschedule / Clarify / Delete actions (`OverdueReviewItem`).
-- Loose ends: text previews only, max 3 items per bucket, single "Process inbox →" link.
-- Stale items: click opens the task edit modal; no inline actions.
-- Next 14 days: events first, then tasks — no sort, no date labels, no grouping.
-- `src/lib/weeklyReview.ts` `getLookaheadEvents`/`getLookaheadTasks` filter by range but do not sort.
+- `SoundProvider` (`src/contexts/SoundContext.tsx`) is app-wide, mounted in `src/components/ProvidersWrapper.tsx`; `FloatingSoundIndicator` (`src/components/focus/FloatingSoundIndicator.tsx`) renders fixed bottom-left `z-50` and returns `null` when `isPlaying` is false.
+- Pill shows only joined labels (`AMBIENCE_LABELS` / `MUSIC_LABELS`, e.g. "Warm Boot" or "Brown Noise + Warm Boot") plus an X stop button; its popover duplicates Focus's `SoundDropdown` (5 ambience + 4 music options).
+- Audio engine `src/hooks/useAmbience.ts`: `startStream(url)` = `<audio>` + `MediaElementSource` with 3s fade-in / 2s fade-out; `STREAM_URLS` hardcodes `https://radio.dcplaskett.com/listen/{warm_boot|runtime_loop}/radio.mp3`; `MusicSource = 'pentatonic' | 'runtime_loop' | 'warm_boot' | 'none'`.
+- AzuraCast `GET https://radio.dcplaskett.com/api/nowplaying` — public, no auth, `access-control-allow-origin: *`. Per station: shortcode, listen_url, listeners (total/unique/current), now_playing.song (art / artist / title / text), playing_next, song_history. Art URLs are absolute and CORS-open.
 
-### Scope (Weekly Review polish)
+### Scope (this pass)
 
-- **In scope:**
-  - BUG-016: chronological merge + date labels/grouping for Next 14 days
-  - Loose ends per-item actions (edit, schedule, waiting, move-to-page, delete)
-  - Stale items per-item actions (schedule, waiting, keep active, delete)
-  - Tests for any new pure functions and action handlers
-- **Out of scope (queued in ROADMAP.md, separate passes):**
-  - Dashboard overhaul round 2 / remove Recent Notes
-  - Calendar styling + function improvements, holidays, workday-aware recurrence
-  - Recording page styling + Sportarr integration
-  - Data-update UX
-  - Security audit
+- **In:** `azuracast.ts` client + types; `useNowPlaying` hook; `radioStations.ts` registry (+ `useAmbience.ts` refactor); `FloatingSoundIndicator` rework; tests.
+- **Out (queued separately):** `/radio` page (Slice 2), volume control (nice-to-have; needs gain-node exposure from `useAmbience`), Plexamp / Plex library integration (out entirely — copyright concerns + Plexamp already covers personal radio), any DB/migration (AzuraCast API is the source of truth), localhost-radio artist/diorama work.
 
-### Likely Files (Weekly Review polish)
+### Likely Files
 
-- `src/components/v2/WeeklyReview.tsx` (all three areas)
-- `src/lib/weeklyReview.ts` (lookahead merge/sort/group helpers)
-- `src/components/v2/OverdueReviewItem.tsx` (reference pattern for per-item actions)
-- Tests: `src/lib/__tests__/weeklyReview.test.ts`, `src/components/v2/__tests__/WeeklyReview.test.tsx`
+- New: `src/lib/azuracast.ts`, `src/types/azuracast.ts`, `src/lib/radioStations.ts`, `src/hooks/useNowPlaying.ts`, `src/hooks/__tests__/useNowPlaying.test.ts`, `src/components/focus/__tests__/FloatingSoundIndicator.test.tsx`
+- Edited: `src/components/focus/FloatingSoundIndicator.tsx`, `src/hooks/useAmbience.ts` (`STREAM_URLS` → `radioStations.ts`)
 
-### Acceptance Criteria (Weekly Review polish)
+### Acceptance Criteria
 
-- [ ] Next 14 days shows one chronologically merged list, grouped/labeled by date, each item showing date/time
-- [ ] Loose end items have per-item actions; "No page context" items can be moved to a page
-- [ ] Stale items have inline actions: schedule, mark waiting, keep active, delete
-- [ ] All existing tests pass; new tests for the sort/group helpers and action handlers
-- [ ] DEVLOG.md + ROADMAP.md updated
+- [ ] Stream playing → mini-player shows art + station + live track, updates on song change, visible from any page
+- [ ] Idle → slim selector pill; playing → full mini-player; switch/stop work app-wide (not just Focus)
+- [ ] AzuraCast down → degraded "off air" pill, no crash, no unhandled errors
+- [ ] All existing tests pass; new tests for hook + component; `npx tsc --noEmit` + lint clean
+- [ ] DEVLOG.md + ROADMAP.md updated; committed; deployed via `update.sh`
 
-### Verification (Weekly Review polish)
+### Verification
 
-- [ ] Add unit tests for the lookahead merge/group function
-- [ ] Add component tests for the new action buttons
-- [ ] Run `npm test`
-- [ ] Run `npx tsc --noEmit`
-- [ ] Run lint
-- [ ] Update `DEVLOG.md` and `ROADMAP.md`
-- [ ] Commit and deploy
+- [ ] Unit tests: `useNowPlaying` (fetch mock: success, failure, malformed shape)
+- [ ] Component tests: `FloatingSoundIndicator` idle / playing / offline states; play/pause/switch/stop handlers
+- [ ] `npm test`, `npx tsc --noEmit`, lint
+- [ ] Manual: docket.dcplaskett.com → Focus → start Warm Boot → check pill on `/today` shows art + track → switch to Runtime Loop → stop → confirm idle selector
+- [ ] Update `DEVLOG.md` + `ROADMAP.md`; commit; deploy
 
-### Queued Next Slices (Docket Improvements page, 2026-09-07)
+### Queued Next Slices
 
-1. **Dashboard overhaul round 2** — more tools at hand, styling, functions, accessibility; **remove Recent Notes** (quick win, separate card).
-2. **Calendar improvements** — "bigger and better" styling + functions; overlaps existing "Rich calendar drag & resize" (🟡 Partial).
-3. **Holidays in calendar** + **workday/holiday-aware recurrence** — recurring tasks skip or move off conflicting days automatically.
-4. **Data-update UX** — nicer data updates in menus and dashboards (optimistic updates / loading states).
-5. **Recording page** — styling/feel pass, and pull recordings from **Sportarr** (the new recording engine).
-6. **Security audit** — verify every endpoint requires auth; add rate limiting / DDoS protection. (App icon redesign is already queued in ROADMAP.md near-term.)
+1. **`/radio` page (Slice 2)** — `src/app/radio/page.tsx` + `src/components/radio/` cards: station cards (art, on-air status, listeners), now playing, song history from the same `useNowPlaying` data; sidebar entry. No DB.
+2. **Radio volume control** (nice-to-have) — expose the stream gain node from `useAmbience` (currently hardcoded 0.6); slider in the mini-player popover.
+3. **Calendar improvements: "bigger and better" styling + functions** — overlaps "Rich calendar drag & resize" (🟡 Partial).
+4. **Holidays in the calendar** — non-interactive all-day markers, visually distinct from tasks/events.
+5. **Workday/holiday-aware recurrence** — recurring tasks shift off conflicts (builds on #4).
+6. **Data-update UX** — optimistic updates / loading states in menus and dashboards.
+7. **Recording page** — styling/feel pass + pull recordings from **Sportarr**.
 
 ## Operating Rhythm
 

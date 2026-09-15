@@ -131,6 +131,12 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## 🏗️ Immediate (Next 1–2 weeks)
 
+### Radio & Audio
+- [ ] **Radio mini-player in the app shell + Now Playing** 🔴
+  *Dave: "Expand the functionality of the Docket to better make the radio stuff more available and visible (currently have to go to Focus, turn it on, and there's only a small pill showing what is playing)." Persistent bottom-corner player that adapts: idle = slim station selector; playing = mini-player with album art, live track, play/pause, station switch, stop. Polls AzuraCast public `/api/nowplaying` (CORS verified, no auth). Builds on the completed "Persistent ambient audio across pages + floating sound indicator" (2026-07-13). Full brief in `.hermes/OPENCODE-HANDOFF.md`.*
+  **Status:** 🔴 Not Started
+  **Reported:** 2026-09-15 (via Hermes, from The Lyre / localhost-radio Matrix room)
+
 ### Architectural & Technical Debt
 - [x] **Unify type systems** 🟢  
   *Merged `src/types/index.ts` and `src/types/v2.ts` into a single canonical set. Removed all adapter code and dead code (`api.ts`, unused hooks). The canonical `Task` type uses `status: TaskStatus` (not `completed: boolean`) and string dates matching JSON shapes.*  
