@@ -6,10 +6,11 @@ export interface AzuraCastSong {
   art: string | null;
 }
 
-export interface AzuraCastNowPlaying {
+export interface AzuraCastNowPlayingEntry {
   song: AzuraCastSong;
   elapsed: number;
   duration: number;
+  played_at: number;
 }
 
 export interface AzuraCastListeners {
@@ -18,15 +19,20 @@ export interface AzuraCastListeners {
   current: number;
 }
 
-export interface AzuraCastStation {
+export interface AzuraCastStationInfo {
   id: number;
   name: string;
   shortcode: string;
   listen_url: string;
+}
+
+export interface AzuraCastStation {
+  station: AzuraCastStationInfo;
   listeners: AzuraCastListeners;
-  now_playing: AzuraCastNowPlaying;
+  now_playing: AzuraCastNowPlayingEntry;
   playing_next: { song: AzuraCastSong } | null;
   song_history: Array<{ song: AzuraCastSong; played_at: number }>;
+  is_online: boolean;
 }
 
 export type AzuraCastNowPlayingResponse = AzuraCastStation[];

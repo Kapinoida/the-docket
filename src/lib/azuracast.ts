@@ -5,15 +5,18 @@ const FETCH_TIMEOUT_MS = 8000;
 
 function isValidStation(data: unknown): data is AzuraCastStation {
   if (!data || typeof data !== 'object') return false;
-  const station = data as Record<string, unknown>;
+  const entry = data as Record<string, unknown>;
+  const station = entry.station as Record<string, unknown> | undefined;
   return (
-    typeof station.shortcode === 'string' &&
-    typeof station.name === 'string' &&
-    typeof station.listen_url === 'string' &&
-    station.listeners !== null &&
-    typeof station.listeners === 'object' &&
-    station.now_playing !== null &&
-    typeof station.now_playing === 'object'
+    station !== null &&
+    typeof station === 'object' &&
+    typeof station?.shortcode === 'string' &&
+    typeof station?.name === 'string' &&
+    typeof station?.listen_url === 'string' &&
+    entry.listeners !== null &&
+    typeof entry.listeners === 'object' &&
+    entry.now_playing !== null &&
+    typeof entry.now_playing === 'object'
   );
 }
 

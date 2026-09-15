@@ -11,10 +11,12 @@ const mockStation: RadioStation = {
 };
 
 const mockNowPlaying: AzuraCastStation = {
-  id: 1,
-  name: 'Runtime Loop',
-  shortcode: 'runtime_loop',
-  listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  station: {
+    id: 1,
+    name: 'Runtime Loop',
+    shortcode: 'runtime_loop',
+    listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  },
   listeners: { total: 5, unique: 3, current: 5 },
   now_playing: {
     song: {
@@ -26,6 +28,7 @@ const mockNowPlaying: AzuraCastStation = {
     },
     elapsed: 30,
     duration: 180,
+    played_at: 1700000000,
   },
   playing_next: {
     song: {
@@ -37,6 +40,7 @@ const mockNowPlaying: AzuraCastStation = {
     },
   },
   song_history: [],
+  is_online: true,
 };
 
 describe('NowPlayingPanel', () => {

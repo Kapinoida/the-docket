@@ -28,7 +28,7 @@ export function useNowPlaying() {
       if (data) {
         const stations: Record<string, AzuraCastStation> = {};
         for (const station of data) {
-          stations[station.shortcode] = station;
+          stations[station.station.shortcode] = station;
         }
         setState({
           stations,

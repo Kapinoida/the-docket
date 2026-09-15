@@ -3,10 +3,12 @@ import SongHistory from '../SongHistory';
 import type { AzuraCastStation } from '@/types/azuracast';
 
 const mockNowPlayingWithHistory: AzuraCastStation = {
-  id: 1,
-  name: 'Runtime Loop',
-  shortcode: 'runtime_loop',
-  listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  station: {
+    id: 1,
+    name: 'Runtime Loop',
+    shortcode: 'runtime_loop',
+    listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  },
   listeners: { total: 5, unique: 3, current: 5 },
   now_playing: {
     song: {
@@ -18,6 +20,7 @@ const mockNowPlayingWithHistory: AzuraCastStation = {
     },
     elapsed: 30,
     duration: 180,
+    played_at: 1700000000,
   },
   playing_next: null,
   song_history: [
@@ -42,13 +45,16 @@ const mockNowPlayingWithHistory: AzuraCastStation = {
       played_at: Math.floor(Date.now() / 1000) - 600,
     },
   ],
+  is_online: true,
 };
 
 const mockNowPlayingEmpty: AzuraCastStation = {
-  id: 1,
-  name: 'Runtime Loop',
-  shortcode: 'runtime_loop',
-  listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  station: {
+    id: 1,
+    name: 'Runtime Loop',
+    shortcode: 'runtime_loop',
+    listen_url: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
+  },
   listeners: { total: 5, unique: 3, current: 5 },
   now_playing: {
     song: {
@@ -60,9 +66,11 @@ const mockNowPlayingEmpty: AzuraCastStation = {
     },
     elapsed: 30,
     duration: 180,
+    played_at: 1700000000,
   },
   playing_next: null,
   song_history: [],
+  is_online: true,
 };
 
 describe('SongHistory', () => {
