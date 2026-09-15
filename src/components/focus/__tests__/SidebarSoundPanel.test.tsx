@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import FloatingSoundIndicator from '../FloatingSoundIndicator';
+import SidebarSoundPanel from '../SidebarSoundPanel';
 import type { AmbienceMode, MusicSource } from '@/hooks/useAmbience';
 
 const mockSetAmbienceMode = jest.fn();
@@ -45,7 +45,7 @@ jest.mock('@/hooks/useNowPlaying', () => ({
   }),
 }));
 
-describe('FloatingSoundIndicator', () => {
+describe('SidebarSoundPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSoundState = {
@@ -57,17 +57,17 @@ describe('FloatingSoundIndicator', () => {
       stations: {},
       isOffline: false,
       lastUpdated: null,
-      getStation: () => null as any,
+      getStation: (_code: string) => null as any,
     };
   });
 
-  it('renders idle selector pill when nothing is playing', () => {
-    render(<FloatingSoundIndicator />);
+  it('renders idle radio selector when nothing is playing', () => {
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Radio')).toBeInTheDocument();
   });
 
-  it('shows popover with ambience and music options when idle pill is clicked', () => {
-    render(<FloatingSoundIndicator />);
+  it('shows popover with ambience and music options when clicked', () => {
+    render(<SidebarSoundPanel />);
     fireEvent.click(screen.getByText('Radio'));
     expect(screen.getByText('Ambience')).toBeInTheDocument();
     expect(screen.getByText('Music')).toBeInTheDocument();
@@ -76,40 +76,40 @@ describe('FloatingSoundIndicator', () => {
   });
 
   it('calls setAmbienceMode when an ambience option is selected', () => {
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     fireEvent.click(screen.getByText('Radio'));
     fireEvent.click(screen.getByText('Rain'));
     expect(mockSetAmbienceMode).toHaveBeenCalledWith('rain');
   });
 
   it('calls setMusicSource when a music option is selected', () => {
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     fireEvent.click(screen.getByText('Radio'));
     fireEvent.click(screen.getByText('Runtime Loop'));
     expect(mockSetMusicSource).toHaveBeenCalledWith('runtime_loop');
   });
 
-  it('shows label pill when ambience is playing (non-stream)', () => {
+  it('shows label when ambience is playing (non-stream)', () => {
     mockSoundState = { ambienceMode: 'rain', musicSource: 'none', isPlaying: true };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Rain')).toBeInTheDocument();
   });
 
-  it('shows label pill when pentatonic is playing (non-stream)', () => {
+  it('shows label when pentatonic is playing (non-stream)', () => {
     mockSoundState = { ambienceMode: 'none', musicSource: 'pentatonic', isPlaying: true };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Pentatonic')).toBeInTheDocument();
   });
 
   it('shows combined label when both ambience and music are playing', () => {
     mockSoundState = { ambienceMode: 'brown-noise', musicSource: 'pentatonic', isPlaying: true };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Brown Noise + Pentatonic')).toBeInTheDocument();
   });
 
-  it('calls stopAll when X button is clicked', () => {
+  it('calls stopAll when stop button is clicked', () => {
     mockSoundState = { ambienceMode: 'rain', musicSource: 'none', isPlaying: true };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     const stopButton = screen.getByTitle('Stop all sounds');
     fireEvent.click(stopButton);
     expect(mockStopAll).toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe('FloatingSoundIndicator', () => {
       lastUpdated: Date.now(),
       getStation: (code: string) => code === 'runtime_loop' ? mockNowPlayingState.stations.runtime_loop : null,
     };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Runtime Loop')).toBeInTheDocument();
     expect(screen.getByText('Artist — Title')).toBeInTheDocument();
   });
@@ -159,9 +159,9 @@ describe('FloatingSoundIndicator', () => {
       stations: {},
       isOffline: true,
       lastUpdated: null,
-      getStation: () => null as any,
+      getStation: (_code: string) => null as any,
     };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByText('Runtime Loop')).toBeInTheDocument();
   });
 
@@ -192,7 +192,7 @@ describe('FloatingSoundIndicator', () => {
       lastUpdated: Date.now(),
       getStation: (code: string) => code === 'runtime_loop' ? mockNowPlayingState.stations.runtime_loop : null,
     };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     expect(screen.getByTitle('Switch station')).toBeInTheDocument();
   });
 
@@ -223,7 +223,7 @@ describe('FloatingSoundIndicator', () => {
       lastUpdated: Date.now(),
       getStation: (code: string) => code === 'runtime_loop' ? mockNowPlayingState.stations.runtime_loop : null,
     };
-    render(<FloatingSoundIndicator />);
+    render(<SidebarSoundPanel />);
     fireEvent.click(screen.getByTitle('Switch station'));
     expect(mockSetMusicSource).toHaveBeenCalledWith('warm_boot');
   });

@@ -9,7 +9,6 @@ import { SoundProvider } from '../contexts/SoundContext';
 import { CommandPalette } from '../components/CommandPalette';
 import LayoutWrapper from '../components/v2/LayoutWrapper';
 import PwaRegister from '../components/PwaRegister';
-import FloatingSoundIndicator from '../components/focus/FloatingSoundIndicator';
 
 export default function ProvidersWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -46,7 +45,6 @@ export default function ProvidersWrapper({ children }: { children: React.ReactNo
               <LayoutWrapper>
                 {children}
               </LayoutWrapper>
-              <FloatingSoundIndicator />
             </TaskEditProvider>
           </SyncProvider>
         </SoundProvider>
