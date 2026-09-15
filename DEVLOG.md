@@ -10,6 +10,28 @@ Use this format:
 
 ---
 
+## [2026-09-15] – Radio page (Slice 2)
+- **What changed:**
+  Phase 2 of the Radio & Media Control Center project. (1) Created `src/components/radio/StationCard.tsx` — displays station name, description, album art, listener count, now playing track, and play/stop controls. (2) Created `src/components/radio/NowPlayingPanel.tsx` — detailed now playing view with large album art, track info, listener count, progress bar, and upcoming track. (3) Created `src/components/radio/SongHistory.tsx` — shows recently played tracks with timestamps and album art. (4) Created `src/components/radio/RadioView.tsx` — main radio page layout with selected station panel, song history, and station grid. (5) Created `src/app/radio/page.tsx` — route for the radio page. (6) Added Radio entry to sidebar navigation with RadioTower icon. 19 new tests (473 total).
+- **Why:**
+  The radio needed a dedicated page for browsing stations, viewing detailed now playing information, and seeing song history. This completes Slice 2 of the Radio & Media Control Center project.
+- **Affected areas:** `src/components/radio/StationCard.tsx` (new), `src/components/radio/NowPlayingPanel.tsx` (new), `src/components/radio/SongHistory.tsx` (new), `src/components/radio/RadioView.tsx` (new), `src/app/radio/page.tsx` (new), `src/components/v2/Sidebar.tsx` (added Radio nav item), `src/components/radio/__tests__/StationCard.test.tsx` (new, 9 tests), `src/components/radio/__tests__/NowPlayingPanel.test.tsx` (new, 6 tests), `src/components/radio/__tests__/SongHistory.test.tsx` (new, 4 tests).
+- **Migration needed?** No.
+- **Testing:** All 473 tests pass. TypeScript clean.
+
+---
+
+## [2026-09-15] – Radio mini-player + Now Playing data plumbing
+- **What changed:**
+  Phase 1 of the Radio & Media Control Center project. (1) Created `src/types/azuracast.ts` with types for AzuraCast API responses (stations, now playing, song history, listeners). (2) Created `src/lib/azuracast.ts` client with `fetchNowPlaying()` — calls the public AzuraCast API directly from the browser (CORS `*`, no auth), 8s timeout, returns null on failure, validates response shape. (3) Created `src/lib/radioStations.ts` — canonical station registry mapping shortcodes to display names, listen URLs, and descriptions. (4) Refactored `src/hooks/useAmbience.ts` to import stream URLs from the station registry instead of hardcoding them. (5) Created `src/hooks/useNowPlaying.ts` — polls AzuraCast every 30s, pauses when tab is hidden (`document.visibilityState`), keys stations by shortcode, tracks offline flag. (6) Reworked `FloatingSoundIndicator.tsx` into an adaptive mini-player: idle = slim "Radio" selector pill with popover; stream playing = album art thumbnail, station name, live track ("artist — title"), switch station, stop; ambience/pentatonic only = label pill; AzuraCast unreachable = muted "off air" state with WifiOff icon. 19 new tests (454 total).
+- **Why:**
+  The radio was buried — to play a station Dave had to open Focus → Sound settings → pick a station, and while playing the only visible surface was a small pill showing just the source name. This phase makes the radio visible and controllable from anywhere in the app, with live Now Playing data, album art, and track information.
+- **Affected areas:** `src/types/azuracast.ts` (new), `src/lib/azuracast.ts` (new), `src/lib/radioStations.ts` (new), `src/hooks/useNowPlaying.ts` (new), `src/hooks/useAmbience.ts` (refactored to use station registry), `src/components/focus/FloatingSoundIndicator.tsx` (reworked into adaptive mini-player), `src/hooks/__tests__/useNowPlaying.test.ts` (new, 7 tests), `src/components/focus/__tests__/FloatingSoundIndicator.test.tsx` (new, 12 tests).
+- **Migration needed?** No.
+- **Testing:** All 454 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-10] – Security audit and hardening
 - **What changed:**
   Comprehensive security hardening across the entire application. (1) Middleware now uses exact route matching instead of prefix matching to prevent bypass attacks. (2) Removed sensitive endpoints from public allowlist: `/api/caldav/sync`, `/api/push/send`, `/api/widget/today` now require authentication. (3) Added shared API auth helper (`src/lib/apiAuth.ts`) with strict JWT validation (issuer, audience, algorithm). (4) Added nginx rate limiting (10r/s for API, 1r/s for login) and security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy). (5) Moved uploads out of public directory to authenticated endpoint at `/api/v2/uploads/[id]`. (6) Removed runtime migration endpoint (`/api/v2/migrations/tags.ts`). (7) Stopped publishing PostgreSQL port 5433 in docker-compose.yml. (8) Upgraded Next.js from 15.4.5 to 15.5.25 to fix critical vulnerabilities. (9) Sanitized all error responses to prevent information leakage (removed error.message and error.stack from production responses). (10) Added WIDGET_TOKEN environment variable for launcher widget authentication. (11) Updated JWT to include issuer and audience claims for stricter validation.

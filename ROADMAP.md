@@ -132,10 +132,16 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🏗️ Immediate (Next 1–2 weeks)
 
 ### Radio & Audio
-- [ ] **Radio mini-player in the app shell + Now Playing** 🔴
+- [x] **Radio mini-player in the app shell + Now Playing** 🟢
   *Dave: "Expand the functionality of the Docket to better make the radio stuff more available and visible (currently have to go to Focus, turn it on, and there's only a small pill showing what is playing)." Persistent bottom-corner player that adapts: idle = slim station selector; playing = mini-player with album art, live track, play/pause, station switch, stop. Polls AzuraCast public `/api/nowplaying` (CORS verified, no auth). Builds on the completed "Persistent ambient audio across pages + floating sound indicator" (2026-07-13). Full brief in `.hermes/OPENCODE-HANDOFF.md`.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-15 (via Hermes, from The Lyre / localhost-radio Matrix room)
+  *Completed: 2026-09-15*
+
+- [x] **Radio page** 🟢
+  *Dedicated `/radio` page with station cards (album art, on-air status, listeners, now playing), detailed now playing panel with progress bar and upcoming track, song history view. Sidebar entry with RadioTower icon. Reuses `useNowPlaying` data from mini-player. No DB — AzuraCast API is source of truth.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-09-15*
 
 ### Architectural & Technical Debt
 - [x] **Unify type systems** 🟢  

@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { getStationStreamUrl } from '@/lib/radioStations';
 
 export type AmbienceMode = 'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none';
 
@@ -323,21 +324,15 @@ export default function useAmbience() {
   }, []);
 
   /* --- Unified Music Source Dispatcher --- */
-  // Stream URL mapping for AzuraCast stations
-  const STREAM_URLS: Record<string, string> = {
-    runtime_loop: 'https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3',
-    warm_boot: 'https://radio.dcplaskett.com/listen/warm_boot/radio.mp3',
-  };
-
   const startMusicSource = useCallback((source: MusicSource) => {
-    // Stop whatever was playing before (music or stream) to avoid overlap
     stopMusic();
     stopStream();
 
     if (source === 'pentatonic') {
       startMusic();
-    } else if (source in STREAM_URLS) {
-      startStream(STREAM_URLS[source]);
+    } else {
+      const url = getStationStreamUrl(source);
+      if (url) startStream(url);
     }
   }, [startMusic, stopMusic, startStream, stopStream]);
 
