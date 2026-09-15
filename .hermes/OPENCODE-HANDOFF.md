@@ -67,7 +67,7 @@ Use this from `/Users/dcplaskett/MyServer/the-docket`:
 
 ### Current Objective
 
-Dave wants the radio front-and-center in The Docket (from The Lyre / localhost-radio room, 2026-09-15). Current slice: **Radio mini-player in the app shell** — Now Playing data plumbing + upgrade `FloatingSoundIndicator` into an adaptive mini-player (slim station selector when idle; full mini-player with art / live track / controls while playing). The `/radio` page is queued as the next slice.
+Dave wants the radio front-and-center in The Docket (from The Lyre / localhost-radio room, 2026-09-15). **Slices 1-2 complete:** Radio mini-player in the app shell with Now Playing data plumbing + adaptive mini-player, and dedicated `/radio` page with station cards, now playing panel, and song history. Next: volume control and calendar improvements.
 
 ### Radio mini-player slice (this pass)
 
@@ -104,29 +104,28 @@ The radio is buried. To play a station Dave opens Focus → Sound settings → p
 
 ### Acceptance Criteria
 
-- [ ] Stream playing → mini-player shows art + station + live track, updates on song change, visible from any page
-- [ ] Idle → slim selector pill; playing → full mini-player; switch/stop work app-wide (not just Focus)
-- [ ] AzuraCast down → degraded "off air" pill, no crash, no unhandled errors
-- [ ] All existing tests pass; new tests for hook + component; `npx tsc --noEmit` + lint clean
-- [ ] DEVLOG.md + ROADMAP.md updated; committed; deployed via `update.sh`
+- [x] Stream playing → mini-player shows art + station + live track, updates on song change, visible from any page
+- [x] Idle → slim selector pill; playing → full mini-player; switch/stop work app-wide (not just Focus)
+- [x] AzuraCast down → degraded "off air" pill, no crash, no unhandled errors
+- [x] All existing tests pass; new tests for hook + component; `npx tsc --noEmit` + lint clean
+- [x] DEVLOG.md + ROADMAP.md updated; committed; deployed via `update.sh`
 
 ### Verification
 
-- [ ] Unit tests: `useNowPlaying` (fetch mock: success, failure, malformed shape)
-- [ ] Component tests: `FloatingSoundIndicator` idle / playing / offline states; play/pause/switch/stop handlers
-- [ ] `npm test`, `npx tsc --noEmit`, lint
+- [x] Unit tests: `useNowPlaying` (fetch mock: success, failure, malformed shape)
+- [x] Component tests: `FloatingSoundIndicator` idle / playing / offline states; play/pause/switch/stop handlers
+- [x] `npm test`, `npx tsc --noEmit`, lint
 - [ ] Manual: docket.dcplaskett.com → Focus → start Warm Boot → check pill on `/today` shows art + track → switch to Runtime Loop → stop → confirm idle selector
-- [ ] Update `DEVLOG.md` + `ROADMAP.md`; commit; deploy
+- [x] Update `DEVLOG.md` + `ROADMAP.md`; commit; deploy
 
 ### Queued Next Slices
 
-1. **`/radio` page (Slice 2)** — `src/app/radio/page.tsx` + `src/components/radio/` cards: station cards (art, on-air status, listeners), now playing, song history from the same `useNowPlaying` data; sidebar entry. No DB.
-2. **Radio volume control** (nice-to-have) — expose the stream gain node from `useAmbience` (currently hardcoded 0.6); slider in the mini-player popover.
-3. **Calendar improvements: "bigger and better" styling + functions** — overlaps "Rich calendar drag & resize" (🟡 Partial).
-4. **Holidays in the calendar** — non-interactive all-day markers, visually distinct from tasks/events.
-5. **Workday/holiday-aware recurrence** — recurring tasks shift off conflicts (builds on #4).
-6. **Data-update UX** — optimistic updates / loading states in menus and dashboards.
-7. **Recording page** — styling/feel pass + pull recordings from **Sportarr**.
+1. **Radio volume control** (nice-to-have) — expose the stream gain node from `useAmbience` (currently hardcoded 0.6); slider in the mini-player popover.
+2. **Calendar improvements: "bigger and better" styling + functions** — overlaps "Rich calendar drag & resize" (🟡 Partial).
+3. **Holidays in the calendar** — non-interactive all-day markers, visually distinct from tasks/events.
+4. **Workday/holiday-aware recurrence** — recurring tasks shift off conflicts (builds on #3).
+5. **Data-update UX** — optimistic updates / loading states in menus and dashboards.
+6. **Recording page** — styling/feel pass + pull recordings from **Sportarr**.
 
 ## Operating Rhythm
 
