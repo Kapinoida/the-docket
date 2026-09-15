@@ -12,6 +12,7 @@ import { usePersistedState } from '../../lib/usePersistedState';
 import CreatePageModal from './CreatePageModal';
 import { SettingsModal } from '../SettingsModal';
 import { SyncButton } from '../SyncButton';
+import SidebarSoundPanel from '../focus/SidebarSoundPanel';
 
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 
@@ -394,6 +395,7 @@ export default function Sidebar() {
       </div>
 
       <div className="p-4 border-t border-border-subtle mt-auto bg-bg-secondary space-y-2">
+          <SidebarSoundPanel />
           {mounted && (
             <div className="flex items-center gap-2">
                 <button 
