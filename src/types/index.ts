@@ -198,6 +198,12 @@ export interface CalendarSourceRow {
   username?: string;
 }
 
+export interface Holiday {
+  name: string;
+  date: string;
+  type: string;
+}
+
 export function taskRowToTask(row: TaskRow): Task {
   return {
     id: row.id,

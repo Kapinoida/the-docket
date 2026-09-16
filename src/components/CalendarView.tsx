@@ -9,6 +9,8 @@ import { CalendarEvent, eventColorStyle, isTrulyAllDay, hexToRgb } from '@/lib/c
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskBlock } from '@/components/calendar/CalendarTaskBlock';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
+import { HolidayCard } from '@/components/calendar/HolidayCard';
+import { getHolidaysForDay } from '@/lib/holidays';
 import { useCalendarSources } from '@/hooks/useCalendarSources';
 import { useSync } from '@/contexts/SyncContext';
 import { UnscheduledTaskPanel, UnscheduledTaskDrawer } from '@/components/calendar/UnscheduledTaskPanel';
@@ -118,7 +120,8 @@ export default function CalendarViewV2() {
       const eEnd = new Date(e.end_time);
       return eStart <= dayEnd && eEnd >= dayStart;
     });
-    return { tasks: dayTasks, events: dayEvents };
+    const dayHolidays = getHolidaysForDay(date);
+    return { tasks: dayTasks, events: dayEvents, holidays: dayHolidays };
   };
 
   // --- Calendar Grid Data ---
@@ -424,7 +427,7 @@ function DayDetailPanel({ day, items, onEventClick, onTaskToggle, onTaskClick }:
 }
 
 // --- Desktop Week Day Cell ---
-function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
+function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[]; holidays: { name: string; date: string; type: string }[] }; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
   const isTodayDate = isToday(day);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -453,28 +456,35 @@ function DesktopWeekDay({ day, items, onToggle, onEventClick, onDropTask, onTask
         <div className={`text-lg font-bold ${isTodayDate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{format(day, 'd')}</div>
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
+        {items.holidays.map((h) => (
+          <HolidayCard key={`holiday-${h.date}-${h.name}`} holiday={h} />
+        ))}
         {items.events.map((e: CalendarEvent) => (
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} />
         ))}
         {items.tasks.map((t: Task) => (
           <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} onClick={onTaskClick} variant="default" draggable />
         ))}
-        {items.tasks.length === 0 && items.events.length === 0 && <div className="h-full border-t border-transparent" />}
+        {items.tasks.length === 0 && items.events.length === 0 && items.holidays.length === 0 && <div className="h-full border-t border-transparent" />}
       </div>
     </div>
   );
 }
 
 // --- Desktop Month Day Cell ---
-function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
+function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onDropTask, onTaskClick }: { day: Date; items: { tasks: Task[]; events: CalendarEvent[]; holidays: { name: string; date: string; type: string }[] }; currentMonth: number; onToggle: (id: number, e: React.MouseEvent) => void; onEventClick?: (e: CalendarEvent) => void; onDropTask?: (taskId: number, targetDay: Date) => void; onTaskClick?: (task: Task) => void }) {
   const isTodayDate = isToday(day);
   const inMonth = day.getMonth() === currentMonth;
-  const total = items.tasks.length + items.events.length;
+  const total = items.tasks.length + items.events.length + items.holidays.length;
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const visibleEvents = isExpanded ? items.events : items.events.slice(0, 3);
-  const visibleTasks = isExpanded ? items.tasks : items.tasks.slice(0, 3);
+  const allItems = [
+    ...items.holidays.map(h => ({ type: 'holiday' as const, data: h })),
+    ...items.events.map(e => ({ type: 'event' as const, data: e })),
+    ...items.tasks.map(t => ({ type: 'task' as const, data: t })),
+  ];
+  const visibleItems = isExpanded ? allItems : allItems.slice(0, 3);
   const hiddenCount = total > 3 && !isExpanded ? total - 3 : 0;
 
   return (
@@ -506,12 +516,15 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
         {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
       </div>
       <div className="space-y-0.5">
-        {visibleEvents.map(e => (
-          <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} variant="compact" />
-        ))}
-        {visibleTasks.map(t => (
-          <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} onClick={onTaskClick} variant="compact" draggable />
-        ))}
+        {visibleItems.map((item) => {
+          if (item.type === 'holiday') {
+            return <HolidayCard key={`holiday-${item.data.date}-${item.data.name}`} holiday={item.data} variant="compact" />;
+          }
+          if (item.type === 'event') {
+            return <EventCard key={`evt-${(item.data as CalendarEvent).id}`} event={item.data as CalendarEvent} onClick={onEventClick} variant="compact" />;
+          }
+          return <CalendarTaskCard key={`task-${(item.data as Task).id}`} task={item.data as Task} onToggle={onToggle} onClick={onTaskClick} variant="compact" draggable />;
+        })}
         {hiddenCount > 0 && (
           <button
             onClick={() => setIsExpanded(true)}
@@ -610,11 +623,15 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
 
   const allDayTasks = dayTasks.filter(t => !timedTasks.includes(t));
 
-  // Combined all-day items (events first, then tasks) with collapse/expand
+  // Get holidays for this day
+  const dayHolidays = getHolidaysForDay(day);
+
+  // Combined all-day items (holidays first, then events, then tasks) with collapse/expand
   const allDayCombined = useMemo(() => [
+    ...dayHolidays.map(h => ({ kind: 'holiday' as const, item: h })),
     ...allDayEvents.map(e => ({ kind: 'event' as const, item: e })),
     ...allDayTasks.map(t => ({ kind: 'task' as const, item: t })),
-  ], [allDayEvents, allDayTasks]);
+  ], [dayHolidays, allDayEvents, allDayTasks]);
   const displayedAllDay = showAllAllDay ? allDayCombined : allDayCombined.slice(0, ALL_DAY_LIMIT);
   const allDayOverflow = allDayCombined.length - ALL_DAY_LIMIT;
 
@@ -695,6 +712,10 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
             </span>
             <div className="flex flex-1 flex-wrap gap-1.5 min-w-0">
               {displayedAllDay.map(({ kind, item }) => {
+                if (kind === 'holiday') {
+                  const h = item as { name: string; date: string; type: string };
+                  return <HolidayCard key={`holiday-${h.date}-${h.name}`} holiday={h} variant="allday" />;
+                }
                 if (kind === 'event') {
                   const e = item as CalendarEvent;
                   return <EventCard key={`allday-${e.id}`} event={e} onClick={onEventClick} variant="allday" />;

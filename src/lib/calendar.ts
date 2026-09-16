@@ -28,3 +28,9 @@ export const isTrulyAllDay = (event: CalendarEvent) => {
   }
   return false;
 };
+
+export const holidayColorStyle = () => ({
+  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  borderColor: 'rgba(239, 68, 68, 0.3)',
+  color: '#dc2626',
+});
