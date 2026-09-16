@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-16] – Workday/holiday-aware recurrence
+- **What changed:**
+  Added workday-aware recurrence support. (1) Added `workdayAware?: boolean` field to `RecurrenceRule` type. (2) Created `isWorkday()` function in `recurrenceCalc.ts` that checks if a date is a weekday (Mon-Fri) and not a US holiday. (3) Created `adjustForWorkday()` function that moves non-workday dates to the next valid workday (handles weekends and holidays). (4) Modified `spawnNextRecurrence()` in `recurrence.ts` to apply `adjustForWorkday()` when `rule.workdayAware` is true. (5) Exported `isWorkday` and `adjustForWorkday` from recurrence module. 11 new tests (524 total).
+- **Why:**
+  Recurring tasks scheduled on holidays or weekends should automatically shift to the next business day. For example, a daily task due on July 4th (Independence Day) should move to July 5th instead of landing on the holiday. This builds on the holidays-in-calendar work and provides intelligent scheduling for work-related recurring tasks.
+- **Affected areas:** `src/types/index.ts` (workdayAware field), `src/lib/recurrenceCalc.ts` (isWorkday, adjustForWorkday functions), `src/lib/recurrence.ts` (spawnNextRecurrence integration), `src/lib/__tests__/recurrence.test.ts` (11 new tests).
+- **Migration needed?** No.
+- **Testing:** All 524 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-16] – Calendar holidays
 - **What changed:**
   Added holiday display to all calendar views (day, week, month). (1) Installed `date-holidays` library for US holiday data. (2) Created `src/lib/holidays.ts` with utility functions: `getHolidaysForYear()`, `getHolidaysInRange()`, `getHolidaysForDay()`, `isHoliday()`. (3) Added `Holiday` type to `src/types/index.ts`. (4) Created `HolidayCard` component with `allday` and `compact` variants — red-tinted styling with calendar icon, non-interactive. (5) Integrated holidays into `CalendarView.tsx` (DayView all-day section, DesktopWeekDay, DesktopMonthDay) and `WeeklyCalendar.tsx` (day chips, selected day detail, desktop grid). (6) Added `holidayColorStyle()` to `src/lib/calendar.ts`. 17 new tests (513 total).

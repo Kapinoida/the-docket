@@ -8,6 +8,7 @@ export interface RecurrenceRule {
   weekOfMonth?: number;
   count?: number;
   until?: string;
+  workdayAware?: boolean;
 }
 
 export interface Task {

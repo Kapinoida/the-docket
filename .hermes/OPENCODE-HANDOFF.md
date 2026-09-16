@@ -123,7 +123,7 @@ The radio is buried. To play a station Dave opens Focus → Sound settings → p
 1. ~~**Radio volume control**~~ ✅ Complete (2026-09-16) — master GainNode, volume slider in SidebarSoundPanel, persisted in localStorage.
 2. ~~**Calendar improvements: reliability and presentation pass**~~ ✅ Complete (2026-09-16) — fixed event drag persistence, clickable +N more, multi-day events, EventCard opacity fix, 15 new tests.
 3. ~~**Holidays in the calendar**~~ ✅ Complete (2026-09-16) — US holidays in all calendar views, non-interactive red-tinted markers, 17 new tests.
-4. **Workday/holiday-aware recurrence** — recurring tasks shift off conflicts (builds on #3).
+4. ~~**Workday/holiday-aware recurrence**~~ ✅ Complete (2026-09-16) — recurring tasks shift to next workday when landing on weekends/holidays, 11 new tests.
 5. **Data-update UX** — optimistic updates / loading states in menus and dashboards.
 6. **Recording page** — styling/feel pass + pull recordings from **Sportarr**.
 
