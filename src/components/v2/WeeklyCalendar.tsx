@@ -8,6 +8,8 @@ import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { EventCard } from '@/components/calendar/EventCard';
 import { CalendarTaskCard } from '@/components/calendar/CalendarTaskCard';
+import { HolidayCard } from '@/components/calendar/HolidayCard';
+import { getHolidaysForDay } from '@/lib/holidays';
 import { useSync } from '@/contexts/SyncContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import EventDetailModal from '../modals/EventDetailModal';
@@ -83,7 +85,9 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
       return eStart <= dayEnd && eEnd >= dayStart;
     });
 
-    return { tasks: dayTasks, events: dayEvents };
+    const dayHolidays = getHolidaysForDay(date);
+
+    return { tasks: dayTasks, events: dayEvents, holidays: dayHolidays };
   };
 
   const handleTaskToggle = (taskId: number, e: React.MouseEvent) => {
@@ -94,8 +98,8 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
   // --- Shared: Day chip used in both mobile strip and within day detail ---
   const DayChip = ({ day, onSelect, selected }: { day: Date; onSelect?: (d: Date) => void; selected?: boolean }) => {
     const isTodayDate = isToday(day);
-    const { tasks: dayTasks, events: dayEvents } = getItemsForDay(day);
-    const totalItems = dayTasks.length + dayEvents.length;
+    const { tasks: dayTasks, events: dayEvents, holidays: dayHolidays } = getItemsForDay(day);
+    const totalItems = dayTasks.length + dayEvents.length + dayHolidays.length;
 
     return (
       <button
@@ -208,10 +212,13 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
             )}
           </div>
 
-          {selectedItems.tasks.length === 0 && selectedItems.events.length === 0 ? (
+          {selectedItems.tasks.length === 0 && selectedItems.events.length === 0 && selectedItems.holidays.length === 0 ? (
             <p className="text-sm text-gray-400 py-4 text-center">Nothing scheduled</p>
           ) : (
             <div className="space-y-2">
+              {selectedItems.holidays.map(h => (
+                <HolidayCard key={`holiday-${h.date}-${h.name}`} holiday={h} />
+              ))}
               {selectedItems.events.map(e => (
                 <EventCard key={`evt-${e.id}`} event={e} onClick={() => setSelectedEvent(e)} />
               ))}
@@ -226,7 +233,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
       {/* === DESKTOP: 7-column grid === */}
       <div className="hidden md:grid grid-cols-7 gap-4 min-h-[300px]">
         {weekDays.map(day => {
-          const { tasks: dayTasks, events: dayEvents } = getItemsForDay(day);
+          const { tasks: dayTasks, events: dayEvents, holidays: dayHolidays } = getItemsForDay(day);
           const isTodayDate = isToday(day);
 
           return (
@@ -240,6 +247,9 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
                 </div>
               </div>
               <div className="flex flex-col gap-2 flex-1">
+                {dayHolidays.map(h => (
+                  <HolidayCard key={`holiday-${h.date}-${h.name}`} holiday={h} />
+                ))}
                 {dayEvents.length > 0 && (
                   <div className="flex flex-col gap-1">
                     {dayEvents.map(e => (
@@ -250,7 +260,7 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
                 {dayTasks.map(t => (
 <CalendarTaskCard key={t.id} task={t} onToggle={handleTaskToggle} onClick={handleOpenTaskEdit} />
                   ))}
-                {dayTasks.length === 0 && dayEvents.length === 0 && (
+                {dayTasks.length === 0 && dayEvents.length === 0 && dayHolidays.length === 0 && (
                   <div className="h-full border-t border-transparent" />
                 )}
               </div>

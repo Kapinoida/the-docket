@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-16] – Calendar holidays
+- **What changed:**
+  Added holiday display to all calendar views (day, week, month). (1) Installed `date-holidays` library for US holiday data. (2) Created `src/lib/holidays.ts` with utility functions: `getHolidaysForYear()`, `getHolidaysInRange()`, `getHolidaysForDay()`, `isHoliday()`. (3) Added `Holiday` type to `src/types/index.ts`. (4) Created `HolidayCard` component with `allday` and `compact` variants — red-tinted styling with calendar icon, non-interactive. (5) Integrated holidays into `CalendarView.tsx` (DayView all-day section, DesktopWeekDay, DesktopMonthDay) and `WeeklyCalendar.tsx` (day chips, selected day detail, desktop grid). (6) Added `holidayColorStyle()` to `src/lib/calendar.ts`. 17 new tests (513 total).
+- **Why:**
+  Users need to see holidays in their calendar to plan around them. Holidays are displayed as non-interactive, visually distinct markers (red tint) so they don't interfere with tasks/events but remain visible for planning purposes.
+- **Affected areas:** `src/lib/holidays.ts` (new), `src/types/index.ts` (Holiday type), `src/components/calendar/HolidayCard.tsx` (new), `src/lib/calendar.ts` (holidayColorStyle), `src/components/CalendarView.tsx` (holiday integration), `src/components/v2/WeeklyCalendar.tsx` (holiday integration), `src/lib/__tests__/holidays.test.ts` (new, 10 tests), `src/components/calendar/__tests__/HolidayCard.test.tsx` (new, 7 tests).
+- **Migration needed?** No.
+- **Testing:** All 513 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-16] – Calendar reliability and presentation pass
 - **What changed:**
   Phase 2 of the calendar improvements. (1) Fixed calendar event update persistence — DB helpers (`updateCalendarEvent`, `getCalendarEventWithConfig`, `updateCalendarEventRawData`, `getCalendarEventById`) now use `WHERE uid = $1` instead of nonexistent `WHERE id = $1`, matching the composite PK `(uid, calendar_id)` schema. Event drag/drop now persists correctly. (2) Month view `+N more` is now clickable — expands to show all items with a "show less" collapse. (3) Multi-day events now appear on every day they span (not just start day) — fixed `getItemsForDay` in both `CalendarView.tsx` and `WeeklyCalendar.tsx` to use range overlap check instead of `isSameDay`. (4) Removed forbidden `hover:opacity-80` Tailwind classes from `EventCard.tsx` — replaced with `hover:brightness-90` filter transition per project convention. (5) Added 15 new calendar utility tests covering `isTrulyAllDay`, `eventColorStyle`, `hexToRgb`, and multi-day event inclusion logic. 15 new tests (496 total).

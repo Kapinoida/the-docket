@@ -191,10 +191,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #617)
 
-- [ ] **Holidays in the calendar** 🔴
-  *Add US holidays (and any calendar Dave opts in) to the calendar views as non-interactive all-day markers, visually distinct from tasks/events.*
-  **Status:** 🔴 Not Started
+- [x] **Holidays in the calendar** 🟢
+  *Added US holidays to all calendar views (day, week, month) as non-interactive all-day markers. Uses `date-holidays` library for holiday data. Created `HolidayCard` component with red-tinted styling and calendar icon. Integrated into `CalendarView` and `WeeklyCalendar`. 17 new tests (513 total).*
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #626)
+  *Completed: 2026-09-16*
 
 - [ ] **Workday/holiday-aware recurrence** 🔴
   *Recurring tasks scheduled on a workday/holiday conflict should automatically move to the next valid day. E.g., a recurring task due on a holiday shifts to the next business day instead of landing on the conflict. Builds on the holidays-in-calendar work.*
