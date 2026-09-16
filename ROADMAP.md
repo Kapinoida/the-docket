@@ -143,6 +143,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete
   *Completed: 2026-09-15*
 
+- [x] **Radio volume control** 🟢
+  *Master volume control for all app audio (ambience, radio streams, pentatonic music). Master `GainNode` in `useAmbience.ts` routes all audio through a single gain node. Volume persisted in localStorage alongside ambience/music selections. Volume slider in `SidebarSoundPanel` visible in idle popover, stream mini-player, and non-stream playing states. Volume persists across sessions, source switching, and `stopAll()`.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-09-16*
+
 ### Architectural & Technical Debt
 - [x] **Unify type systems** 🟢  
   *Merged `src/types/index.ts` and `src/types/v2.ts` into a single canonical set. Removed all adapter code and dead code (`api.ts`, unused hooks). The canonical `Task` type uses `status: TaskStatus` (not `completed: boolean`) and string dates matching JSON shapes.*  

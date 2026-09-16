@@ -216,4 +216,62 @@ describe('useAmbience', () => {
             result.current.stopMusicAndStream();
         });
     });
+
+    it('exposes volume and setVolume', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        expect(result.current.volume).toBe(0.6);
+        expect(typeof result.current.setVolume).toBe('function');
+    });
+
+    it('setVolume clamps values to 0..1 range', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.setVolume(1.5);
+        });
+        expect(result.current.volume).toBe(1);
+
+        act(() => {
+            result.current.setVolume(-0.5);
+        });
+        expect(result.current.volume).toBe(0);
+
+        act(() => {
+            result.current.setVolume(0.5);
+        });
+        expect(result.current.volume).toBe(0.5);
+    });
+
+    it('setVolume updates master gain node', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.start('brown-noise');
+        });
+
+        act(() => {
+            result.current.setVolume(0.3);
+        });
+
+        expect(result.current.volume).toBe(0.3);
+    });
+
+    it('volume persists across source switching', () => {
+        const { result } = renderHook(() => useAmbience());
+
+        act(() => {
+            result.current.setVolume(0.4);
+        });
+
+        act(() => {
+            result.current.startMusicSource('runtime_loop');
+        });
+
+        expect(result.current.volume).toBe(0.4);
+
+        act(() => {
+            result.current.stopMusicAndStream();
+        });
+    });
 });

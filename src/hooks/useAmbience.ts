@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { getStationStreamUrl } from '@/lib/radioStations';
 
 export type AmbienceMode = 'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none';
@@ -14,6 +14,9 @@ interface SoundLayer {
 
 export default function useAmbience() {
   const contextRef = useRef<AudioContext | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const [volume, setVolumeState] = useState(0.6);
+  const volumeRef = useRef<number>(0.6);
   const activeLayersRef = useRef<SoundLayer[]>([]);
   const streamAudioRef = useRef<HTMLAudioElement | null>(null);
   const streamSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -26,6 +29,10 @@ export default function useAmbience() {
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       if (AudioContextCtor) {
         contextRef.current = new AudioContextCtor();
+        const master = contextRef.current.createGain();
+        master.gain.value = volumeRef.current;
+        master.connect(contextRef.current.destination);
+        masterGainRef.current = master;
       }
     }
     return contextRef.current;
@@ -109,7 +116,7 @@ export default function useAmbience() {
 
     // 2. Create NEW Layer
     const layerGain = ctx.createGain();
-    layerGain.connect(ctx.destination);
+    layerGain.connect(masterGainRef.current || ctx.destination);
     layerGain.gain.setValueAtTime(0, now);
     layerGain.gain.linearRampToValueAtTime(0.5, now + fadeDuration); // Fade In
 
@@ -205,10 +212,10 @@ export default function useAmbience() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3); // Fade in over 3s
+    gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + 3); // Fade in over 3s
 
     mediaSource.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(masterGainRef.current || ctx.destination);
 
     streamAudioRef.current = audio;
     streamSourceRef.current = mediaSource;
@@ -276,7 +283,7 @@ export default function useAmbience() {
 
     // Connect
     osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(masterGainRef.current || ctx.destination);
 
     // Envelope Parameters (Serene & Sparse)
     const now = ctx.currentTime;
@@ -341,6 +348,15 @@ export default function useAmbience() {
     stopStream();
   }, [stopMusic, stopStream]);
 
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    volumeRef.current = clamped;
+    setVolumeState(clamped);
+    if (masterGainRef.current) {
+      masterGainRef.current.gain.value = clamped;
+    }
+  }, []);
+
   // Ensure cleanup on unmount for music + streams
   useEffect(() => {
       return () => {
@@ -349,5 +365,5 @@ export default function useAmbience() {
       };
   }, [stopMusic, stopStream]);
 
-  return { start, stop, startMusic, stopMusic, startStream, stopStream, startMusicSource, stopMusicAndStream };
+  return { start, stop, startMusic, stopMusic, startStream, stopStream, startMusicSource, stopMusicAndStream, volume, setVolume };
 }

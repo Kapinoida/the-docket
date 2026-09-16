@@ -38,7 +38,7 @@ const MUSIC_ICONS: Record<MusicSource, React.ReactNode> = {
 };
 
 export default function SidebarSoundPanel() {
-  const { ambienceMode, musicSource, setAmbienceMode, setMusicSource, stopAll, isPlaying } = useSound();
+  const { ambienceMode, musicSource, setAmbienceMode, setMusicSource, stopAll, isPlaying, volume, setVolume } = useSound();
   const { isOffline, getStation } = useNowPlaying();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -124,6 +124,25 @@ export default function SidebarSoundPanel() {
                 {musicSource === source && <Check size={14} />}
               </button>
             ))}
+
+            <div className="my-1 mx-2 border-t border-border-subtle" />
+
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-text-muted font-medium">
+              Volume
+            </div>
+            <div className="flex items-center gap-2 px-2 py-1">
+              <Volume2 size={12} className="text-text-muted flex-shrink-0" />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="flex-1 h-1 accent-accent-blue cursor-pointer"
+                aria-label="Volume"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -192,6 +211,20 @@ export default function SidebarSoundPanel() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+          <Volume2 size={12} className="text-text-muted flex-shrink-0" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            className="flex-1 h-1 accent-accent-blue cursor-pointer"
+            aria-label="Volume"
+          />
+        </div>
+
         {ambienceMode !== 'none' && (
           <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
             {AMBIENCE_ICONS[ambienceMode]}
@@ -208,16 +241,31 @@ export default function SidebarSoundPanel() {
   const label = parts.join(' + ') || 'Playing';
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-bg-tertiary">
-      <Volume2 size={14} className="text-accent-blue flex-shrink-0" />
-      <span className="text-xs text-text-secondary truncate flex-1">{label}</span>
-      <button
-        onClick={stopAll}
-        className="p-0.5 rounded text-text-muted hover:text-text-primary transition-colors"
-        title="Stop all sounds"
-      >
-        <X size={14} />
-      </button>
+    <div className="px-2 py-2 rounded-lg bg-bg-tertiary space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Volume2 size={14} className="text-accent-blue flex-shrink-0" />
+        <span className="text-xs text-text-secondary truncate flex-1">{label}</span>
+        <button
+          onClick={stopAll}
+          className="p-0.5 rounded text-text-muted hover:text-text-primary transition-colors"
+          title="Stop all sounds"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <Volume2 size={12} className="text-text-muted flex-shrink-0" />
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          className="flex-1 h-1 accent-accent-blue cursor-pointer"
+          aria-label="Volume"
+        />
+      </div>
     </div>
   );
 }
