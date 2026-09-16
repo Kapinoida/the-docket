@@ -511,6 +511,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
   const [mounted, setMounted] = useState(false);
   const [storageLoaded, setStorageLoaded] = useState(false);
   const [unfiledPages, setUnfiledPages] = useState<Page[]>([]);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -548,6 +549,7 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
   }, [expandedFolders, storageLoaded]);
 
   const fetchFolders = async () => {
+    setIsLoadingFolders(true);
     try {
       const response = await fetch(`/api/v2/folders?t=${Date.now()}`); // Cache bust
       if (!response.ok) throw new Error('Failed to fetch folders');
@@ -562,6 +564,8 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
     } catch (error) {
       console.error('Error fetching folders:', error);
       setFolders([]);
+    } finally {
+      setIsLoadingFolders(false);
     }
   };
 
@@ -604,6 +608,22 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
 
+    // Optimistic update - create a temporary folder
+    const tempId = `temp-${Date.now()}`;
+    const tempFolder: Folder = {
+      id: tempId,
+      name: newFolderName,
+      parentId: newFolderParentId,
+      createdAt: new Date(),
+    };
+    const previousFolders = folders;
+    setFolders(prev => [...prev, tempFolder]);
+    
+    // Auto-expand parent folder optimistically
+    if (newFolderParentId) {
+      setExpandedFolders(prev => new Set([...prev, newFolderParentId]));
+    }
+
     try {
       const response = await fetch('/api/v2/folders', {
         method: 'POST',
@@ -615,18 +635,19 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
       });
 
       if (response.ok) {
+        // Refresh to get the real ID
         await fetchFolders();
         setIsCreatingFolder(false);
         setNewFolderName('');
         setNewFolderParentId(undefined);
-        
-        // Auto-expand parent folder
-        if (newFolderParentId) {
-          setExpandedFolders(prev => new Set([...prev, newFolderParentId]));
-        }
+      } else {
+        // Rollback on error
+        setFolders(previousFolders);
       }
     } catch (error) {
       console.error('Error creating folder:', error);
+      // Rollback on error
+      setFolders(previousFolders);
     }
   };
 
@@ -639,13 +660,16 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
       return;
     }
 
+    // Optimistic update
+    const previousFolders = folders;
+    setFolders(prev => prev.filter(f => f.id !== folder.id));
+
     try {
       const response = await fetch(`/api/v2/folders/${folder.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        await fetchFolders();
         setDeletingFolder(null);
         
         // If deleted folder was selected, clear selection
@@ -653,51 +677,65 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
           onFolderSelect(folders.find(f => f.name === 'Home') || folders[0]);
         }
       } else {
+        // Rollback on error
+        setFolders(previousFolders);
         alert('Failed to delete folder. Please try again.');
       }
     } catch (error) {
       console.error('Error deleting folder:', error);
+      // Rollback on error
+      setFolders(previousFolders);
       alert('Error deleting folder. Please try again.');
     }
   };
 
   const handleRenameFolder = async (folderId: string, newName: string) => {
+      // Optimistic update
+      const previousFolders = folders;
+      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: newName } : f));
+      
       try {
           const res = await fetch(`/api/v2/folders/${folderId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: newName })
           });
-          if (res.ok) {
-              fetchFolders();
+          if (!res.ok) {
+              // Rollback on error
+              setFolders(previousFolders);
           }
       } catch (e) {
           console.error(e);
+          // Rollback on error
+          setFolders(previousFolders);
       }
   };
 
   const handleMoveFolder = async (folderId: string, newParentId: string) => {
+      // Optimistic update
+      const previousFolders = folders;
+      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, parentId: newParentId } : f));
+      
+      // Expand the new parent so user sees the moved folder
+      setExpandedFolders(prev => new Set([...prev, newParentId]));
+      
       try {
-          // If we are moving a folder to the "Root", checking if that's supported.
-          // Currently UI doesn't have a specific "Root" drop zone except maybe dragging to top.
-          // For now simplest is dragging one folder into another.
-          
           const res = await fetch(`/api/v2/folders/${folderId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ parentId: newParentId })
           });
           
-          if (res.ok) {
-              fetchFolders();
-              // Expand the new parent so user sees the moved folder
-              setExpandedFolders(prev => new Set([...prev, newParentId]));
-          } else {
+          if (!res.ok) {
               const data = await res.json();
+              // Rollback on error
+              setFolders(previousFolders);
               alert(data.error || 'Failed to move folder');
           }
       } catch (e) {
           console.error(e);
+          // Rollback on error
+          setFolders(previousFolders);
       }
   };
 
@@ -735,10 +773,17 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
       </div>
 
       <div>
-        {rootFolders.map((folder) => (
-          <FolderNode
-            key={folder.id}
-            folder={folder}
+        {isLoadingFolders ? (
+          <>
+            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse mb-1" />
+            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse mb-1" />
+            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+          </>
+        ) : (
+          rootFolders.map((folder) => (
+            <FolderNode
+              key={folder.id}
+              folder={folder}
             allFolders={folders}
             level={0}
             expandedFolders={expandedFolders}
@@ -756,7 +801,8 @@ export default function FolderTree({ onFolderSelect, selectedFolderId, onPageSel
             onDeletePage={onDeletePage}
             onMovePage={onMovePage}
           />
-        ))}
+        ))
+        )}
       </div>
 
       {/* Unfiled pages */}

@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-16] – Data-update UX: loading states and optimistic updates
+- **What changed:**
+  Added loading states and optimistic updates to Sidebar and FolderTree components. (1) Added `isLoadingSidebar` state to Sidebar with skeleton loaders for favorites, recent, and tags sections. (2) Added `isQuickAdding` state to disable quick-add input during task creation. (3) Implemented optimistic updates for page deletion in Sidebar (immediately removes from favorites/recent, rolls back on error). (4) Added `isLoadingFolders` state to FolderTree with skeleton loader. (5) Implemented optimistic updates for folder operations: create (adds temp folder, refreshes for real ID), delete (removes immediately, rolls back on error), rename (updates name immediately), and move (updates parentId immediately). All mutations now provide instant visual feedback while API calls complete in background.
+- **Why:**
+  Users experienced delays and uncertainty when performing actions in the sidebar and folder tree. Loading states provide visual feedback during data fetches, while optimistic updates make mutations feel instant. Error handling with rollback ensures data consistency even when API calls fail.
+- **Affected areas:** `src/components/v2/Sidebar.tsx` (loading states, optimistic delete/move, quick-add feedback), `src/components/FolderTree.tsx` (loading state, optimistic create/delete/rename/move).
+- **Migration needed?** No.
+- **Testing:** All 524 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-16] – Workday/holiday-aware recurrence
 - **What changed:**
   Added workday-aware recurrence support. (1) Added `workdayAware?: boolean` field to `RecurrenceRule` type. (2) Created `isWorkday()` function in `recurrenceCalc.ts` that checks if a date is a weekday (Mon-Fri) and not a US holiday. (3) Created `adjustForWorkday()` function that moves non-workday dates to the next valid workday (handles weekends and holidays). (4) Modified `spawnNextRecurrence()` in `recurrence.ts` to apply `adjustForWorkday()` when `rule.workdayAware` is true. (5) Exported `isWorkday` and `adjustForWorkday` from recurrence module. 11 new tests (524 total).
