@@ -35,6 +35,7 @@ export default function Sidebar() {
   const [favorites, setFavorites] = useState<Page[]>([]);
   const [recent, setRecent] = useState<Page[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [isLoadingSidebar, setIsLoadingSidebar] = useState(true);
   const [pageToDelete, setPageToDelete] = useState<Page | null>(null);
   
   // Modal state
@@ -99,6 +100,7 @@ export default function Sidebar() {
   const { createTask } = useTaskEdit();
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -111,6 +113,7 @@ export default function Sidebar() {
   }, []);
 
   const fetchData = async () => {
+    setIsLoadingSidebar(true);
     try {
         const [favRes, recentRes, tagsRes] = await Promise.all([
             fetch('/api/v2/pages?view=favorites'),
@@ -123,6 +126,8 @@ export default function Sidebar() {
         if (tagsRes.ok) setTags(await tagsRes.json());
     } catch (e) {
         console.error('Failed to load sidebar data', e);
+    } finally {
+        setIsLoadingSidebar(false);
     }
   };
 
@@ -131,21 +136,33 @@ export default function Sidebar() {
   }, []);
 
   const handleDeletePage = async (pageId: number) => {
+     // Optimistic update
+     const previousFavorites = favorites;
+     const previousRecent = recent;
+     setFavorites(prev => prev.filter(p => p.id !== pageId));
+     setRecent(prev => prev.filter(p => p.id !== pageId));
+     
      try {
          const res = await fetch(`/api/v2/pages?id=${pageId}`, {
              method: 'DELETE'
          });
          if (res.ok) {
-             fetchData();
-             // Trigger folder tree refresh via key or context?
+             // Trigger folder tree refresh
              setRefreshTrigger(prev => prev + 1);
 
              if (pathname === `/page/${pageId}`) {
                  router.replace('/');
              }
+         } else {
+             // Rollback on error
+             setFavorites(previousFavorites);
+             setRecent(previousRecent);
          }
      } catch (e) {
          console.error('Delete failed', e);
+         // Rollback on error
+         setFavorites(previousFavorites);
+         setRecent(previousRecent);
      }
   };
 
@@ -249,13 +266,15 @@ export default function Sidebar() {
             <input
                 type="text"
                 placeholder="Quick add..."
-                className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-transparent rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:bg-bg-primary focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                disabled={isQuickAdding}
+                className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-transparent rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:bg-bg-primary focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 onKeyDown={async (e) => {
                     if (e.key === 'Enter') {
                         const target = e.target as HTMLInputElement;
                         const value = target.value.trim();
                         if (!value) return;
 
+                        setIsQuickAdding(true);
                         try {
                             // Creating via API to ensure 'Inbox' context (no pageId)
                             // Or use context if available
@@ -275,6 +294,8 @@ export default function Sidebar() {
 
                         } catch (err) {
                             console.error('Failed to quick add', err);
+                        } finally {
+                            setIsQuickAdding(false);
                         }
                     }
                 }}
@@ -303,17 +324,25 @@ export default function Sidebar() {
             <SectionHeader label="Favorites" isOpen={isFavoritesOpen} onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)} />
             {isFavoritesOpen && (
                 <div className="px-2 space-y-0.5">
-                    {favorites.length === 0 && <div className="px-3 py-1 text-xs text-gray-400 italic">No favorites</div>}
-                    {favorites.map(page => (
-                        <NavItem 
-                            key={page.id} 
-                            href={`/page/${page.id}`} 
-                            icon={Star} 
-                            label={page.title} 
-                            active={pathname === `/page/${page.id}`}
-                            onDelete={() => setPageToDelete(page)}
-                        />
-                    ))}
+                    {isLoadingSidebar ? (
+                        <>
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                        </>
+                    ) : favorites.length === 0 ? (
+                        <div className="px-3 py-1 text-xs text-gray-400 italic">No favorites</div>
+                    ) : (
+                        favorites.map(page => (
+                            <NavItem 
+                                key={page.id} 
+                                href={`/page/${page.id}`} 
+                                icon={Star} 
+                                label={page.title} 
+                                active={pathname === `/page/${page.id}`}
+                                onDelete={() => setPageToDelete(page)}
+                            />
+                        ))
+                    )}
                 </div>
             )}
         </div>
@@ -323,16 +352,24 @@ export default function Sidebar() {
             <SectionHeader label="Recent" isOpen={isRecentOpen} onToggle={() => setIsRecentOpen(!isRecentOpen)} />
             {isRecentOpen && (
                 <div className="px-2 space-y-0.5">
-                    {recent.map(page => (
-                        <NavItem 
-                            key={page.id} 
-                            href={`/page/${page.id}`} 
-                            icon={FileText} 
-                            label={page.title} 
-                            active={pathname === `/page/${page.id}`}
-                            onDelete={() => setPageToDelete(page)}
-                        />
-                    ))}
+                    {isLoadingSidebar ? (
+                        <>
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                        </>
+                    ) : (
+                        recent.map(page => (
+                            <NavItem 
+                                key={page.id} 
+                                href={`/page/${page.id}`} 
+                                icon={FileText} 
+                                label={page.title} 
+                                active={pathname === `/page/${page.id}`}
+                                onDelete={() => setPageToDelete(page)}
+                            />
+                        ))
+                    )}
                 </div>
             )}
         </div>
@@ -342,16 +379,24 @@ export default function Sidebar() {
             <SectionHeader label="Tags" isOpen={isTagsOpen} onToggle={() => setIsTagsOpen(!isTagsOpen)} />
             {isTagsOpen && (
                 <div className="px-2 space-y-0.5">
-                    {tags.length === 0 && <div className="px-3 py-1 text-xs text-gray-400 italic">No tags</div>}
-                    {tags.map(tag => (
-                        <NavItem 
-                            key={tag.id} 
-                            href={`/tag/${tag.id}`} 
-                            icon={Hash} 
-                            label={tag.name} 
-                            active={pathname === `/tag/${tag.id}`}
-                        />
-                    ))}
+                    {isLoadingSidebar ? (
+                        <>
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                            <div className="h-7 bg-bg-tertiary rounded-lg animate-pulse" />
+                        </>
+                    ) : tags.length === 0 ? (
+                        <div className="px-3 py-1 text-xs text-gray-400 italic">No tags</div>
+                    ) : (
+                        tags.map(tag => (
+                            <NavItem 
+                                key={tag.id} 
+                                href={`/tag/${tag.id}`} 
+                                icon={Hash} 
+                                label={tag.name} 
+                                active={pathname === `/tag/${tag.id}`}
+                            />
+                        ))
+                    )}
                 </div>
             )}
         </div>
@@ -373,6 +418,8 @@ export default function Sidebar() {
                             else handleDeletePage(pageId);
                         }}
                         onMovePage={async (pageId, newFolderId) => {
+                            // Optimistic update - refresh will happen after API call
+                            setRefreshTrigger(prev => prev + 1);
                             try {
                                 const res = await fetch(`/api/v2/pages?id=${pageId}`, {
                                     method: 'PUT',
@@ -380,11 +427,15 @@ export default function Sidebar() {
                                     body: JSON.stringify({ folderId: newFolderId === '1' ? null : newFolderId })
                                 });
                                 if (res.ok) {
-                                    setRefreshTrigger(prev => prev + 1);
                                     window.dispatchEvent(new Event('pageUpdated'));
+                                } else {
+                                    // Rollback by refreshing
+                                    setRefreshTrigger(prev => prev + 1);
                                 }
                             } catch (e) {
                                 console.error('Failed to move page', e);
+                                // Rollback by refreshing
+                                setRefreshTrigger(prev => prev + 1);
                             }
                         }}
                     />

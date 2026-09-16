@@ -340,10 +340,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #623)
   *Completed: 2026-09-08*
 
-- [ ] **Data-update UX: nicer updates in menus and dashboards** 🔴
+- [x] **Data-update UX: nicer updates in menus and dashboards** 🟢
   *Dave: "In general, a nicer way to have data update, especially in menus and dashboards." Audit how menus/dashboards reflect data changes — optimistic updates, loading skeletons, stale-data indicators, toast feedback. Improve perceived responsiveness of the most common surfaces.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #618)
+  *Completed: 2026-09-16*
 
 - [x] **Review: Loose ends actionable** 🟢
   *Dave: "Review - Loose ends has no way to act on those." Give Loose ends per-item actions: open editor, schedule, mark waiting, move to a page, delete. Covered by the current Weekly Review slice in `.hermes/OPENCODE-HANDOFF.md`.*
