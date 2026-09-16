@@ -197,10 +197,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #626)
   *Completed: 2026-09-16*
 
-- [ ] **Workday/holiday-aware recurrence** 🔴
+- [x] **Workday/holiday-aware recurrence** 🟢
   *Recurring tasks scheduled on a workday/holiday conflict should automatically move to the next valid day. E.g., a recurring task due on a holiday shifts to the next business day instead of landing on the conflict. Builds on the holidays-in-calendar work.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #627)
+  *Completed: 2026-09-16*
 
 - [~] **Calendar Day View UX overhaul** 🟢  
   *Dave wants the day view to be a proper time-blocking tool, not just a read-only grid. Several interconnected improvements:*  

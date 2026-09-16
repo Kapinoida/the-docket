@@ -1,8 +1,8 @@
 import pool, { createTask, addItemToPage } from './db';
-import { calculateNextDueDate, shouldRecur } from './recurrenceCalc';
+import { calculateNextDueDate, shouldRecur, adjustForWorkday } from './recurrenceCalc';
 import { RecurrenceRule } from '@/types';
 
-export { calculateNextDueDate, getNthDayOfMonth, shouldRecur } from './recurrenceCalc';
+export { calculateNextDueDate, getNthDayOfMonth, shouldRecur, isWorkday, adjustForWorkday } from './recurrenceCalc';
 
 export async function spawnNextRecurrence(completedTaskId: number): Promise<number | null> {
   const currentTaskRes = await pool.query('SELECT * FROM tasks WHERE id = $1', [completedTaskId]);
@@ -17,6 +17,9 @@ export async function spawnNextRecurrence(completedTaskId: number): Promise<numb
   let nextDate: Date | null = null;
   try {
     nextDate = calculateNextDueDate(baseDate, rule);
+    if (nextDate && rule.workdayAware) {
+      nextDate = adjustForWorkday(nextDate);
+    }
   } catch (e) {
     console.error(`[Recurrence] Failed to calculate next date for task ${completedTaskId}:`, e);
     return null;

@@ -1,4 +1,4 @@
-import { calculateNextDueDate, getNthDayOfMonth, rruleToRecurrenceRule, recurrenceRuleToRrule, shouldRecur } from '@/lib/recurrenceCalc';
+import { calculateNextDueDate, getNthDayOfMonth, rruleToRecurrenceRule, recurrenceRuleToRrule, shouldRecur, isWorkday, adjustForWorkday } from '@/lib/recurrenceCalc';
 import { RecurrenceRule } from '@/types';
 
 function date(year: number, month: number, day: number): Date {
@@ -498,5 +498,74 @@ describe('COUNT/UNTIL round-trip', () => {
     const rule = rruleToRecurrenceRule(rrule)!;
     const back = recurrenceRuleToRrule(rule);
     expect(rruleToRecurrenceRule(back)).toEqual(rule);
+  });
+});
+
+describe('isWorkday', () => {
+  it('returns true for a regular weekday (Monday)', () => {
+    const monday = date(2026, 5, 15); // June 15, 2026 is a Monday
+    expect(isWorkday(monday)).toBe(true);
+  });
+
+  it('returns false for Saturday', () => {
+    const saturday = date(2026, 5, 13); // June 13, 2026 is a Saturday
+    expect(isWorkday(saturday)).toBe(false);
+  });
+
+  it('returns false for Sunday', () => {
+    const sunday = date(2026, 5, 14); // June 14, 2026 is a Sunday
+    expect(isWorkday(sunday)).toBe(false);
+  });
+
+  it('returns false for US holidays (New Years Day)', () => {
+    const newYears = date(2026, 0, 1); // January 1, 2026
+    expect(isWorkday(newYears)).toBe(false);
+  });
+
+  it('returns false for Independence Day', () => {
+    const july4 = date(2026, 6, 4); // July 4, 2026
+    expect(isWorkday(july4)).toBe(false);
+  });
+
+  it('returns false for Christmas', () => {
+    const christmas = date(2026, 11, 25); // December 25, 2026
+    expect(isWorkday(christmas)).toBe(false);
+  });
+});
+
+describe('adjustForWorkday', () => {
+  it('returns the same date if already a workday', () => {
+    const wednesday = date(2026, 5, 17); // June 17, 2026 is a Wednesday
+    const adjusted = adjustForWorkday(wednesday);
+    expect(sameCalendarDay(adjusted, wednesday)).toBe(true);
+  });
+
+  it('moves Saturday to Monday', () => {
+    const saturday = date(2026, 5, 13); // June 13, 2026 is a Saturday
+    const adjusted = adjustForWorkday(saturday);
+    const monday = date(2026, 5, 15); // June 15, 2026 is a Monday
+    expect(sameCalendarDay(adjusted, monday)).toBe(true);
+  });
+
+  it('moves Sunday to Monday', () => {
+    const sunday = date(2026, 5, 14); // June 14, 2026 is a Sunday
+    const adjusted = adjustForWorkday(sunday);
+    const monday = date(2026, 5, 15); // June 15, 2026 is a Monday
+    expect(sameCalendarDay(adjusted, monday)).toBe(true);
+  });
+
+  it('moves holiday to next workday', () => {
+    const newYears = date(2026, 0, 1); // January 1, 2026 is a Thursday
+    const adjusted = adjustForWorkday(newYears);
+    const nextDay = date(2026, 0, 2); // January 2, 2026 is a Friday
+    expect(sameCalendarDay(adjusted, nextDay)).toBe(true);
+  });
+
+  it('handles multiple consecutive holidays/weekends', () => {
+    // If July 4, 2026 is Saturday, it should move to Monday July 6
+    const july4 = date(2026, 6, 4); // Saturday
+    const adjusted = adjustForWorkday(july4);
+    const monday = date(2026, 6, 6); // Monday July 6
+    expect(sameCalendarDay(adjusted, monday)).toBe(true);
   });
 });

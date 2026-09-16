@@ -6,8 +6,10 @@ import {
   startOfMonth, 
   endOfMonth, 
   getDay,
+  isWeekend,
 } from 'date-fns';
 import { RecurrenceRule } from '@/types';
+import { isHoliday } from './holidays';
 
 export function calculateNextDueDate(baseDate: Date, rule: RecurrenceRule): Date {
   const interval = rule.interval || 1;
@@ -74,6 +76,24 @@ export function getNthDayOfMonth(date: Date, n: number, validDays: number[]): Da
       const index = candidates.length + n;
       return candidates[index] || candidates[0];
   }
+}
+
+export function isWorkday(date: Date): boolean {
+  if (isWeekend(date)) return false;
+  if (isHoliday(date)) return false;
+  return true;
+}
+
+export function adjustForWorkday(date: Date): Date {
+  if (isWorkday(date)) return date;
+  
+  let adjusted = addDays(date, 1);
+  let attempts = 0;
+  while (!isWorkday(adjusted) && attempts < 10) {
+    adjusted = addDays(adjusted, 1);
+    attempts++;
+  }
+  return adjusted;
 }
 
 const RRULE_DAY_MAP: Record<number, string> = {
