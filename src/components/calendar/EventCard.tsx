@@ -19,7 +19,7 @@ export function EventCard({ event, onClick, variant = 'standard', className = ''
     return (
       <div
         onClick={() => onClick?.(event)}
-        className={`px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80 ${className}`}
+        className={`px-2 py-1 rounded text-xs border cursor-pointer hover:brightness-90 transition-[filter] ${className}`}
         style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
       >
         {event.title}
@@ -31,10 +31,10 @@ export function EventCard({ event, onClick, variant = 'standard', className = ''
     return (
       <div
         onClick={() => onClick?.(event)}
-        className={`p-0.5 px-1.5 rounded text-[10px] truncate cursor-pointer hover:opacity-80 ${className}`}
+        className={`p-0.5 px-1.5 rounded text-[10px] truncate cursor-pointer hover:brightness-90 transition-[filter] ${className}`}
         style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
       >
-        {showTime && <span className="opacity-60 mr-1">{timeStr}</span>}
+        {showTime && <span className="text-white/60 mr-1">{timeStr}</span>}
         {event.title}
       </div>
     );
@@ -43,11 +43,11 @@ export function EventCard({ event, onClick, variant = 'standard', className = ''
   return (
     <div
       onClick={() => onClick?.(event)}
-      className={`p-1.5 px-2.5 rounded text-xs border ${onClick ? 'cursor-pointer hover:opacity-80' : ''} ${className}`}
+      className={`p-1.5 px-2.5 rounded text-xs border ${onClick ? 'cursor-pointer hover:brightness-90 transition-[filter]' : ''} ${className}`}
       style={{ backgroundColor: colors.backgroundColor, borderColor: colors.borderColor, color: colors.color }}
     >
       <div className="flex items-center gap-1.5">
-        {showTime && <span className="text-xs opacity-75 whitespace-nowrap">{timeStr}</span>}
+        {showTime && <span className="text-xs text-white/75 whitespace-nowrap">{timeStr}</span>}
         <span className="font-medium truncate">{event.title}</span>
       </div>
     </div>

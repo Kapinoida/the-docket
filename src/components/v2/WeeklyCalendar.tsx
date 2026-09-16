@@ -73,9 +73,14 @@ export default function WeeklyCalendar({ onTaskComplete }: WeeklyCalendarProps) 
       isSameDay(parseLocalDateNode(task.due_date) as Date, date)
     );
 
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
     const dayEvents = events.filter(event => {
-      const eventDate = isTrulyAllDay(event) ? (parseLocalDateNode(event.start_time) as Date) : new Date(event.start_time);
-      return isSameDay(eventDate, date);
+      const eStart = new Date(event.start_time);
+      const eEnd = new Date(event.end_time);
+      return eStart <= dayEnd && eEnd >= dayStart;
     });
 
     return { tasks: dayTasks, events: dayEvents };
