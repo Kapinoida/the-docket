@@ -9,8 +9,10 @@ interface SoundContextType {
   ambienceMode: AmbienceMode;
   musicSource: MusicSource;
   isPlaying: boolean;
+  volume: number;
   setAmbienceMode: (mode: AmbienceMode) => void;
   setMusicSource: (source: MusicSource) => void;
+  setVolume: (v: number) => void;
   stopAll: () => void;
 }
 
@@ -25,10 +27,11 @@ export const useSound = () => {
 };
 
 export function SoundProvider({ children }: { children: ReactNode }) {
-  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusicAndStream } = useAmbience();
+  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusicAndStream, setVolume: setVolumeHook } = useAmbience();
   const [ambienceMode, setAmbienceModeState] = useState<AmbienceMode>('none');
   const [musicSource, setMusicSourceState] = useState<MusicSource>('none');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [volumeState, setVolumeState] = useState(0.6);
   const isInitializedRef = useRef(false);
 
   // Load from localStorage on mount — restore saved selections but do NOT auto-play
@@ -53,6 +56,11 @@ export function SoundProvider({ children }: { children: ReactNode }) {
           musSource = parsed.isMusicEnabled ? 'pentatonic' : 'none';
         }
 
+        let vol = 0.6;
+        if ('volume' in parsed && typeof parsed.volume === 'number') {
+          vol = Math.max(0, Math.min(1, parsed.volume));
+        }
+
         // Validate
         if (['brown-noise', 'rain', 'snow', 'orbit', 'none'].includes(ambMode)) {
           setAmbienceModeState(ambMode);
@@ -60,20 +68,25 @@ export function SoundProvider({ children }: { children: ReactNode }) {
         if (['pentatonic', 'runtime_loop', 'warm_boot', 'none'].includes(musSource)) {
           setMusicSourceState(musSource);
         }
+        setVolumeState(vol);
+        setVolumeHook(vol);
       }
     } catch (e) {
       console.error('Failed to load sound preferences', e);
     }
     isInitializedRef.current = true;
-  }, []);
+  }, [setVolumeHook]);
 
   // Persist to localStorage whenever selections change
-  const persistSelections = useCallback((amb: AmbienceMode, mus: MusicSource) => {
+  const persistSelections = useCallback((amb: AmbienceMode, mus: MusicSource, vol?: number) => {
     try {
       const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
       const prefs = raw ? JSON.parse(raw) : {};
       prefs.ambienceMode = amb;
       prefs.musicSource = mus;
+      if (vol !== undefined) {
+        prefs.volume = vol;
+      }
       // Remove old boolean keys if they still exist
       delete prefs.isAmbienceEnabled;
       delete prefs.isMusicEnabled;
@@ -94,9 +107,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     } else {
       stopAmbience();
     }
-    persistSelections(mode, musicSource);
+    persistSelections(mode, musicSource, volumeState);
     updatePlayingState(mode, musicSource);
-  }, [startAmbience, stopAmbience, musicSource, persistSelections, updatePlayingState]);
+  }, [startAmbience, stopAmbience, musicSource, volumeState, persistSelections, updatePlayingState]);
 
   const setMusicSource = useCallback((source: MusicSource) => {
     setMusicSourceState(source);
@@ -105,18 +118,25 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     } else {
       stopMusicAndStream();
     }
-    persistSelections(ambienceMode, source);
+    persistSelections(ambienceMode, source, volumeState);
     updatePlayingState(ambienceMode, source);
-  }, [startMusicSource, stopMusicAndStream, ambienceMode, persistSelections, updatePlayingState]);
+  }, [startMusicSource, stopMusicAndStream, ambienceMode, volumeState, persistSelections, updatePlayingState]);
+
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    setVolumeState(clamped);
+    setVolumeHook(clamped);
+    persistSelections(ambienceMode, musicSource, clamped);
+  }, [ambienceMode, musicSource, setVolumeHook, persistSelections]);
 
   const stopAll = useCallback(() => {
     stopAmbience();
     stopMusicAndStream();
     setAmbienceModeState('none');
     setMusicSourceState('none');
-    persistSelections('none', 'none');
+    persistSelections('none', 'none', volumeState);
     setIsPlaying(false);
-  }, [stopAmbience, stopMusicAndStream, persistSelections]);
+  }, [stopAmbience, stopMusicAndStream, volumeState, persistSelections]);
 
   // Cleanup only on tab close — NOT on React unmount (so audio persists across SPA navigation)
   useEffect(() => {
@@ -135,8 +155,10 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       ambienceMode,
       musicSource,
       isPlaying,
+      volume: volumeState,
       setAmbienceMode,
       setMusicSource,
+      setVolume,
       stopAll,
     }}>
       {children}

@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-16] – Radio volume control
+- **What changed:**
+  Added master volume control for all app audio (ambience, radio streams, pentatonic music). (1) Added master `GainNode` in `useAmbience.ts` that all audio routes through, with `volume` state and `setVolume` function. (2) Added `volume` and `setVolume` to `SoundContext` with localStorage persistence alongside ambience/music selections. (3) Added volume slider to `SidebarSoundPanel` — visible in idle popover, stream mini-player, and non-stream playing states. Volume persists across sessions, source switching, and `stopAll()`. 8 new tests (481 total).
+- **Why:**
+  Users needed a way to control the volume of the radio and ambient sounds without changing system volume. The volume control is accessible from the sidebar sound panel in all states (idle, playing, stream, non-stream).
+- **Affected areas:** `src/hooks/useAmbience.ts` (master gain node, volume state/setter), `src/contexts/SoundContext.tsx` (volume persistence), `src/components/focus/SidebarSoundPanel.tsx` (volume slider UI), `src/hooks/__tests__/useAmbience.test.ts` (4 new tests), `src/components/focus/__tests__/SidebarSoundPanel.test.tsx` (4 new tests).
+- **Migration needed?** No.
+- **Testing:** All 481 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-15] – Radio page (Slice 2)
 - **What changed:**
   Phase 2 of the Radio & Media Control Center project. (1) Created `src/components/radio/StationCard.tsx` — displays station name, description, album art, listener count, now playing track, and play/stop controls. (2) Created `src/components/radio/NowPlayingPanel.tsx` — detailed now playing view with large album art, track info, listener count, progress bar, and upcoming track. (3) Created `src/components/radio/SongHistory.tsx` — shows recently played tracks with timestamps and album art. (4) Created `src/components/radio/RadioView.tsx` — main radio page layout with selected station panel, song history, and station grid. (5) Created `src/app/radio/page.tsx` — route for the radio page. (6) Added Radio entry to sidebar navigation with RadioTower icon. 19 new tests (473 total).

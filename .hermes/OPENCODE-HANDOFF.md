@@ -120,7 +120,7 @@ The radio is buried. To play a station Dave opens Focus → Sound settings → p
 
 ### Queued Next Slices
 
-1. **Radio volume control** (nice-to-have) — expose the stream gain node from `useAmbience` (currently hardcoded 0.6); slider in the mini-player popover.
+1. ~~**Radio volume control**~~ ✅ Complete (2026-09-16) — master GainNode, volume slider in SidebarSoundPanel, persisted in localStorage.
 2. **Calendar improvements: "bigger and better" styling + functions** — overlaps "Rich calendar drag & resize" (🟡 Partial).
 3. **Holidays in the calendar** — non-interactive all-day markers, visually distinct from tasks/events.
 4. **Workday/holiday-aware recurrence** — recurring tasks shift off conflicts (builds on #3).
