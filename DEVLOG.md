@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-16] – Calendar reliability and presentation pass
+- **What changed:**
+  Phase 2 of the calendar improvements. (1) Fixed calendar event update persistence — DB helpers (`updateCalendarEvent`, `getCalendarEventWithConfig`, `updateCalendarEventRawData`, `getCalendarEventById`) now use `WHERE uid = $1` instead of nonexistent `WHERE id = $1`, matching the composite PK `(uid, calendar_id)` schema. Event drag/drop now persists correctly. (2) Month view `+N more` is now clickable — expands to show all items with a "show less" collapse. (3) Multi-day events now appear on every day they span (not just start day) — fixed `getItemsForDay` in both `CalendarView.tsx` and `WeeklyCalendar.tsx` to use range overlap check instead of `isSameDay`. (4) Removed forbidden `hover:opacity-80` Tailwind classes from `EventCard.tsx` — replaced with `hover:brightness-90` filter transition per project convention. (5) Added 15 new calendar utility tests covering `isTrulyAllDay`, `eventColorStyle`, `hexToRgb`, and multi-day event inclusion logic. 15 new tests (496 total).
+- **Why:**
+  Calendar event drag/drop was silently broken — the UI appeared to move events but changes didn't persist because DB queries referenced a nonexistent `id` column. Multi-day events only appeared on their start date, making conferences and multi-day trips invisible on subsequent days. Month view overflow was non-interactive, hiding items from the user. EventCard violated the project convention prohibiting opacity classes on colored event blocks.
+- **Affected areas:** `src/lib/db.ts` (4 functions fixed), `src/components/CalendarView.tsx` (DesktopMonthDay expand/collapse, getItemsForDay multi-day fix), `src/components/v2/WeeklyCalendar.tsx` (getItemsForDay multi-day fix), `src/components/calendar/EventCard.tsx` (opacity → brightness filter), `src/lib/__tests__/calendar.test.ts` (new, 15 tests).
+- **Migration needed?** No.
+- **Testing:** All 496 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-16] – Radio volume control
 - **What changed:**
   Added master volume control for all app audio (ambience, radio streams, pentatonic music). (1) Added master `GainNode` in `useAmbience.ts` that all audio routes through, with `volume` state and `setVolume` function. (2) Added `volume` and `setVolume` to `SoundContext` with localStorage persistence alongside ambience/music selections. (3) Added volume slider to `SidebarSoundPanel` — visible in idle popover, stream mini-player, and non-stream playing states. Volume persists across sessions, source switching, and `stopAll()`. 8 new tests (481 total).

@@ -109,9 +109,14 @@ export default function CalendarViewV2() {
     const dayTasks = tasks.filter(t =>
       t.status !== 'done' && t.status !== 'someday' && t.due_date && isSameDay(parseLocalDateNode(t.due_date) as Date, date)
     );
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
     const dayEvents = events.filter(e => {
-      const eventDate = isTrulyAllDay(e) ? (parseLocalDateNode(e.start_time) as Date) : new Date(e.start_time);
-      return isSameDay(eventDate, date);
+      const eStart = new Date(e.start_time);
+      const eEnd = new Date(e.end_time);
+      return eStart <= dayEnd && eEnd >= dayStart;
     });
     return { tasks: dayTasks, events: dayEvents };
   };
@@ -466,6 +471,11 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
   const inMonth = day.getMonth() === currentMonth;
   const total = items.tasks.length + items.events.length;
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const visibleEvents = isExpanded ? items.events : items.events.slice(0, 3);
+  const visibleTasks = isExpanded ? items.tasks : items.tasks.slice(0, 3);
+  const hiddenCount = total > 3 && !isExpanded ? total - 3 : 0;
 
   return (
     <div
@@ -496,13 +506,28 @@ function DesktopMonthDay({ day, items, currentMonth, onToggle, onEventClick, onD
         {isTodayDate && <span className="ml-1 text-[10px] font-normal text-blue-500">Today</span>}
       </div>
       <div className="space-y-0.5">
-        {items.events.slice(0, 3).map(e => (
+        {visibleEvents.map(e => (
           <EventCard key={`evt-${e.id}`} event={e} onClick={onEventClick} variant="compact" />
         ))}
-        {items.tasks.slice(0, 3).map(t => (
+        {visibleTasks.map(t => (
           <CalendarTaskCard key={`task-${t.id}`} task={t} onToggle={onToggle} onClick={onTaskClick} variant="compact" draggable />
         ))}
-        {total > 3 && <div className="text-[10px] text-text-muted pl-1">+{total - 3} more</div>}
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-[10px] text-accent-blue hover:text-accent-blue/80 pl-1 text-left font-medium"
+          >
+            +{hiddenCount} more
+          </button>
+        )}
+        {isExpanded && total > 3 && (
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="text-[10px] text-text-muted hover:text-text-secondary pl-1 text-left"
+          >
+            show less
+          </button>
+        )}
         {total === 0 && <div className="h-8" />}
       </div>
     </div>

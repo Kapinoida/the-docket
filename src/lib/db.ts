@@ -486,7 +486,7 @@ export async function getCalendarEvents(start: string, end: string): Promise<{ r
   return { regular: regularRes.rows, recurring: recurringRes.rows };
 }
 
-export async function updateCalendarEvent(id: string, fields: { start_time?: string; end_time?: string; last_synced_at?: Date }): Promise<any> {
+export async function updateCalendarEvent(uid: string, fields: { start_time?: string; end_time?: string; last_synced_at?: Date }): Promise<any> {
   const setClauses: string[] = [];
   const values: any[] = [];
   let paramIdx = 1;
@@ -506,33 +506,33 @@ export async function updateCalendarEvent(id: string, fields: { start_time?: str
 
   if (setClauses.length === 0) return null;
 
-  values.push(id);
-  const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+  values.push(uid);
+  const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE uid = $${paramIdx} RETURNING *`;
   const res = await pool.query(query, values);
   return res.rows[0] || null;
 }
 
-export async function getCalendarEventWithConfig(id: string): Promise<any> {
+export async function getCalendarEventWithConfig(uid: string): Promise<any> {
   const res = await pool.query(`
     SELECT e.*, c.server_url, c.username, c.password, c.calendar_url
     FROM calendar_events e
     JOIN caldav_configs c ON e.calendar_id = c.id
-    WHERE e.id = $1 AND c.enabled = TRUE
-  `, [id]);
+    WHERE e.uid = $1 AND c.enabled = TRUE
+  `, [uid]);
   return res.rows[0] || null;
 }
 
-export async function updateCalendarEventRawData(id: string, rawData: string): Promise<void> {
-  await pool.query('UPDATE calendar_events SET raw_data = $1 WHERE id = $2', [rawData, id]);
+export async function updateCalendarEventRawData(uid: string, rawData: string): Promise<void> {
+  await pool.query('UPDATE calendar_events SET raw_data = $1 WHERE uid = $2', [rawData, uid]);
 }
 
-export async function getCalendarEventById(id: string): Promise<any> {
+export async function getCalendarEventById(uid: string): Promise<any> {
   const res = await pool.query(`
     SELECT e.*, c.name as calendar_name, c.color as calendar_color
     FROM calendar_events e
     JOIN caldav_configs c ON e.calendar_id = c.id
-    WHERE e.id = $1
-  `, [id]);
+    WHERE e.uid = $1
+  `, [uid]);
   return res.rows[0] || null;
 }
 

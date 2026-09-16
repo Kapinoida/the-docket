@@ -148,6 +148,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🟢 Complete
   *Completed: 2026-09-16*
 
+- [x] **Calendar improvements: reliability and presentation pass** 🟢
+  *Fixed calendar event update persistence (DB helpers now use `uid` instead of nonexistent `id` column, matching composite PK schema). Month view `+N more` is now clickable with expand/collapse. Multi-day events now appear on every day they span (not just start day). Removed forbidden opacity classes from EventCard, replaced with brightness filter per convention. 15 new calendar utility tests.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-09-16*
+
 ### Architectural & Technical Debt
 - [x] **Unify type systems** 🟢  
   *Merged `src/types/index.ts` and `src/types/v2.ts` into a single canonical set. Removed all adapter code and dead code (`api.ts`, unused hooks). The canonical `Task` type uses `status: TaskStatus` (not `completed: boolean`) and string dates matching JSON shapes.*  
