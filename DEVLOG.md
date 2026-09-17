@@ -10,6 +10,21 @@ Use this format:
 
 ---
 
+## [2026-09-17] – Calendar improvements: multi-day rendering and event resizing
+- **What changed:**
+  **Multi-day event rendering:** (1) DayView now shows multi-day events on each day they span, not just their start day. (2) Events are clipped to day boundaries with visual continuation indicators (corner triangles) showing when they extend before/after the current day. (3) Time display shows clipped times for continuation days.
+
+  **Event resizing:** (1) Added resize handles to timed events in DayView — users can drag the bottom edge to adjust end time with 15-minute snapping. (2) Live preview shows resized height and updated time during drag. (3) Mouse and touch support with global event listeners. (4) Minimum 15-minute duration enforced. (5) Sends PATCH with `calendar_id` for proper event identity. (6) Error handling with toast notifications.
+
+- **Why:**
+  Multi-day events were only visible on their start day, making conferences and multi-day trips invisible on subsequent days. Event resizing allows users to quickly adjust event durations without opening the edit modal.
+
+- **Affected areas:** `src/components/CalendarView.tsx` (multi-day filtering, clipping, continuation indicators, resize handles, global resize handlers).
+- **Migration needed?** No.
+- **Testing:** 566 tests pass. TypeScript clean.
+
+---
+
 ## [2026-09-17] – Calendar improvements: event identity, validation, and planning utilities
 - **What changed:**
   **Event persistence foundation:** (1) Fixed composite event identity — DB helpers now use `(uid, calendar_id)` instead of `uid` alone, preventing ambiguous updates when the same UID exists in multiple calendars. (2) Added `calendar_id` to CalendarEvent type and API response. (3) Rewrote PATCH `/api/v2/calendar/events/[id]` with strict validation: ISO date parsing, `end_time > start_time` check, `is_all_day` boolean validation. (4) Added `is_all_day` update support with proper iCalendar serialization — all-day events use date-only `VALUE=DATE` properties with exclusive end dates. (5) CalDAV failures now return visible error in response instead of silently succeeding.
