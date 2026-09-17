@@ -595,7 +595,87 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
   const lastTouchY = useRef(0);
   const gridRef = useRef<HTMLDivElement>(null);
 
+  // Resize state
+  const [resizeEvent, setResizeEvent] = useState<CalendarEvent | null>(null);
+  const [resizeEndY, setResizeEndY] = useState<number>(0);
+  const lastResizeY = useRef(0);
+
   const { showToast } = useToast();
+
+  // Global resize handlers
+  useEffect(() => {
+    if (!resizeEvent) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      setResizeEndY(e.clientY);
+      lastResizeY.current = e.clientY;
+    };
+
+    const handleMouseUp = () => {
+      if (!resizeEvent || !gridRef.current) {
+        setResizeEvent(null);
+        return;
+      }
+
+      const gridRect = gridRef.current.getBoundingClientRect();
+      const dropY = lastResizeY.current - gridRect.top;
+      const dropMinutes = gridYToMinutes(dropY);
+      const clampedMinutes = Math.max(HOUR_START * 60, Math.min(dropMinutes, HOUR_END * 60));
+      
+      const eventStart = new Date(resizeEvent.start_time);
+      const startMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
+      
+      if (clampedMinutes <= startMinutes + 15) {
+        setResizeEvent(null);
+        return;
+      }
+
+      const newEnd = new Date(day);
+      newEnd.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+
+      apiFetch(`/api/v2/calendar/events/${resizeEvent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          start_time: resizeEvent.start_time,
+          end_time: newEnd.toISOString(),
+          calendar_id: resizeEvent.calendar_id,
+        }),
+      }).catch(err => { 
+        if (err instanceof AuthError) { return; } 
+        console.error('Resize update failed:', err); 
+        showToast('Failed to resize event', 'error'); 
+      });
+
+      setResizeEvent(null);
+      setTimeout(() => onEventMoved?.(), 500);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        e.preventDefault();
+        setResizeEndY(e.touches[0].clientY);
+        lastResizeY.current = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      handleMouseUp();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [resizeEvent, day, showToast, onEventMoved]);
 
   // Filter events for this day (including multi-day events that overlap this day)
   const dayEvents = events.filter(e => {
@@ -965,8 +1045,19 @@ body: JSON.stringify({
             ? eventEnd
             : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
           
+          // Live resize preview
+          let displayEnd = clippedEnd;
+          if (resizeEvent?.id === event.id && gridRef.current) {
+            const gridRect = gridRef.current.getBoundingClientRect();
+            const dropY = resizeEndY - gridRect.top;
+            const dropMinutes = gridYToMinutes(dropY);
+            const clampedMinutes = Math.max(HOUR_START * 60, Math.min(dropMinutes, HOUR_END * 60));
+            displayEnd = new Date(day);
+            displayEnd.setHours(Math.floor(clampedMinutes / 60), clampedMinutes % 60, 0, 0);
+          }
+          
           const startMinutes = clippedStart.getHours() * 60 + clippedStart.getMinutes();
-          const endMinutes = clippedEnd.getHours() * 60 + clippedEnd.getMinutes() + (clippedEnd.getSeconds() > 0 ? 1 : 0);
+          const endMinutes = displayEnd.getHours() * 60 + displayEnd.getMinutes() + (displayEnd.getSeconds() > 0 ? 1 : 0);
           const durationMinutes = Math.max(endMinutes - startMinutes, 15);
           const top = minutesToGridY(startMinutes);
           const height = (durationMinutes / 60) * HOUR_HEIGHT;
@@ -1075,8 +1166,29 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
               <div className="text-xs font-medium truncate leading-tight">{event.title}</div>
               {height > 40 && (
                 <div className="text-[10px] opacity-75 leading-tight mt-0.5">
-                  {format(clippedStart, 'h:mm a')} – {format(clippedEnd, 'h:mm a')}
+                  {format(clippedStart, 'h:mm a')} – {format(displayEnd, 'h:mm a')}
                 </div>
+              )}
+              {/* Resize handle */}
+              {!continuesAfter && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize hover:bg-white/20"
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setResizeEvent(event);
+                    setResizeEndY(e.clientY);
+                    lastResizeY.current = e.clientY;
+                  }}
+                  onTouchStart={(e) => {
+                    if (e.touches.length === 1) {
+                      e.stopPropagation();
+                      setResizeEvent(event);
+                      setResizeEndY(e.touches[0].clientY);
+                      lastResizeY.current = e.touches[0].clientY;
+                    }
+                  }}
+                />
               )}
             </div>
           );
