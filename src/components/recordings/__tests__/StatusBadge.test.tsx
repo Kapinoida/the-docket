@@ -12,11 +12,12 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Scheduled')).toBeInTheDocument();
   });
 
-  it('renders recording status with pulse', () => {
+  it('renders recording status with pulse indicator', () => {
     render(<StatusBadge status="recording" />);
     const badge = screen.getByText('Recording');
     expect(badge).toBeInTheDocument();
-    expect(badge.closest('span')).toHaveClass('animate-pulse');
+    const span = badge.closest('span');
+    expect(span).toHaveClass('before:animate-pulse');
   });
 
   it('renders completed status', () => {
@@ -32,6 +33,11 @@ describe('StatusBadge', () => {
   it('renders cancelled status', () => {
     render(<StatusBadge status="cancelled" />);
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
+  });
+
+  it('renders fallback for unknown status', () => {
+    render(<StatusBadge status={'unknown' as any} />);
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
   });
 
   it('applies custom className', () => {

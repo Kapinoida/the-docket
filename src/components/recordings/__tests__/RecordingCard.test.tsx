@@ -5,6 +5,7 @@ import { RecordingSchedule } from '@/types';
 const mockRecording: RecordingSchedule = {
   id: 1,
   stream_id: '123',
+  sportarr_id: null,
   title: 'Chicago Fire FC vs Charlotte FC',
   league: 'usa.1',
   channel_name: 'ESPN',
@@ -78,5 +79,36 @@ describe('RecordingCard', () => {
     const noChannel = { ...mockRecording, channel_name: null };
     render(<RecordingCard recording={noChannel} />);
     expect(screen.queryByText('ESPN')).not.toBeInTheDocument();
+  });
+
+  it('renders source badge for Sportarr recordings', () => {
+    const sportarrRecording = { ...mockRecording, source: 'sportarr' as const };
+    render(<RecordingCard recording={sportarrRecording} />);
+    expect(screen.getByText('Sportarr')).toBeInTheDocument();
+  });
+
+  it('renders sportarr_id when present', () => {
+    const sportarrRecording = {
+      ...mockRecording,
+      source: 'sportarr' as const,
+      sportarr_id: 'sportarr-42',
+    };
+    render(<RecordingCard recording={sportarrRecording} />);
+    expect(screen.getByText('sportarr-42')).toBeInTheDocument();
+  });
+
+  it('renders file size for completed recordings', () => {
+    const completed = {
+      ...mockRecording,
+      status: 'completed' as const,
+      file_size_bytes: 1073741824,
+    };
+    render(<RecordingCard recording={completed} />);
+    expect(screen.getByText('1.00 GB')).toBeInTheDocument();
+  });
+
+  it('renders duration', () => {
+    render(<RecordingCard recording={mockRecording} />);
+    expect(screen.getByText('2 hours 30 minutes')).toBeInTheDocument();
   });
 });

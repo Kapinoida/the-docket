@@ -125,7 +125,7 @@ The radio is buried. To play a station Dave opens Focus → Sound settings → p
 3. ~~**Holidays in the calendar**~~ ✅ Complete (2026-09-16) — US holidays in all calendar views, non-interactive red-tinted markers, 17 new tests.
 4. ~~**Workday/holiday-aware recurrence**~~ ✅ Complete (2026-09-16) — recurring tasks shift to next workday when landing on weekends/holidays, 11 new tests.
 5. ~~**Data-update UX**~~ ✅ Complete (2026-09-16) — loading states for Sidebar and FolderTree, optimistic updates for page/folder mutations, quick-add feedback.
-6. **Recording page** — styling/feel pass + pull recordings from **Sportarr**.
+6. ~~**Recording page**~~ ✅ Complete (2026-09-17) — Sportarr data contract (sportarr_id, upsert, full field updates), dashboard styling pass (stat cards, source badges, timeline overlap rows, conflict grid), conflict dedup, query bounds, validation.
 
 ## Operating Rhythm
 

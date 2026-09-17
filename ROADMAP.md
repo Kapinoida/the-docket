@@ -358,15 +358,17 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #622)
   *Completed: 2026-09-08*
 
-- [ ] **Recording page styling pass** 🔴
+- [x] **Recording page styling pass** 🟢
   *Dave: "Recording styling - Look at improving the feel of the page." Polish the `/recordings` dashboard — visual hierarchy, status readability, mobile feel. The module is functionally complete (Phases 1-6); this is presentation only.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #579)
+  *Completed: 2026-09-17*
 
-- [ ] **Recording: pull from Sportarr (new engine)** 🔴
-  *Dave: "Recording - Need to pull from Sportarr, as that is the new engine." Wire the recordings module to Sportarr (the current IPTV recording engine) so schedules/recordings flow from Sportarr into The Docket instead of the legacy pipeline.*
-  **Status:** 🔴 Not Started
+- [x] **Recording: pull from Sportarr (new engine)** 🟢
+  *Dave: "Recording - Need to pull from Sportarr, as that is the new engine." Wire the recordings module to Sportarr (the current IPTV recording engine) so schedules/recordings flow from Sportarr into The Docket instead of the legacy pipeline. Migration adds `sportarr_id` column and `sportarr` source. API supports upsert by `sportarr_id` for idempotent sync. Full field updates (title, league, channel, times, status, output, error) now supported. External sync script (`sportarr-docket-sync.py`) runs every 30 minutes via cron.*
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #624)
+  *Completed: 2026-09-17*
 
 - [ ] **App icon redesign** 🔴
   *The current icon (white clipboard + green checkmark on navy blue) has been the same since initial PWA setup. It's clean but generic — every Docket/app icon in Dave's launcher is some variation of a clipboard with a checkmark. Time for something distinct. The icon should reflect a dark-mode native aesthetic (the app is dark-only, `bg-gray-950`) and feel like it belongs on a home screen next to Things, Fantastical, and Obsidian — not like a stock placeholder.*

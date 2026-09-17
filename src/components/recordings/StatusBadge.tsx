@@ -17,7 +17,7 @@ const statusConfig: Record<RecordingStatus, { label: string; classes: string }> 
   },
   recording: {
     label: 'Recording',
-    classes: 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse',
+    classes: 'bg-red-500/20 text-red-400 border-red-500/30',
   },
   completed: {
     label: 'Completed',
@@ -33,14 +33,17 @@ const statusConfig: Record<RecordingStatus, { label: string; classes: string }> 
   },
 };
 
+const fallbackConfig = { label: 'Unknown', classes: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+
 export default function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || fallbackConfig;
 
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
         config.classes,
+        status === 'recording' && 'before:inline-block before:h-1.5 before:w-1.5 before:animate-pulse before:rounded-full before:bg-red-400',
         className
       )}
     >
