@@ -486,7 +486,7 @@ export async function getCalendarEvents(start: string, end: string): Promise<{ r
   return { regular: regularRes.rows, recurring: recurringRes.rows };
 }
 
-export async function updateCalendarEvent(uid: string, fields: { start_time?: string; end_time?: string; last_synced_at?: Date }): Promise<any> {
+export async function updateCalendarEvent(uid: string, calendarId: number, fields: { start_time?: string; end_time?: string; is_all_day?: boolean; last_synced_at?: Date }): Promise<any> {
   const setClauses: string[] = [];
   const values: any[] = [];
   let paramIdx = 1;
@@ -499,6 +499,10 @@ export async function updateCalendarEvent(uid: string, fields: { start_time?: st
     setClauses.push(`end_time = $${paramIdx++}`);
     values.push(fields.end_time);
   }
+  if (fields.is_all_day !== undefined) {
+    setClauses.push(`is_all_day = $${paramIdx++}`);
+    values.push(fields.is_all_day);
+  }
   if (fields.last_synced_at !== undefined) {
     setClauses.push(`last_synced_at = $${paramIdx++}`);
     values.push(fields.last_synced_at);
@@ -506,32 +510,52 @@ export async function updateCalendarEvent(uid: string, fields: { start_time?: st
 
   if (setClauses.length === 0) return null;
 
-  values.push(uid);
-  const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE uid = $${paramIdx} RETURNING *`;
+  values.push(uid, calendarId);
+  const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE uid = $${paramIdx} AND calendar_id = $${paramIdx + 1} RETURNING *`;
   const res = await pool.query(query, values);
   return res.rows[0] || null;
 }
 
-export async function getCalendarEventWithConfig(uid: string): Promise<any> {
+export async function getCalendarEventWithConfig(uid: string, calendarId?: number): Promise<any> {
+  if (calendarId !== undefined) {
+    const res = await pool.query(`
+      SELECT e.*, c.server_url, c.username, c.password, c.calendar_url
+      FROM calendar_events e
+      JOIN caldav_configs c ON e.calendar_id = c.id
+      WHERE e.uid = $1 AND e.calendar_id = $2 AND c.enabled = TRUE
+    `, [uid, calendarId]);
+    return res.rows[0] || null;
+  }
   const res = await pool.query(`
     SELECT e.*, c.server_url, c.username, c.password, c.calendar_url
     FROM calendar_events e
     JOIN caldav_configs c ON e.calendar_id = c.id
     WHERE e.uid = $1 AND c.enabled = TRUE
+    LIMIT 1
   `, [uid]);
   return res.rows[0] || null;
 }
 
-export async function updateCalendarEventRawData(uid: string, rawData: string): Promise<void> {
-  await pool.query('UPDATE calendar_events SET raw_data = $1 WHERE uid = $2', [rawData, uid]);
+export async function updateCalendarEventRawData(uid: string, calendarId: number, rawData: string): Promise<void> {
+  await pool.query('UPDATE calendar_events SET raw_data = $1 WHERE uid = $2 AND calendar_id = $3', [rawData, uid, calendarId]);
 }
 
-export async function getCalendarEventById(uid: string): Promise<any> {
+export async function getCalendarEventById(uid: string, calendarId?: number): Promise<any> {
+  if (calendarId !== undefined) {
+    const res = await pool.query(`
+      SELECT e.*, c.name as calendar_name, c.color as calendar_color
+      FROM calendar_events e
+      JOIN caldav_configs c ON e.calendar_id = c.id
+      WHERE e.uid = $1 AND e.calendar_id = $2
+    `, [uid, calendarId]);
+    return res.rows[0] || null;
+  }
   const res = await pool.query(`
     SELECT e.*, c.name as calendar_name, c.color as calendar_color
     FROM calendar_events e
     JOIN caldav_configs c ON e.calendar_id = c.id
     WHERE e.uid = $1
+    LIMIT 1
   `, [uid]);
   return res.rows[0] || null;
 }

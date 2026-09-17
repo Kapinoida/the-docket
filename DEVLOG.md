@@ -10,6 +10,21 @@ Use this format:
 
 ---
 
+## [2026-09-17] – Calendar improvements: event identity, validation, and planning utilities
+- **What changed:**
+  **Event persistence foundation:** (1) Fixed composite event identity — DB helpers now use `(uid, calendar_id)` instead of `uid` alone, preventing ambiguous updates when the same UID exists in multiple calendars. (2) Added `calendar_id` to CalendarEvent type and API response. (3) Rewrote PATCH `/api/v2/calendar/events/[id]` with strict validation: ISO date parsing, `end_time > start_time` check, `is_all_day` boolean validation. (4) Added `is_all_day` update support with proper iCalendar serialization — all-day events use date-only `VALUE=DATE` properties with exclusive end dates. (5) CalDAV failures now return visible error in response instead of silently succeeding.
+
+  **Calendar planning utilities:** Created `src/lib/calendarPlanning.ts` with pure calculation functions for drag/resize/multi-day rendering: 15-minute snapping, day boundaries, event segments, overlap layout, duration calculations, time formatting. All functions are testable without DB dependencies. 32 new tests covering snapping, DST boundaries, multi-day segments, overlap layout, and edge cases.
+
+- **Why:**
+  The calendar had critical identity issues — event updates could affect wrong calendar when UIDs collided. No validation allowed invalid date ranges. No all-day toggle support. The planning utilities provide a foundation for upcoming drag/resize/multi-day rendering features.
+
+- **Affected areas:** `src/lib/calendarPlanning.ts` (new, 32 tests), `src/lib/db.ts` (updateCalendarEvent, getCalendarEventWithConfig, updateCalendarEventRawData, getCalendarEventById now use composite identity), `src/types/index.ts` (CalendarEvent gains calendar_id), `src/pages/api/v2/calendar/events.ts` (includes calendar_id in response), `src/pages/api/v2/calendar/events/[id].ts` (validation, is_all_day support, composite identity, visible CalDAV errors).
+- **Migration needed?** No.
+- **Testing:** 566 tests pass (32 new). TypeScript clean.
+
+---
+
 ## [2026-09-17] – Recording module: Sportarr integration + dashboard styling pass
 - **What changed:**
   **Sportarr data contract:** (1) Migration `011_recordings_sportarr.sql` adds `sportarr_id` column (TEXT, nullable, unique partial index) and `sportarr` to the source enum. (2) `RecordingSchedule` type gains `sportarr_id` field; `RecordingSource` gains `'sportarr'`. (3) `UpdateRecordingInput` expanded to accept title, league, channel_name, stream_id, sportarr_id, start_time, end_time — sync script can now update all fields, not just status/output/error. (4) New `upsertRecordingBySportarrId()` DB helper for idempotent Sportarr sync via `ON CONFLICT (sportarr_id)`. (5) POST `/api/v2/recordings` auto-upserts when `sportarr_id` is present (returns 200 instead of 201). (6) Full input validation on POST/PATCH: status/source enums, ISO date parsing, end-after-start check, non-negative file_size_bytes, body null guards.

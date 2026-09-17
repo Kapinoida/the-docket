@@ -186,10 +186,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Status:** 🔴 Not Started  
   **Context:** Marked as TODO in codebase; users need multiple calendar sources.
 
-- [ ] **Calendar improvements: "bigger and better" styling + functions** 🔴
+- [~] **Calendar improvements: "bigger and better" styling + functions** 🟡
   *Dave: "Really need some bigger and better calendar improvements. Styling functions." Broad styling and functional pass on the calendar views. Overlaps the existing "Rich calendar drag & resize" item (🟡 Partial) — coordinate so the two don't double up on the same code.*
-  **Status:** 🔴 Not Started
+  **Status:** 🟡 Partial — Phase 1 complete (event identity, validation, planning utilities, all-day support). Next: event drag/resize, multi-day rendering, presentation polish.
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #617)
+  *Phase 1 completed: 2026-09-17*
 
 - [x] **Holidays in the calendar** 🟢
   *Added US holidays to all calendar views (day, week, month) as non-interactive all-day markers. Uses `date-holidays` library for holiday data. Created `HolidayCard` component with red-tinted styling and calendar icon. Integrated into `CalendarView` and `WeeklyCalendar`. 17 new tests (513 total).*

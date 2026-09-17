@@ -72,6 +72,7 @@ export interface CalendarEvent {
   location: string;
   calendar_name: string;
   calendar_color?: string;
+  calendar_id?: number;
 }
 
 export interface CalendarSource {
