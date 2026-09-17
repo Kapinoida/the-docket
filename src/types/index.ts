@@ -247,11 +247,12 @@ export type RecordingStatus =
   | 'failed'
   | 'cancelled';
 
-export type RecordingSource = 'fixture' | 'manual' | 'replay';
+export type RecordingSource = 'fixture' | 'manual' | 'replay' | 'sportarr';
 
 export interface RecordingSchedule {
   id: number;
   stream_id: string;
+  sportarr_id: string | null;
   title: string;
   league: string | null;
   channel_name: string | null;
@@ -269,6 +270,7 @@ export interface RecordingSchedule {
 
 export interface CreateRecordingInput {
   stream_id: string;
+  sportarr_id?: string;
   title: string;
   league?: string;
   channel_name?: string;
@@ -284,6 +286,13 @@ export interface CreateRecordingInput {
 
 export interface UpdateRecordingInput {
   status?: RecordingStatus;
+  title?: string;
+  league?: string;
+  channel_name?: string;
+  stream_id?: string;
+  sportarr_id?: string;
+  start_time?: string;
+  end_time?: string;
   output_path?: string;
   file_size_bytes?: number;
   error_message?: string;

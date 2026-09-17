@@ -694,12 +694,13 @@ import { RecordingSchedule, CreateRecordingInput, UpdateRecordingInput, Conflict
 export async function createRecording(input: CreateRecordingInput): Promise<RecordingSchedule> {
   const res = await pool.query(
     `INSERT INTO recording_schedules (
-      stream_id, title, league, channel_name, start_time, end_time,
+      stream_id, sportarr_id, title, league, channel_name, start_time, end_time,
       status, source, output_path, file_size_bytes, error_message, metadata
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *`,
     [
       input.stream_id,
+      input.sportarr_id || null,
       input.title,
       input.league || null,
       input.channel_name || null,
@@ -707,9 +708,52 @@ export async function createRecording(input: CreateRecordingInput): Promise<Reco
       input.end_time,
       input.status || 'pending',
       input.source || 'fixture',
-      input.output_path || null,
-      input.file_size_bytes || null,
-      input.error_message || null,
+      input.output_path ?? null,
+      input.file_size_bytes ?? null,
+      input.error_message ?? null,
+      input.metadata || {},
+    ]
+  );
+  return res.rows[0];
+}
+
+export async function upsertRecordingBySportarrId(
+  sportarrId: string,
+  input: CreateRecordingInput
+): Promise<RecordingSchedule> {
+  const res = await pool.query(
+    `INSERT INTO recording_schedules (
+      stream_id, sportarr_id, title, league, channel_name, start_time, end_time,
+      status, source, output_path, file_size_bytes, error_message, metadata
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ON CONFLICT (sportarr_id) WHERE sportarr_id IS NOT NULL
+    DO UPDATE SET
+      stream_id = EXCLUDED.stream_id,
+      title = EXCLUDED.title,
+      league = EXCLUDED.league,
+      channel_name = EXCLUDED.channel_name,
+      start_time = EXCLUDED.start_time,
+      end_time = EXCLUDED.end_time,
+      status = EXCLUDED.status,
+      source = EXCLUDED.source,
+      output_path = EXCLUDED.output_path,
+      file_size_bytes = EXCLUDED.file_size_bytes,
+      error_message = EXCLUDED.error_message,
+      metadata = EXCLUDED.metadata
+    RETURNING *`,
+    [
+      input.stream_id,
+      sportarrId,
+      input.title,
+      input.league || null,
+      input.channel_name || null,
+      input.start_time,
+      input.end_time,
+      input.status || 'pending',
+      input.source || 'sportarr',
+      input.output_path ?? null,
+      input.file_size_bytes ?? null,
+      input.error_message ?? null,
       input.metadata || {},
     ]
   );
@@ -766,10 +810,9 @@ export async function getRecordings(options: GetRecordingsOptions = {}): Promise
 
   query += ' ORDER BY start_time ASC';
 
-  if (options.limit) {
-    query += ` LIMIT $${paramIdx++}`;
-    params.push(options.limit);
-  }
+  const limit = options.limit ?? 200;
+  query += ` LIMIT $${paramIdx++}`;
+  params.push(limit);
 
   if (options.offset) {
     query += ` OFFSET $${paramIdx++}`;
@@ -789,17 +832,45 @@ export async function updateRecording(id: number, input: UpdateRecordingInput): 
     setClauses.push(`status = $${paramIdx++}`);
     values.push(input.status);
   }
+  if (input.title !== undefined) {
+    setClauses.push(`title = $${paramIdx++}`);
+    values.push(input.title);
+  }
+  if (input.league !== undefined) {
+    setClauses.push(`league = $${paramIdx++}`);
+    values.push(input.league || null);
+  }
+  if (input.channel_name !== undefined) {
+    setClauses.push(`channel_name = $${paramIdx++}`);
+    values.push(input.channel_name || null);
+  }
+  if (input.stream_id !== undefined) {
+    setClauses.push(`stream_id = $${paramIdx++}`);
+    values.push(input.stream_id);
+  }
+  if (input.sportarr_id !== undefined) {
+    setClauses.push(`sportarr_id = $${paramIdx++}`);
+    values.push(input.sportarr_id || null);
+  }
+  if (input.start_time !== undefined) {
+    setClauses.push(`start_time = $${paramIdx++}`);
+    values.push(input.start_time);
+  }
+  if (input.end_time !== undefined) {
+    setClauses.push(`end_time = $${paramIdx++}`);
+    values.push(input.end_time);
+  }
   if (input.output_path !== undefined) {
     setClauses.push(`output_path = $${paramIdx++}`);
-    values.push(input.output_path);
+    values.push(input.output_path ?? null);
   }
   if (input.file_size_bytes !== undefined) {
     setClauses.push(`file_size_bytes = $${paramIdx++}`);
-    values.push(input.file_size_bytes);
+    values.push(input.file_size_bytes ?? null);
   }
   if (input.error_message !== undefined) {
     setClauses.push(`error_message = $${paramIdx++}`);
-    values.push(input.error_message);
+    values.push(input.error_message ?? null);
   }
   if (input.metadata !== undefined) {
     setClauses.push(`metadata = $${paramIdx++}`);
@@ -826,7 +897,7 @@ export async function getConflicts(): Promise<ConflictPair[]> {
            a.start_time, a.end_time,
            b.start_time AS conflict_start, b.end_time AS conflict_end
     FROM recording_schedules a
-    JOIN recording_schedules b ON b.id != a.id
+    JOIN recording_schedules b ON b.id > a.id
       AND b.start_time < a.end_time
       AND b.end_time > a.start_time
       AND b.status IN ('pending', 'scheduled')

@@ -23,7 +23,7 @@ describe('ConflictPanel', () => {
 
   it('renders conflict count', () => {
     render(<ConflictPanel conflicts={mockConflicts} />);
-    expect(screen.getByText(/1 overlapping recording/)).toBeInTheDocument();
+    expect(screen.getByText(/1 Recording Conflict/)).toBeInTheDocument();
   });
 
   it('renders conflict titles', () => {
@@ -41,6 +41,6 @@ describe('ConflictPanel', () => {
   it('renders plural for multiple conflicts', () => {
     const multipleConflicts = [...mockConflicts, ...mockConflicts];
     render(<ConflictPanel conflicts={multipleConflicts} />);
-    expect(screen.getByText(/2 overlapping recordings/)).toBeInTheDocument();
+    expect(screen.getByText(/2 Recording Conflicts/)).toBeInTheDocument();
   });
 });

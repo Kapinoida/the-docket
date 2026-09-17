@@ -8,13 +8,8 @@ export default function EmptyState() {
       </div>
       <h3 className="mt-4 text-lg font-medium text-text-primary">No recordings scheduled</h3>
       <p className="mt-2 text-sm text-text-muted">
-        Recordings will appear here when scheduled by the fixture scheduler or manually added.
+        Recordings will appear here when scheduled by Sportarr or added manually.
       </p>
-      <div className="mt-6">
-        <p className="text-xs text-text-muted">
-          Check the Hermes scripts to ensure recordings are being scheduled correctly.
-        </p>
-      </div>
     </div>
   );
 }
