@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { regular, recurring } = await getCalendarEvents(start as string, end as string);
 
-    const results = regular.map(e => ({ ...e, id: e.uid }));
+    const results = regular.map(e => ({ ...e, id: e.uid, calendar_id: e.calendar_id }));
 
     for (const event of recurring) {
         try {
