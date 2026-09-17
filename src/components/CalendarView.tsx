@@ -597,12 +597,19 @@ function DayView({ day, events, tasks, onEventClick, onEventMoved, onTaskToggle,
 
   const { showToast } = useToast();
 
-  // Filter events for this day
+  // Filter events for this day (including multi-day events that overlap this day)
   const dayEvents = events.filter(e => {
-    const eventDate = isTrulyAllDay(e)
+    const eventStart = isTrulyAllDay(e)
       ? (parseLocalDateNode(e.start_time) as Date)
       : new Date(e.start_time);
-    return isSameDay(eventDate, day);
+    const eventEnd = new Date(e.end_time);
+    const dayStart = new Date(day);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(day);
+    dayEnd.setHours(23, 59, 59, 999);
+    
+    // Event overlaps this day if it starts before day ends AND ends after day starts
+    return eventEnd > dayStart && eventStart <= dayEnd;
   });
 
   const allDayEvents = dayEvents.filter(e => isTrulyAllDay(e));
@@ -945,10 +952,21 @@ body: JSON.stringify({
 
         {/* Event blocks */}
         {timedEvents.map(event => {
-          const start = new Date(event.start_time);
-          const end = new Date(event.end_time);
-          const startMinutes = start.getHours() * 60 + start.getMinutes();
-          const endMinutes = end.getHours() * 60 + end.getMinutes();
+          const eventStart = new Date(event.start_time);
+          const eventEnd = new Date(event.end_time);
+          
+          // Clip to current day boundaries for multi-day events
+          const dayStartMinutes = 0;
+          const dayEndMinutes = 24 * 60;
+          const clippedStart = isSameDay(eventStart, day) 
+            ? eventStart 
+            : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0);
+          const clippedEnd = isSameDay(eventEnd, day)
+            ? eventEnd
+            : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
+          
+          const startMinutes = clippedStart.getHours() * 60 + clippedStart.getMinutes();
+          const endMinutes = clippedEnd.getHours() * 60 + clippedEnd.getMinutes() + (clippedEnd.getSeconds() > 0 ? 1 : 0);
           const durationMinutes = Math.max(endMinutes - startMinutes, 15);
           const top = minutesToGridY(startMinutes);
           const height = (durationMinutes / 60) * HOUR_HEIGHT;
@@ -956,6 +974,9 @@ body: JSON.stringify({
           const layout = itemLayouts.get(`evt-${event.id}`) ?? { column: 0, total: 1 };
           const leftOffset = `calc(${LEFT_GUTTER}px + ${layout.column} * ((100% - ${LEFT_GUTTER}px) / ${layout.total}))`;
           const colWidth = `calc((100% - ${LEFT_GUTTER}px - ${COLUMN_GAP * (layout.total - 1)}px) / ${layout.total})`;
+          
+          const continuesBefore = !isSameDay(eventStart, day);
+          const continuesAfter = !isSameDay(eventEnd, day);
 
           return (
             <div
@@ -1028,9 +1049,13 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
                 setTimeout(() => onEventMoved?.(), 500);
               }}
               onClick={() => onEventClick?.(event)}
-              className={`absolute z-20 rounded px-2 py-1 border cursor-pointer overflow-hidden transition-shadow ${
+              className={`absolute z-20 px-2 py-1 border cursor-pointer overflow-hidden transition-shadow ${
                 dragEvent?.id === event.id ? 'ring-2 ring-indigo-400' : 'hover:shadow-lg'
-              }`}
+              } ${
+                continuesBefore ? 'rounded-tl-none' : 'rounded-tl'
+              } ${
+                continuesAfter ? 'rounded-br-none' : 'rounded-br'
+              } rounded-tr rounded-bl`}
               style={{
                 top,
                 height,
@@ -1041,10 +1066,16 @@ apiFetch(`/api/v2/calendar/events/${event.id}`, {
                 color: colors.color,
               }}
             >
+              {continuesBefore && (
+                <div className="absolute top-0 left-0 w-3 h-3 bg-current opacity-30" style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
+              )}
+              {continuesAfter && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-current opacity-30" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
+              )}
               <div className="text-xs font-medium truncate leading-tight">{event.title}</div>
               {height > 40 && (
                 <div className="text-[10px] opacity-75 leading-tight mt-0.5">
-                  {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
+                  {format(clippedStart, 'h:mm a')} – {format(clippedEnd, 'h:mm a')}
                 </div>
               )}
             </div>
