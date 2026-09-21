@@ -375,10 +375,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #624)
   *Completed: 2026-09-17*
 
-- [ ] **App icon redesign** 🔴
-  *The current icon (white clipboard + green checkmark on navy blue) has been the same since initial PWA setup. It's clean but generic — every Docket/app icon in Dave's launcher is some variation of a clipboard with a checkmark. Time for something distinct. The icon should reflect a dark-mode native aesthetic (the app is dark-only, `bg-gray-950`) and feel like it belongs on a home screen next to Things, Fantastical, and Obsidian — not like a stock placeholder.*
-  **Status:** 🔴 Not Started
+- [x] **App icon redesign** 🟢
+  *Replaced generic clipboard+checkmark with a distinctive geometric "D" glyph. Dark navy gradient background (#1e293b → #0f172a), blue accent stroke (#3b82f6 → #2563eb), small green dot for task/completion association. Works at all sizes (16px to 512px). Updated manifest theme_color and background_color to #030712 (dark-only app).*
+  **Status:**  Complete
   **Reported:** 2026-07-13 (via Hermes, from Dave)
+  *Completed: 2026-09-21*
 
   **What needs to happen:**
   - **a) New icon design** — Create a new icon that's distinct from the clipboard+checkmark trope. The Docket is a dark-mode task+notes+calendar app. The icon should feel premium, minimal, and recognizable at app-icon sizes (not just a smaller version of a detailed illustration). Consider glyphs that suggest planning, time, or structured thought — not just a checklist.
