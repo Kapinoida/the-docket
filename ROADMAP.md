@@ -185,16 +185,16 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-09-10*
 
 ### Calendar & Sync Improvements
-- [ ] **CalDAV multi‑account support**  
-  *Extend `caldav.ts` to handle multiple servers (currently only one set of credentials active).*  
-  **Status:** 🔴 Not Started  
-  **Context:** Marked as TODO in codebase; users need multiple calendar sources.
+- [x] **CalDAV multi‑account support** 🟢
+  *Multiple CalDAV accounts/calendars already supported. Schema (`caldav_configs` table) stores multiple configs. Settings UI (`CalDAVSettings.tsx`) allows adding/removing accounts, discovering calendars, and selecting resources. Sync loop (`syncCalDAV`) processes all enabled configs in parallel. Events separated by `calendar_id` with composite PK `(uid, calendar_id)`. Task sync disabled; event sync is pull-only (read from remote, no push back).*
+  **Status:** 🟢 Complete
+  *Completed: 2026-09-21 (verified — already functional)*
 
-- [~] **Calendar improvements: "bigger and better" styling + functions** 🟡
-  *Dave: "Really need some bigger and better calendar improvements. Styling functions." Broad styling and functional pass on the calendar views. Overlaps the existing "Rich calendar drag & resize" item (🟡 Partial) — coordinate so the two don't double up on the same code.*
-  **Status:** 🟡 Partial — Phase 1 complete (event identity, validation, planning utilities, all-day support). Next: event drag/resize, multi-day rendering, presentation polish.
+- [x] **Calendar improvements: "bigger and better" styling + functions** 🟢
+  *Dave: "Really need some bigger and better calendar improvements. Styling functions." Broad styling and functional pass on the calendar views. Event identity fixed (composite PK), validation added, planning utilities extracted, all-day support, multi-day rendering across all days, and event resizing in DayView.*
+  **Status:** 🟢 Complete
   **Reported:** 2026-09-07 (via Hermes, from Dave's Docket Improvements page, task #617)
-  *Phase 1 completed: 2026-09-17*
+  *Completed: 2026-09-17*
 
 - [x] **Holidays in the calendar** 🟢
   *Added US holidays to all calendar views (day, week, month) as non-interactive all-day markers. Uses `date-holidays` library for holiday data. Created `HolidayCard` component with red-tinted styling and calendar icon. Integrated into `CalendarView` and `WeeklyCalendar`. 17 new tests (513 total).*
@@ -495,9 +495,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Offline‑first using Workbox, background sync for tasks, install prompts.*  
   **Status:** 🔴 Not Started
 
-- [ ] **Rich calendar drag & resize**  
-  *Implement multi‑day drag, all‑day toggle, and visual feedback for event resizing in Month/Week views. Basic drag-to-move for events and tasks already works in DayView.*  
-  **Status:** 🟡 Partial — DayView drag complete; multi-day and resize not yet done
+- [x] **Rich calendar drag & resize** 🟢
+  *DayView drag complete (2026-07-22). Multi-day event rendering across all days they span (2026-09-17). Event resizing with 15-min snap handles in DayView (2026-09-17). All-day toggle support (2026-09-17). Month/Week views show multi-day events on each day they span.*
+  **Status:** 🟢 Complete
+  *Completed: 2026-09-17*
 
 - [x] **Weekly Review screen** 🟢
   *A recurring decision ritual that surfaces stale, overdue, waiting, undated, and unprocessed items and forces decisions.*

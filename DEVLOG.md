@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-21] – Roadmap corrections: CalDAV multi-account and calendar drag/resize
+- **What changed:**
+  Updated ROADMAP.md to reflect actual implementation status. (1) CalDAV multi-account support marked complete — schema already supports multiple configs, UI allows adding/removing accounts, sync processes all enabled configs in parallel. (2) Calendar improvements "bigger and better" marked complete — event identity, validation, planning utilities, all-day support, multi-day rendering, and event resizing all shipped 2026-09-17. (3) Rich calendar drag & resize marked complete — DayView drag shipped 2026-07-22, multi-day rendering and event resizing shipped 2026-09-17.
+- **Why:**
+  Roadmap items were stale and did not reflect completed work. CalDAV multi-account was marked "Not Started" but already functional. Calendar drag/resize items were marked "Partial" but all features shipped. Accurate roadmap prevents redundant work and clarifies what remains.
+- **Affected areas:** `ROADMAP.md` (3 items updated).
+- **Migration needed?** No.
+- **Testing:** N/A (documentation only).
+
+---
+
 ## [2026-09-21] – Fix BUG-017: Focus timer fog overlay too bright
 - **What changed:**
   Simplified and reduced the fog overlay opacity in the Focus visualizer canvas. Removed the light-mode branch (app is dark-only). Reduced the outer fade from 0.8 to 0.5 opacity at 20% radius for a more subtle transition. The fog overlay (used in hex, ascent, orbit, rain, snow, and constellation modes) now provides subtle obscuring without creating a harsh glow around the timer controls. Added 3 focused component tests.
