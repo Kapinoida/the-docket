@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Fix BUG-017: Focus timer fog overlay too bright** 🟢
+  Simplified fog overlay in Focus visualizer canvas. Removed light-mode branch (app is dark-only). Reduced outer fade opacity from 0.8 to 0.5 for more subtle glow around timer controls. 3 new tests.
+  *Completed: 2026-09-21*
+
 - [x] **Dashboard overhaul round 2** 🟢
   Removed Recent Notes section per Dave's request. Added loading skeleton for initial load state. Added "Updating..." indicator for background sync. Made overdue task previews and Today commitment rows clickable to open task editor. Added Quick Actions section with Process Inbox, Today, Weekly Review, and All Tasks buttons. Improved accessibility with aria-labels and focus-visible rings on all interactive elements. 6 new tests (435 total).
   *Completed: 2026-09-08*

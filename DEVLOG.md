@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-21] – Fix BUG-017: Focus timer fog overlay too bright
+- **What changed:**
+  Simplified and reduced the fog overlay opacity in the Focus visualizer canvas. Removed the light-mode branch (app is dark-only). Reduced the outer fade from 0.8 to 0.5 opacity at 20% radius for a more subtle transition. The fog overlay (used in hex, ascent, orbit, rain, snow, and constellation modes) now provides subtle obscuring without creating a harsh glow around the timer controls. Added 3 focused component tests.
+- **Why:**
+  The fog overlay was too opaque in the outer region, creating a visible glow around the controls. The app is dark-only, so the light-mode branch was unnecessary. Reducing the outer opacity makes the fog more subtle while still obscuring visualization elements near the controls.
+- **Affected areas:** `src/components/focus/FocusVisualizer.tsx` (fog overlay opacity, removed light-mode branch), `src/components/focus/__tests__/TimerControls.test.tsx` (new).
+- **Migration needed?** No.
+- **Testing:** 3 new TimerControls tests pass. TypeScript clean. No new lint errors.
+
+---
+
 ## [2026-09-17] – Calendar improvements: multi-day rendering and event resizing
 - **What changed:**
   **Multi-day event rendering:** (1) DayView now shows multi-day events on each day they span, not just their start day. (2) Events are clipped to day boundaries with visual continuation indicators (corner triangles) showing when they extend before/after the current day. (3) Time display shows clipped times for continuation days.
