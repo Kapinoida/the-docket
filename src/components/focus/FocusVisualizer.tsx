@@ -1061,32 +1061,20 @@ export default function FocusVisualizer({ state, timeLeft, totalDuration, mode }
            stars.forEach(star => star.draw(ctx, r, g, b));
        }
 
-       // --- Common Elements (Fog Overlay) ---
-       // Draw a radial gradient fog to obscure elements near text/semicircle
-       if (currentMode === 'hex' || currentMode === 'ascent' || currentMode === 'orbit' || currentMode === 'rain' || currentMode === 'snow' || currentMode === 'constellation') {
-           const fogRadius = 300;
-           const fog = ctx.createRadialGradient(cx, cy, 180, cx, cy, fogRadius);
-           
-           if (isDark) {
-               // Dark Mode: Matches bg-gray-900 (#111827)
-               fog.addColorStop(0, 'rgba(17, 24, 39, 1)'); // Opaque at center
-               fog.addColorStop(0.2, 'rgba(17, 24, 39, 0.8)');
-               fog.addColorStop(1, 'rgba(17, 24, 39, 0)'); // Transparent at edge
-           } else {
-               // Light Mode: Matches bg-gray-50 (#f9fafb) or white
-               // Using the exact background color from globals.css or tailwind config usually bg-gray-50 or white
-               // Assuming bg-primary is often white in light mode or very light gray.
-               // Let's use 255,255,255 for safety or match the typical light bg.
-               // If bg-primary is var(--bg-primary), we can't easily access it in canvas without getComputedStyle.
-               // For now, assuming white (255,255,255) effectively masks.
-               fog.addColorStop(0, 'rgba(255, 255, 255, 1)'); 
-               fog.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
-               fog.addColorStop(1, 'rgba(255, 255, 255, 0)'); 
-           }
-           
-           ctx.fillStyle = fog;
-           ctx.fillRect(0, 0, canvas.width, canvas.height);
-       }
+        // --- Common Elements (Fog Overlay) ---
+        // Draw a radial gradient fog to obscure elements near text/semicircle
+        if (currentMode === 'hex' || currentMode === 'ascent' || currentMode === 'orbit' || currentMode === 'rain' || currentMode === 'snow' || currentMode === 'constellation') {
+            const fogRadius = 300;
+            const fog = ctx.createRadialGradient(cx, cy, 180, cx, cy, fogRadius);
+            
+            // Dark mode only (app is dark-only)
+            fog.addColorStop(0, 'rgba(17, 24, 39, 1)');
+            fog.addColorStop(0.2, 'rgba(17, 24, 39, 0.5)');
+            fog.addColorStop(1, 'rgba(17, 24, 39, 0)');
+            
+            ctx.fillStyle = fog;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         // --- Common Elements (Progress Arc) ---
         // cx, cy reused
