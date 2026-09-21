@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-09-21] – App icon redesign
+- **What changed:**
+  Replaced generic clipboard+checkmark icon with a distinctive geometric "D" glyph. New design: dark navy gradient background (#1e293b → #0f172a), blue accent stroke (#3b82f6 → #2563eb) forming a stylized "D", small green dot (#22c55e) for task/completion association. Generated all required sizes (512, 192, 180, 64px) from SVG source. Updated manifest.json theme_color and background_color from #2563eb/#ffffff to #030712 (matches dark-only app).
+- **Why:**
+  The old icon (clipboard + checkmark) was generic and indistinguishable from other productivity apps. The new design is distinctive, works at small sizes, and reflects the app's dark-mode aesthetic.
+- **Affected areas:** `public/icon-512.png`, `public/icon-192.png`, `public/apple-touch-icon.png`, `public/favicon.png`, `src/app/favicon.ico` (all replaced), `public/manifest.json` (theme_color, background_color).
+- **Migration needed?** No.
+- **Testing:** N/A (visual asset).
+
+---
+
 ## [2026-09-21] – Roadmap corrections: CalDAV multi-account and calendar drag/resize
 - **What changed:**
   Updated ROADMAP.md to reflect actual implementation status. (1) CalDAV multi-account support marked complete — schema already supports multiple configs, UI allows adding/removing accounts, sync processes all enabled configs in parallel. (2) Calendar improvements "bigger and better" marked complete — event identity, validation, planning utilities, all-day support, multi-day rendering, and event resizing all shipped 2026-09-17. (3) Rich calendar drag & resize marked complete — DayView drag shipped 2026-07-22, multi-day rendering and event resizing shipped 2026-09-17.
