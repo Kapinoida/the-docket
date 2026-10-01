@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-01] – Fix media tracker migration: missing source links and TV completion bug
+- **What changed:**
+  Fixed two critical bugs in the media tracker migration. (1) Added 59 missing Audiobookshelf source links to `media_item_sources` table. The migration importer used `ON CONFLICT DO NOTHING` which silently skipped some source links, causing 59 items to be hidden from the UI (878 visible instead of 937). (2) Fixed Sonarr sync treating `hasFile` (downloaded) as watched state. Removed the logic that set `watched_at` and `progress = 1.0` for downloaded episodes in `src/app/api/v2/media/sync/route.ts:78-102`. Cleared 1996 incorrectly set episode watched_at values. (3) Reset database sequences (`sync_log_id_seq`, `media_item_sources_id_seq`, `media_items_id_seq`, `episodes_id_seq`) to prevent "duplicate key value violates unique constraint" errors during syncs.
+- **Why:**
+  The media tracker migration from standalone SQLite to PostgreSQL had three issues: (1) The import script silently skipped some source links due to conflicts, hiding 59 Audiobookshelf items. (2) The Sonarr sync incorrectly treated downloaded episodes as watched, causing TV shows to appear completed when they were only downloaded. (3) Database sequences were out of sync after the import, causing sync failures. These fixes restore the correct item count (937), fix TV show status calculation, and prevent future sync errors.
+- **Affected areas:** `src/app/api/v2/media/sync/route.ts` (removed hasFile → watched_at logic), `media_item_sources` table (59 rows inserted), `episodes` table (1996 rows updated to clear watched_at), database sequences (4 sequences reset).
+- **Migration needed?** No (database changes applied directly, no schema migration).
+- **Testing:** All 569 tests pass. TypeScript clean. No new lint errors. Verified counts: 938 media_items, 937 active_visible, 938 source_links, 268 Audiobookshelf, 585 Radarr, 84 Sonarr, 1 TMDB.
+
+---
+
 ## [2026-09-21] – App icon redesign
 - **What changed:**
   Replaced generic clipboard+checkmark icon with a distinctive geometric "D" glyph. New design: dark navy gradient background (#1e293b → #0f172a), blue accent stroke (#3b82f6 → #2563eb) forming a stylized "D", small green dot (#22c55e) for task/completion association. Generated all required sizes (512, 192, 180, 64px) from SVG source. Updated manifest.json theme_color and background_color from #2563eb/#ffffff to #030712 (matches dark-only app).
