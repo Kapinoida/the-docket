@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Fix media tracker migration: missing source links and TV completion bug** 🟢
+  Fixed three critical bugs in media tracker migration. Added 59 missing Audiobookshelf source links (UI now shows 937 items, matching standalone). Fixed Sonarr sync treating hasFile as watched state (removed logic setting watched_at from hasFile). Cleared 1996 incorrectly set episode watched_at values. Reset database sequences to prevent sync conflicts. TV shows now correctly show as "owned" until watched via Plex.
+  *Completed: 2026-10-01*
+
 - [x] **Fix BUG-017: Focus timer fog overlay too bright** 🟢
   Simplified fog overlay in Focus visualizer canvas. Removed light-mode branch (app is dark-only). Reduced outer fade opacity from 0.8 to 0.5 for more subtle glow around timer controls. 3 new tests.
   *Completed: 2026-09-21*
