@@ -213,7 +213,7 @@ class AudiobookshelfClient {
           year: metadata.publishedYear ? parseInt(metadata.publishedYear, 10) : null,
           genres: metadata.genres || [],
           duration_seconds: item.media.duration || null,
-          image_url: `/api/covers/${item.id}`,
+          image_url: `/api/v2/media/covers/${item.id}`,
           description: metadata.description || null,
           external_source: 'audiobookshelf' as const,
           external_id: item.id,

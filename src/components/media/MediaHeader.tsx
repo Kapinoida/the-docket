@@ -11,7 +11,7 @@ export default function MediaHeader() {
     if (path === '/media') {
       return pathname === '/media';
     }
-    return pathname.startsWith(path);
+    return pathname?.startsWith(path) ?? false;
   };
 
   return (
