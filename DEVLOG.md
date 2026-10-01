@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-01] – Fix Plex sync, cover URLs, and media service connectivity
+- **What changed:**
+  (1) Added `await` to `addPlexHistory()` calls in both Plex sync routes — was fire-and-forget, causing history entries to not persist. (2) Fixed audiobook cover URLs from `/api/covers/` to `/api/v2/media/covers/` in database (268 rows) and in `audiobookshelf.ts` sync code. (3) Added media service environment variables (ABS_URL, RADARR_URL, SONARR_URL, PLEX_URL, TMDB_API_KEY, and API keys) to `.env.local` using `host.docker.internal` for Docker container networking. (4) Added unique index `idx_plex_history_unique` on `plex_history(plex_key, watched_at)` to support upsert. (5) Fixed `pathname` possibly null TypeScript errors in MediaHeader and Sidebar components.
+- **Why:**
+  Plex sync was not persisting history or linking episodes because `addPlexHistory` was not awaited. Cover images returned 404 because the stored URLs used the old path `/api/covers/` but the route is at `/api/v2/media/covers/`. Media services (Audiobookshelf, Plex, Radarr, Sonarr) were unreachable from Docker because the container used `localhost` instead of `host.docker.internal`. The plex_history table lacked a unique constraint needed for the upsert.
+- **Affected areas:** `src/app/api/v2/media/sync/plex/route.ts`, `src/app/api/v2/media/sync/route.ts`, `src/media/lib/audiobookshelf.ts`, `src/media/components/MediaHeader.tsx`, `src/components/media/MediaHeader.tsx`, `src/components/v2/Sidebar.tsx`, `src/migrations/012_media_tracker.sql`, `.env.local`, `plex_history` table (unique index added), `media_items` table (268 image_url rows updated).
+- **Migration needed?** No (index added directly, URLs updated directly).
+- **Testing:** 569 tests pass. TypeScript clean. Plex sync now persists 691 history entries, links 14 episodes and 8 movies. Covers return 200.
+
+---
+
 ## [2026-10-01] – Fix media tracker migration: missing source links and TV completion bug
 - **What changed:**
   Fixed two critical bugs in the media tracker migration. (1) Added 59 missing Audiobookshelf source links to `media_item_sources` table. The migration importer used `ON CONFLICT DO NOTHING` which silently skipped some source links, causing 59 items to be hidden from the UI (878 visible instead of 937). (2) Fixed Sonarr sync treating `hasFile` (downloaded) as watched state. Removed the logic that set `watched_at` and `progress = 1.0` for downloaded episodes in `src/app/api/v2/media/sync/route.ts:78-102`. Cleared 1996 incorrectly set episode watched_at values. (3) Reset database sequences (`sync_log_id_seq`, `media_item_sources_id_seq`, `media_items_id_seq`, `episodes_id_seq`) to prevent "duplicate key value violates unique constraint" errors during syncs.

@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS plex_history (
 
 CREATE INDEX IF NOT EXISTS idx_plex_history_media ON plex_history(media_item_id);
 CREATE INDEX IF NOT EXISTS idx_plex_history_watched ON plex_history(watched_at DESC);
-CREATE INDEX IF NOT EXISTS idx_plex_history_key ON plex_history(plex_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plex_history_unique ON plex_history(plex_key, watched_at);
 
 -- 6. Planning queue table (Up Next)
 CREATE TABLE IF NOT EXISTS planning_queue (
