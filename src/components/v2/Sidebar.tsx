@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Calendar, Trash2, ListTodo, Timer, Settings, Hash, Radio, ClipboardCheck, RadioTower } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Calendar, Trash2, ListTodo, Timer, Settings, Hash, Radio, ClipboardCheck, RadioTower, Film } from 'lucide-react';
 import { Page } from '../../types';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -317,6 +317,7 @@ export default function Sidebar() {
             <NavItem href="/review" icon={ClipboardCheck} label="Review" active={pathname === '/review'} />
             <NavItem href="/radio" icon={RadioTower} label="Radio" active={pathname === '/radio'} />
             <NavItem href="/recordings" icon={Radio} label="Recordings" active={pathname === '/recordings'} />
+            <NavItem href="/media" icon={Film} label="Media Library" active={pathname.startsWith('/media') || pathname === '/up-next'} />
         </div>
 
         {/* Favorites */}
