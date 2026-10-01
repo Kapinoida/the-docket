@@ -16,7 +16,7 @@ export default function MediaHeader() {
   return (
     <nav className="media-header">
       {links.map(({ href, label, icon: Icon, match }) => {
-        const isActive = pathname === match || (match !== '/media' && pathname.startsWith(match));
+        const isActive = pathname === match || (match !== '/media' && pathname?.startsWith(match));
         return (
           <Link
             key={href}

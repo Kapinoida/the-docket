@@ -116,7 +116,7 @@ export async function POST() {
       let moviesLinked = 0;
       
       for (const entry of plexResult.history) {
-        addPlexHistory({
+        await addPlexHistory({
           plex_key: entry.plexKey,
           watched_at: entry.watchedAt,
           duration_seconds: entry.durationSeconds,

@@ -28,7 +28,7 @@ export async function POST() {
 
     for (const entry of syncResult.history) {
       // Add to Plex history
-      addPlexHistory({
+      await addPlexHistory({
         plex_key: entry.plexKey,
         watched_at: entry.watchedAt,
         duration_seconds: entry.durationSeconds,

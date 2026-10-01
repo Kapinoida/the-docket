@@ -317,7 +317,7 @@ export default function Sidebar() {
             <NavItem href="/review" icon={ClipboardCheck} label="Review" active={pathname === '/review'} />
             <NavItem href="/radio" icon={RadioTower} label="Radio" active={pathname === '/radio'} />
             <NavItem href="/recordings" icon={Radio} label="Recordings" active={pathname === '/recordings'} />
-            <NavItem href="/media" icon={Film} label="Media Library" active={pathname.startsWith('/media') || pathname === '/up-next'} />
+            <NavItem href="/media" icon={Film} label="Media Library" active={pathname?.startsWith('/media') || pathname === '/up-next'} />
         </div>
 
         {/* Favorites */}
