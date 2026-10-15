@@ -1,10 +1,10 @@
 import { createMocks } from 'node-mocks-http';
-import handler from '../tasks';
-import { createTask, getTask, getTasks, updateTask, deleteTask, deleteCompletedTasks, addItemToPage, createTombstone, deleteTaskReferences } from '../../../../lib/db';
-import pool from '../../../../lib/db';
+import handler from '@/pages/api/v2/tasks';
+import { createTask, getTask, getTasks, updateTask, deleteTask, deleteCompletedTasks, addItemToPage, createTombstone, deleteTaskReferences } from '@/lib/db';
+import pool from '@/lib/db';
 
-jest.mock('../../../../lib/db', () => {
-    const originalModule = jest.requireActual('../../../../lib/db');
+jest.mock('@/lib/db', () => {
+    const originalModule = jest.requireActual('@/lib/db');
     return {
         __esModule: true,
         default: {

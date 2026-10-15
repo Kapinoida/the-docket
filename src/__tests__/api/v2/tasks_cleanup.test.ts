@@ -1,8 +1,8 @@
 import { createMocks } from 'node-mocks-http';
-import handler from '../tasks';
-import { deleteTask, deleteCompletedTasks } from '../../../../lib/db';
+import handler from '@/pages/api/v2/tasks';
+import { deleteTask, deleteCompletedTasks } from '@/lib/db';
 
-jest.mock('../../../../lib/db', () => {
+jest.mock('@/lib/db', () => {
     return {
         __esModule: true,
         default: {

@@ -1,4 +1,4 @@
-import handler from '../[id]';
+import handler from '@/pages/api/v2/recordings/[id]';
 import { createMocks } from 'node-mocks-http';
 import { getRecording, updateRecording, deleteRecording } from '@/lib/db';
 

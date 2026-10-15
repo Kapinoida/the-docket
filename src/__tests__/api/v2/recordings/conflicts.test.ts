@@ -1,4 +1,4 @@
-import handler from '../conflicts';
+import handler from '@/pages/api/v2/recordings/conflicts';
 import { createMocks } from 'node-mocks-http';
 import { getConflicts } from '@/lib/db';
 

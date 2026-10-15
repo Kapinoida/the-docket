@@ -66,6 +66,54 @@ Media tracker showed 878 items instead of 937 (matching standalone). TV shows ap
 
 ---
 
+## BUG-020 — TypeScript build failure: test files under `src/pages/api/` treated as route modules
+
+**Status:** ✅ Fixed  
+**Reported:** 2026-10-15  
+**Area:** Build, TypeScript, `src/pages/api/**/__tests__/`
+
+### User-visible symptom
+
+`npx tsc --noEmit` failed with 9 TypeScript errors. Next.js Pages Router auto-discovered Jest test files placed in `__tests__` directories under `src/pages/api/` and treated them as route handlers. The tests don't export a `default` handler function, so the generated validator rejected them.
+
+### Investigation
+
+1. Next.js Pages Router auto-discovers route modules by scanning `src/pages/api/**/*.ts`. Jest test files placed in `__tests__` directories under that tree were picked up as route handlers.
+2. The tests themselves passed fine (`npm test` — 40 suites, 569 tests, all passing). This was purely a type-checking/build-time issue.
+3. This blocked `npx tsc --noEmit` as a pre-commit/CI gate.
+
+### Implementation
+
+Moved all test files from `src/pages/api/**/__tests__/` to `src/__tests__/api/` to remove them from the Pages Router tree:
+
+1. Created new test directory structure: `src/__tests__/api/v2/`, `src/__tests__/api/v2/decisions/`, `src/__tests__/api/v2/recordings/`
+2. Moved 8 test files:
+   - `src/pages/api/v2/__tests__/tasks.test.ts` → `src/__tests__/api/v2/tasks.test.ts`
+   - `src/pages/api/v2/__tests__/tasks_cleanup.test.ts` → `src/__tests__/api/v2/tasks_cleanup.test.ts`
+   - `src/pages/api/v2/__tests__/weekly-review.test.ts` → `src/__tests__/api/v2/weekly-review.test.ts`
+   - `src/pages/api/v2/decisions/__tests__/create-task.test.ts` → `src/__tests__/api/v2/decisions/create-task.test.ts`
+   - `src/pages/api/v2/decisions/__tests__/index.test.ts` → `src/__tests__/api/v2/decisions/index.test.ts`
+   - `src/pages/api/v2/recordings/__tests__/[id].test.ts` → `src/__tests__/api/v2/recordings/[id].test.ts`
+   - `src/pages/api/v2/recordings/__tests__/conflicts.test.ts` → `src/__tests__/api/v2/recordings/conflicts.test.ts`
+   - `src/pages/api/v2/recordings/__tests__/index.test.ts` → `src/__tests__/api/v2/recordings/index.test.ts`
+3. Updated relative imports to use `@/` prefix paths (e.g., `'../../../../lib/db'` → `'@/lib/db'`)
+4. Deleted old `__tests__` directories from `src/pages/api/`
+5. Cleared `.next` cache to remove stale validator references
+
+### Acceptance criteria
+
+- [x] `npx tsc --noEmit` returns 0 errors
+- [x] `npm test` still passes (569 tests)
+- [x] No functional changes to API route behavior
+- [x] Test files use `@/` prefix imports for consistency
+
+### Fixed files
+
+- Moved 8 test files from `src/pages/api/**/__tests__/` to `src/__tests__/api/`
+- Updated imports in moved files to use `@/` prefix paths
+
+---
+
 ## BUG-019 — Production database backup committed to source control with plaintext secrets
 
 **Status:** ✅ Fixed  

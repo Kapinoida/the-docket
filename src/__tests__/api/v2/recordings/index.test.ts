@@ -1,4 +1,4 @@
-import handler from '../index';
+import handler from '@/pages/api/v2/recordings/index';
 import { createMocks } from 'node-mocks-http';
 import { getRecordings, createRecording, upsertRecordingBySportarrId } from '@/lib/db';
 

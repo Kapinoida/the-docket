@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-15] – Fix TypeScript build failure: Move API test files out of Pages Router tree (BUG-020)
+- **What changed:**
+  Moved 8 Jest test files from `src/pages/api/**/__tests__/` to `src/__tests__/api/` to prevent Next.js Pages Router from treating them as route handlers. Updated all imports to use `@/` prefix paths instead of relative paths. Deleted old `__tests__` directories and cleared `.next` cache.
+- **Why:**
+  Next.js Pages Router auto-discovered test files in `src/pages/api/` and treated them as route modules. The tests don't export a `default` handler function, causing `npx tsc --noEmit` to fail with 9 TypeScript errors. This blocked the TypeScript check as a pre-commit/CI gate.
+- **Affected areas:** Test file locations (moved), test imports (updated to `@/` prefix), `.next` cache (cleared).
+- **Migration needed?** No.
+- **Testing:** All 569 tests pass. `npx tsc --noEmit` returns 0 errors.
+
+---
+
 ## [2026-10-15] – Security: Remove database backup from Git history (BUG-019)
 - **What changed:**
   Removed production database backup files containing plaintext credentials and private data from Git history. Added gitignore patterns to prevent future accidental commits. Used `git-filter-repo` to remove `the_docket_backup.sql` and `schema.v1_backup.sql` from all historical commits. Rewrote repository history and force-pushed to origin.
