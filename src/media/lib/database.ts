@@ -1,16 +1,4 @@
-import { Pool } from 'pg';
-
-// Use the shared Docket database pool
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5433'),
-  database: process.env.DB_NAME || 'the_docket',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+import pool from '@/lib/db';
 
 export interface MediaItemRow {
   id: number;
@@ -1087,4 +1075,13 @@ export async function addPlexHistory(history: {
     history.progress || null,
     JSON.stringify(history.metadata || {}),
   ]);
+}
+
+export async function tryAcquireSyncLock(): Promise<boolean> {
+  const result = await pool.query('SELECT pg_try_advisory_lock(12345) as locked');
+  return result.rows[0].locked;
+}
+
+export async function releaseSyncLock(): Promise<void> {
+  await pool.query('SELECT pg_advisory_unlock(12345)');
 }

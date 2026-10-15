@@ -1,11 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuthAppRouter, AuthError } from '@/lib/apiAuth';
 import { createABSClient } from '@/media/lib/audiobookshelf';
 import { createRadarrClient } from '@/media/lib/radarr';
 import { createSonarrClient } from '@/media/lib/sonarr';
 import { createPlexClient } from '@/media/lib/plex';
-import { upsertMediaItem, getStats, startSyncLog, completeSyncLog, markDeletedItems, upsertEpisode, addPlexHistory, findMediaItemByImdbId, findMediaItemByTmdbId, findMediaItemByTvdbId, findTvSeriesByTitle, findEpisodeByNumbers, markEpisodeWatched, updateMediaItem } from '@/media/lib/database';
+import { upsertMediaItem, getStats, startSyncLog, completeSyncLog, markDeletedItems, upsertEpisode, addPlexHistory, findMediaItemByImdbId, findMediaItemByTmdbId, findMediaItemByTvdbId, findTvSeriesByTitle, findEpisodeByNumbers, markEpisodeWatched, updateMediaItem, tryAcquireSyncLock, releaseSyncLock } from '@/media/lib/database';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  try {
+    await requireAuthAppRouter(request);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    throw error;
+  }
+
+  const lockAcquired = await tryAcquireSyncLock();
+  if (!lockAcquired) {
+    return NextResponse.json(
+      { error: 'Sync already in progress' },
+      { status: 409 }
+    );
+  }
+
   try {
     const results = {
       audiobookshelf: { success: false, upserted: 0, created: 0, updated: 0, deleted: 0, error: null as string | null },
@@ -200,5 +218,7 @@ export async function POST() {
       },
       { status: 500 }
     );
+  } finally {
+    await releaseSyncLock();
   }
 }

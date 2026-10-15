@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-15] – Media sync security hardening: concurrency guard, explicit auth, pool unification (BUG-021)
+- **What changed:**
+  Added PostgreSQL advisory lock to prevent concurrent media sync requests. Added explicit JWT authentication to all App Router media routes. Unified database pool by removing duplicate pool from `src/media/lib/database.ts` (now imports from `src/lib/db.ts`). Removed redundant double-await in `src/app/api/v2/media/route.ts`.
+- **Why:**
+  Media sync route had no concurrency guard, allowing multiple simultaneous syncs that could cause database write contention and redundant upstream API calls. Media API routes relied solely on middleware for authentication, creating a single point of failure if middleware matcher regressed. Duplicate database pool wasted connections. Double-await was harmless but indicated code review gap.
+- **Affected areas:** `src/media/lib/database.ts` (pool unification, advisory lock functions), `src/lib/apiAuth.ts` (added `requireAuthAppRouter`), `src/app/api/v2/media/sync/route.ts` (concurrency guard + auth), `src/app/api/v2/media/sync/{audiobookshelf,radarr,sonarr,plex}/route.ts` (auth), `src/app/api/v2/media/route.ts` (auth + double-await removal).
+- **Migration needed?** No.
+- **Testing:** All 569 tests pass. TypeScript clean. Concurrent sync requests now return 409 Conflict. Unauthorized requests return 401.
+
+---
+
 ## [2026-10-15] – Fix TypeScript build failure: Move API test files out of Pages Router tree (BUG-020)
 - **What changed:**
   Moved 8 Jest test files from `src/pages/api/**/__tests__/` to `src/__tests__/api/` to prevent Next.js Pages Router from treating them as route handlers. Updated all imports to use `@/` prefix paths instead of relative paths. Deleted old `__tests__` directories and cleared `.next` cache.

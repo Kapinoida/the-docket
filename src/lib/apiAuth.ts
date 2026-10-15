@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 if (!process.env.JWT_SECRET) {
@@ -45,4 +46,22 @@ export function withAuth(
       throw error;
     }
   };
+}
+
+export async function requireAuthAppRouter(req: NextRequest): Promise<void> {
+  const token = req.cookies.get('token')?.value;
+
+  if (!token) {
+    throw new AuthError('No token provided');
+  }
+
+  try {
+    await jwtVerify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'the-docket',
+      audience: 'the-docket',
+    });
+  } catch (error) {
+    throw new AuthError('Invalid or expired token');
+  }
 }

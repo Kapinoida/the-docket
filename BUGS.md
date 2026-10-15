@@ -114,6 +114,46 @@ Moved all test files from `src/pages/api/**/__tests__/` to `src/__tests__/api/` 
 
 ---
 
+## BUG-021 — Media sync route has no concurrency guard and runs synchronously across four remote services
+
+**Status:** ✅ Fixed  
+**Priority:** Medium  
+**Reported:** 2026-10-15  
+**Area:** `src/app/api/v2/media/sync/route.ts`, `src/app/api/v2/media/route.ts`
+
+### User-visible symptom
+
+Calling `POST /api/v2/media/sync` runs Audiobookshelf, Radarr, Sonarr (including per-series episode fetches), and Plex history sequentially in a single request handler. There is no lock, so concurrent invocations (from multiple browser tabs, or from the media page UI being clicked rapidly) all run simultaneously, potentially causing database write contention and redundant upstream API calls. Additionally, media API routes rely solely on middleware for authentication, and there is a duplicate database pool and redundant `await` keywords.
+
+### Investigation (Hermes, 2026-10-15)
+
+1. The sync route at `src/app/api/v2/media/sync/route.ts` has no concurrency guard. It calls all four external services in series in a single POST handler.
+2. The aggregate endpoint is also exposed without explicit authentication (relies on middleware).
+3. `src/app/api/v2/media/route.ts` lines 13, 14, and 73 use `await await` (redundant double-await).
+4. `src/media/lib/database.ts` creates its own `new Pool(...)` despite a comment claiming it uses the shared pool.
+5. Low risk in single-user mode, but risk increases if multiple tabs or automated sync scripts hit the endpoint concurrently.
+
+### Required action (Daedalus)
+
+1. **Concurrency guard**: Use PostgreSQL advisory lock to reject concurrent sync requests with `409 Conflict`.
+2. **Explicit authentication**: Add explicit auth checks to App Router media routes (don't rely solely on middleware).
+3. **Pool unification**: Import pool from `src/lib/db.ts` instead of creating a duplicate.
+4. **Remove double-await**: Clean up redundant `await` keywords.
+5. **Tests**: Add tests for concurrent rejection and authentication.
+
+### Acceptance criteria
+
+- [x] Concurrent `POST /api/v2/media/sync` requests are rejected with `409 Conflict`
+- [x] Single sequential syncs continue to work
+- [x] All media API routes have explicit authentication
+- [x] Duplicate pool removed from `src/media/lib/database.ts`
+- [x] Double-await removed from `src/app/api/v2/media/route.ts`
+- [x] Sync log entries still correctly track started/completed boundaries
+- [x] All existing tests pass
+- [x] TypeScript clean, no new lint errors
+
+---
+
 ## BUG-019 — Production database backup committed to source control with plaintext secrets
 
 **Status:** ✅ Fixed  

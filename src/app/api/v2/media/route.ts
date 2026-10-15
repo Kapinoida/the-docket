@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuthAppRouter, AuthError } from '@/lib/apiAuth';
 import { getAllMedia, updateMediaItem, getStats } from '@/media/lib/database';
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireAuthAppRouter(request);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    throw error;
+  }
+
   const { searchParams } = new URL(request.url);
   
   const filters = {
@@ -10,13 +20,22 @@ export async function GET(request: NextRequest) {
     query: searchParams.get('query') || undefined,
   };
 
-  const items = await await getAllMedia(filters);
-  const stats = await await getStats();
+  const items = await getAllMedia(filters);
+  const stats = await getStats();
 
   return NextResponse.json({ items, stats });
 }
 
 export async function PATCH(request: NextRequest) {
+  try {
+    await requireAuthAppRouter(request);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    throw error;
+  }
+
   try {
     const body = await request.json();
     const { id, ...updates } = body;
@@ -70,7 +89,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const updated = await await updateMediaItem(id, updates);
+    const updated = await updateMediaItem(id, updates);
 
     if (!updated) {
       return NextResponse.json(

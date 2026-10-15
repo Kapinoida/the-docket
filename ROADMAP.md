@@ -177,6 +177,12 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Completed: 2026-09-16*
 
 ### Architectural & Technical Debt
+- [x] **Media sync concurrency guard and security hardening (BUG-021)** 🟢
+  *Added PostgreSQL advisory lock to prevent concurrent media sync requests with 409 Conflict response. Added explicit JWT authentication to all App Router media routes (don't rely solely on middleware). Unified database pool by removing duplicate pool from `src/media/lib/database.ts` (now imports from `src/lib/db.ts`). Removed redundant double-await in `src/app/api/v2/media/route.ts`. All 569 tests pass. TypeScript clean.*
+  **Status:** 🟢 Complete
+  **Reported:** 2026-10-15 (via Hermes, from Gemini 4 Argon review)
+  *Completed: 2026-10-15*
+
 - [x] **Unify type systems** 🟢  
   *Merged `src/types/index.ts` and `src/types/v2.ts` into a single canonical set. Removed all adapter code and dead code (`api.ts`, unused hooks). The canonical `Task` type uses `status: TaskStatus` (not `completed: boolean`) and string dates matching JSON shapes.*  
   **Status:** 🟢 Complete  

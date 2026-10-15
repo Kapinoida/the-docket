@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuthAppRouter, AuthError } from '@/lib/apiAuth';
 import { createPlexClient } from '@/media/lib/plex';
 import { 
   addPlexHistory, 
@@ -14,7 +15,16 @@ import {
   updateMediaItem
 } from '@/media/lib/database';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  try {
+    await requireAuthAppRouter(request);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    throw error;
+  }
+
   const logId = await startSyncLog('plex');
 
   try {
