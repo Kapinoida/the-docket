@@ -34,6 +34,13 @@ yarn-error.log*
 .env*
 !.env.example
 
+# database backups and dumps
+*backup.sql
+*.dump
+*.pgdump
+*.sql.bak
+pg_*.sql
+
 # vercel
 .vercel
 
