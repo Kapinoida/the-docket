@@ -1085,3 +1085,246 @@ export async function tryAcquireSyncLock(): Promise<boolean> {
 export async function releaseSyncLock(): Promise<void> {
   await pool.query('SELECT pg_advisory_unlock(12345)');
 }
+
+// Ebook sync (Calibre-Web + KOReader)
+
+export interface CalibreBook {
+  calibre_id: number;
+  title: string;
+  authors: string[];
+  series: string | null;
+  series_index: number | null;
+  pubdate: string | null;
+  tags: string[];
+  comments: string | null;
+  cover_url: string;
+  book_path: string;
+  formats: Array<{
+    format: string;
+    size: number | null;
+    path: string;
+    checksum: string | null;
+  }>;
+  checksums: string[];
+  progress: {
+    percentage: number;
+    device: string | null;
+    timestamp: string | null;
+  } | null;
+}
+
+export interface EbookSyncResult {
+  created: number;
+  updated: number;
+  deleted: number;
+  total: number;
+  books_with_progress: number;
+  unmatched_checksums: number;
+}
+
+export async function syncCalibreWebEbooks(
+  books: CalibreBook[],
+  scan_complete: boolean
+): Promise<EbookSyncResult> {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const calibreIds = books.map(b => b.calibre_id);
+    const calibreIdSet = new Set(calibreIds);
+    
+    // Find existing calibre-web items to mark as deleted
+    const existingResult = await client.query(
+      `SELECT mi.id, mi.external_id 
+       FROM media_items mi
+       WHERE mi.external_source = 'calibre-web' 
+       AND mi.source_deleted_at IS NULL`
+    );
+    
+    const existingIds = new Set(
+      existingResult.rows.map((r: any) => parseInt(r.external_id, 10))
+    );
+    
+    const toDelete = Array.from(existingIds).filter(id => !calibreIdSet.has(id));
+    
+    // Mark items not in sync as deleted
+    if (scan_complete && toDelete.length > 0) {
+      await client.query(
+        `UPDATE media_items 
+         SET source_deleted_at = NOW(), updated_at = NOW()
+         WHERE external_source = 'calibre-web' 
+         AND external_id = ANY($1)
+         AND source_deleted_at IS NULL`,
+        [toDelete.map(id => String(id))]
+      );
+      
+      // Also mark their source links as deleted
+      await client.query(
+        `UPDATE media_item_sources 
+         SET source_deleted_at = NOW(), updated_at = NOW()
+         WHERE source = 'calibre-web' 
+         AND source_id = ANY($1)
+         AND source_deleted_at IS NULL`,
+        [toDelete.map(id => String(id))]
+      );
+    }
+    
+    let created = 0;
+    let updated = 0;
+    let booksWithProgress = 0;
+    
+    // Upsert each book
+    for (const book of books) {
+      // Map progress to status
+      let status: 'wanted' | 'owned' | 'in_progress' | 'completed' | 'abandoned' = 'owned';
+      let progress = 0;
+      let startedAt: string | null = null;
+      let completedAt: string | null = null;
+      
+      if (book.progress) {
+        booksWithProgress++;
+        progress = book.progress.percentage;
+        
+        if (progress === 0) {
+          status = 'owned';
+        } else if (progress < 1) {
+          status = 'in_progress';
+          startedAt = book.progress.timestamp || null;
+        } else {
+          status = 'completed';
+          startedAt = book.progress.timestamp || null;
+          completedAt = book.progress.timestamp || null;
+        }
+      }
+      
+      // Check if already exists
+      const existingResult = await client.query(
+        `SELECT id FROM media_items 
+         WHERE external_source = 'calibre-web' 
+         AND external_id = $1
+         LIMIT 1`,
+        [String(book.calibre_id)]
+      );
+      
+      if (existingResult.rows.length > 0) {
+        // Update existing item
+        const itemId = existingResult.rows[0].id;
+        
+        await client.query(
+          `UPDATE media_items 
+           SET title = $1,
+               creators = $2,
+               series_name = $3,
+               series_position = $4,
+               year = $5,
+               genres = $6,
+               image_url = $7,
+               description = $8,
+               metadata = $9,
+               status = $10,
+               progress = $11,
+               started_at = $12,
+               completed_at = $13,
+               source_deleted_at = NULL,
+               updated_at = NOW()
+           WHERE id = $14`,
+          [
+            book.title,
+            JSON.stringify(book.authors),
+            book.series,
+            book.series_index,
+            book.pubdate ? new Date(book.pubdate).getFullYear() : null,
+            JSON.stringify(book.tags),
+            book.cover_url,
+            book.comments,
+            JSON.stringify({
+              book_path: book.book_path,
+              formats: book.formats,
+              checksums: book.checksums,
+              progress: book.progress,
+            }),
+            status,
+            progress,
+            startedAt,
+            completedAt,
+            itemId,
+          ]
+        );
+        
+        updated++;
+      } else {
+        // Create new item
+        const insertResult = await client.query(
+          `INSERT INTO media_items (
+             title, media_type, creators, series_name, series_position,
+             year, genres, image_url, description, metadata,
+             external_source, external_id, status, progress,
+             started_at, completed_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+           RETURNING id`,
+          [
+            book.title,
+            'ebook',
+            JSON.stringify(book.authors),
+            book.series,
+            book.series_index,
+            book.pubdate ? new Date(book.pubdate).getFullYear() : null,
+            JSON.stringify(book.tags),
+            book.cover_url,
+            book.comments,
+            JSON.stringify({
+              book_path: book.book_path,
+              formats: book.formats,
+              checksums: book.checksums,
+              progress: book.progress,
+            }),
+            'calibre-web',
+            String(book.calibre_id),
+            status,
+            progress,
+            startedAt,
+            completedAt,
+          ]
+        );
+        
+        const newItemId = insertResult.rows[0].id;
+        
+        // Create source link
+        await client.query(
+          `INSERT INTO media_item_sources (media_item_id, source, source_id, metadata)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            newItemId,
+            'calibre-web',
+            String(book.calibre_id),
+            JSON.stringify({
+              book_path: book.book_path,
+              formats: book.formats,
+              checksums: book.checksums,
+            }),
+          ]
+        );
+        
+        created++;
+      }
+    }
+    
+    await client.query('COMMIT');
+    
+    return {
+      created,
+      updated,
+      deleted: scan_complete ? toDelete.length : 0,
+      total: books.length,
+      books_with_progress: booksWithProgress,
+      unmatched_checksums: 0, // Will be set by the route handler
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+

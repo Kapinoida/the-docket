@@ -7,6 +7,14 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Ebook sync: Calibre-Web + KOReader** 🟢
+  Recreated ebook synchronization system lost in BUG-019 git history rewrite. Implemented KOReader partial MD5 checksum algorithm (`src/media/lib/koreader.ts`) that samples 1024 bytes at exponentially spaced positions for matching reading progress to Calibre books. Created POST `/api/v2/media/sync/calibre-web` endpoint with full payload validation, transaction-based sync logic that preserves manual status/progress overrides, and proper progress mapping (0→owned, 0<x<1→in_progress, 1→completed). Added GET `/api/v2/media/covers/calibre-web/[id]` cover proxy with path traversal protection and JPG/PNG fallback. Migration 013 changes `series_position` from INTEGER to REAL to support fractional Calibre series indexes. UI updated with Ebooks sync button (green #059669). 17 new tests (9 KOReader checksum, 8 database sync). All 623 tests pass. TypeScript clean.
+  *Completed: 2026-10-15*
+
+- [x] **Integration tests for critical flows** 🟢
+  Added comprehensive integration test suite covering 40 tests across 3 critical user flows: Task CRUD → sync integration (10 tests verifying create/update/delete mutations dispatch correct custom events), Calendar drag-and-drop integration (12 tests covering task movement, duration preservation, cross-day moves, unscheduling, 15-minute snap validation), and Folder export ZIP integrity (18 tests validating export API, filename sanitization, markdown conversion, ZIP structure, empty/large folder handling). All tests use proper fetch mocking with headers support and focus on real mutation paths rather than isolated helpers.
+  *Completed: 2026-10-15*
+
 - [x] **Fix media tracker migration: missing source links and TV completion bug** 🟢
   Fixed three critical bugs in media tracker migration. Added 59 missing Audiobookshelf source links (UI now shows 937 items, matching standalone). Fixed Sonarr sync treating hasFile as watched state (removed logic setting watched_at from hasFile). Cleared 1996 incorrectly set episode watched_at values. Reset database sequences to prevent sync conflicts. TV shows now correctly show as "owned" until watched via Plex.
   *Completed: 2026-10-01*
@@ -140,18 +148,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 ## 🏗️ Immediate (Next 1–2 weeks)
 
 ### Media Tracking
-- [~] **Ebook sync: Calibre-Web + KOReader** 🟡 (NEEDS RECREATION)
+- [x] **Ebook sync: Calibre-Web + KOReader** 🟢
   *Sync ebook library from Calibre-Web and reading progress from KOReader using KOReader-compatible partial MD5 checksums. Architecture: Hermes-side worker reads Calibre metadata.db, calculates checksums for ebook files, reads KOReader sync database, matches progress via checksums, POSTs normalized data to /api/v2/media/sync/calibre-web. Core implementation was completed but code was lost during BUG-019 git history rewrite — needs to be recreated from DEVLOG.md (2026-10-05 entry) documentation.*
-  **Status:** 🟡 In Progress (code lost, needs recreation)
+  **Status:** 🟢 Complete
   **Reported:** 2026-10-05 (via Hermes, from Dave)
-  **Lost files (need recreation):**
-  - `src/media/lib/koreader.ts` — KOReader partial MD5 algorithm
-  - `src/app/api/v2/media/sync/calibre-web/route.ts` — POST endpoint for ebook data
-  - `src/app/api/v2/media/covers/calibre-web/[id]/route.ts` — Cover proxy endpoint
-  - `src/media/lib/__tests__/` — Unit tests
-  - `src/migrations/013_series_position_real.sql` — series_position INTEGER → REAL
-  - UI updates to `src/app/media/page.tsx` (Ebooks sync button)
-  - Hermes sync worker script at `~/.hermes/scripts/calibre-web-sync.py` (already on disk, unaffected)
+  *Completed: 2026-10-15*
   **Note:** The `ebook` media_type already exists in the schema (migration 012). Database supports it.
 
 ### Radio & Audio
@@ -349,9 +350,11 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
   *Phase 1 complete: fixed all 15 TypeScript errors and ~24 high-confidence ESLint errors (unused imports, unescaped quotes, prefer-const, @ts-ignore→@ts-expect-error, FocusVisualizer state rename). Remaining: 171 `no-explicit-any` errors deferred to Phase 2. Build validation (`ignoreBuildErrors`/`ignoreDuringBuilds`) not yet re-enabled.*  
   **Status:** 🟡 Partial — Phase 1 done, Phase 2 (any-reduction + build re-enable) pending
 
-- [ ] **Add integration tests for critical flows**  
+- [x] **Add integration tests for critical flows** 🟢
   *Task CRUD → sync, CalendarView drag & drop, folder export ZIP integrity.*  
-  **Status:** 🔴 Not Started
+  **Status:** 🟢 Complete
+  **Completed: 2026-10-15**
+  Added comprehensive integration test suite covering 40 tests across 3 critical user flows: Task CRUD → sync integration (10 tests), Calendar drag-and-drop integration (12 tests), and Folder export ZIP integrity (18 tests). All tests pass.
 
 ---
 

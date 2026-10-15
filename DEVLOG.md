@@ -10,6 +10,28 @@ Use this format:
 
 ---
 
+## [2026-10-15] – Recreate Calibre-Web/KOReader ebook sync system
+- **What changed:**
+  Recreated complete ebook synchronization system lost in BUG-019 git history rewrite. Implemented KOReader partial MD5 checksum algorithm (`src/media/lib/koreader.ts`) that samples 1024 bytes at exponentially spaced positions for matching reading progress to Calibre books. Created POST `/api/v2/media/sync/calibre-web` endpoint with full payload validation, transaction-based sync logic that preserves manual status/progress overrides, and proper progress mapping (0→owned, 0<x<1→in_progress, 1→completed). Added GET `/api/v2/media/covers/calibre-web/[id]` cover proxy with path traversal protection and JPG/PNG fallback. Migration 013 changes `series_position` from INTEGER to REAL to support fractional Calibre series indexes. UI updated with Ebooks sync button (green #059669).
+- **Why:**
+  The ebook sync implementation was lost when git history was rewritten to remove the database backup (BUG-019). Without this system, KOReader reading progress couldn't sync to The Docket, and Calibre ebook metadata had no integration path. The existing `ebook` media_type in the schema (migration 012) was unused.
+- **Affected areas:** `src/media/lib/koreader.ts` (new), `src/media/lib/database.ts` (added `syncCalibreWebEbooks`), `src/app/api/v2/media/sync/calibre-web/route.ts` (new), `src/app/api/v2/media/covers/calibre-web/[id]/route.ts` (new), `src/migrations/013_series_position_real.sql` (new), `src/app/media/page.tsx` (added Ebooks sync button), `src/media/lib/__tests__/koreader.test.ts` (new, 9 tests), `src/media/lib/__tests__/database-ebook.test.ts` (new, 8 tests).
+- **Migration needed?** Yes — migration 013 (`src/migrations/013_series_position_real.sql`) changes `series_position` column from INTEGER to REAL. Run `npm run migrate` locally; production migration runs automatically via `update.sh`.
+- **Testing:** 17 new tests (9 KOReader checksum algorithm, 8 database sync logic). All 623 tests pass. TypeScript clean.
+
+---
+
+## [2026-10-15] – Add integration tests for critical flows
+- **What changed:**
+  Added comprehensive integration test suite covering 40 tests across 3 critical user flows: Task CRUD → sync integration (10 tests verifying create/update/delete mutations dispatch correct custom events and trigger sync), Calendar drag-and-drop integration (12 tests covering task movement, duration preservation, cross-day moves, unscheduling, 15-minute snap validation), and Folder export ZIP integrity (18 tests validating export API response, filename sanitization, markdown conversion, ZIP structure, empty/large folder handling).
+- **Why:**
+  Critical flows lacked integration tests that verify real mutation paths end-to-end. Unit tests existed for individual functions, but cross-component behavior (task mutations triggering sync events, calendar drag-drop persistence, folder export ZIP structure) wasn't validated. These tests catch regressions in the most important user workflows.
+- **Affected areas:** `src/__tests__/integration/task-crud-sync.test.ts` (new, 10 tests), `src/__tests__/integration/calendar-drag-drop.test.ts` (new, 12 tests), `src/__tests__/integration/folder-export-zip.test.ts` (new, 18 tests).
+- **Migration needed?** No.
+- **Testing:** 40 new integration tests. All 623 tests pass. TypeScript clean.
+
+---
+
 ## [2026-10-15] – Media sync security hardening: concurrency guard, explicit auth, pool unification (BUG-021)
 - **What changed:**
   Added PostgreSQL advisory lock to prevent concurrent media sync requests. Added explicit JWT authentication to all App Router media routes. Unified database pool by removing duplicate pool from `src/media/lib/database.ts` (now imports from `src/lib/db.ts`). Removed redundant double-await in `src/app/api/v2/media/route.ts`.

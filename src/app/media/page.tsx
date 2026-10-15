@@ -67,7 +67,7 @@ export default function LibraryPage() {
     }
   }, [syncToast]);
 
-  const handleSync = async (source?: 'audiobookshelf' | 'radarr' | 'sonarr') => {
+  const handleSync = async (source?: 'audiobookshelf' | 'radarr' | 'sonarr' | 'calibre-web') => {
     setSyncing(true);
     setSyncToast(null);
     
@@ -75,6 +75,7 @@ export default function LibraryPage() {
     if (source === 'audiobookshelf') endpoint = '/api/v2/media/sync/audiobookshelf';
     else if (source === 'radarr') endpoint = '/api/v2/media/sync/radarr';
     else if (source === 'sonarr') endpoint = '/api/v2/media/sync/sonarr';
+    else if (source === 'calibre-web') endpoint = '/api/v2/media/sync/calibre-web';
     
     const response = await fetch(endpoint, { method: 'POST' });
     const data = await response.json();
@@ -230,6 +231,14 @@ export default function LibraryPage() {
           style={{ margin: 0, background: '#7c3aed' }}
         >
           Audiobooks
+        </button>
+        <button
+          onClick={() => handleSync('calibre-web')}
+          disabled={syncing}
+          className="media-button"
+          style={{ margin: 0, background: '#059669' }}
+        >
+          Ebooks
         </button>
         <button
           onClick={() => handleSync('radarr')}
