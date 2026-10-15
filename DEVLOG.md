@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-15] – Security: Remove database backup from Git history (BUG-019)
+- **What changed:**
+  Removed production database backup files containing plaintext credentials and private data from Git history. Added gitignore patterns to prevent future accidental commits. Used `git-filter-repo` to remove `the_docket_backup.sql` and `schema.v1_backup.sql` from all historical commits. Rewrote repository history and force-pushed to origin.
+- **Why:**
+  A full production database dump was committed to the repository in March 2026. It contained plaintext CalDAV passwords, calendar events with Zoom/Meet meeting links and passcodes, attendee email addresses, and historical work schedule data. The schema-only backup was also tracked in earlier history.
+- **Affected areas:** Git history (rewritten), `.gitignore` (added patterns for `*backup.sql`, `*.dump`, `*.pgdump`, `*.sql.bak`, `pg_*.sql`).
+- **Migration needed?** No.
+- **Action required:** Rotate all CalDAV credentials exposed in the original backup dump.
+
+---
+
 ## [2026-10-01] – Fix Plex sync, cover URLs, and media service connectivity
 - **What changed:**
   (1) Added `await` to `addPlexHistory()` calls in both Plex sync routes — was fire-and-forget, causing history entries to not persist. (2) Fixed audiobook cover URLs from `/api/covers/` to `/api/v2/media/covers/` in database (268 rows) and in `audiobookshelf.ts` sync code. (3) Added media service environment variables (ABS_URL, RADARR_URL, SONARR_URL, PLEX_URL, TMDB_API_KEY, and API keys) to `.env.local` using `host.docker.internal` for Docker container networking. (4) Added unique index `idx_plex_history_unique` on `plex_history(plex_key, watched_at)` to support upsert. (5) Fixed `pathname` possibly null TypeScript errors in MediaHeader and Sidebar components.

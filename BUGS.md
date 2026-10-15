@@ -66,6 +66,42 @@ Media tracker showed 878 items instead of 937 (matching standalone). TV shows ap
 
 ---
 
+## BUG-019 — Production database backup committed to source control with plaintext secrets
+
+**Status:** ✅ Fixed  
+**Reported:** 2026-10-15  
+**Area:** `the_docket_backup.sql`, `schema.v1_backup.sql`, Git history
+
+### User-visible symptom
+
+A full production database dump (`the_docket_backup.sql`, 2,253 lines, committed in `7518e18`) was tracked in the repository. It contained plaintext CalDAV passwords, calendar events with Zoom/Meet meeting links and passcodes, attendee email addresses, and historical work schedule data. `schema.v1_backup.sql` was also tracked in earlier history.
+
+### Implementation
+
+1. **Removed from Git history**: Used `git-filter-repo` to remove both backup files from all historical commits across all branches and tags. The repository history was rewritten and force-pushed to origin.
+2. **Added gitignore patterns**: Added patterns to `.gitignore` to prevent future accidental commits of database dumps: `*backup.sql`, `*.dump`, `*.pgdump`, `*.sql.bak`, `pg_*.sql`.
+3. **Deleted local copies**: Removed untracked backup files from working directory.
+
+### Acceptance criteria
+
+- [x] `.gitignore` contains `*backup.sql`, `*.dump`, and similar patterns
+- [x] `the_docket_backup.sql` and `schema.v1_backup.sql` removed from Git history
+- [x] `git log --all -- the_docket_backup.sql` returns no file additions
+- [x] History rewrite force-pushed to origin
+- [x] Local working copies of backup files deleted
+
+### Fixed file
+
+- `.gitignore` (added database backup/dump patterns)
+- Git history (rewritten via `git-filter-repo`, force-pushed)
+
+### Related action items
+
+- **Dave must rotate all CalDAV credentials** that were exposed in the original dump (at minimum the `caldav_configs` table data from commit `7518e18`)
+- All other repo users/forks should be notified of the history rewrite
+
+---
+
 ## BUG-017 — Focus timer fog overlay too bright
 
 **Status:** ✅ Fixed  
