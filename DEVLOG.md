@@ -29,6 +29,7 @@ Use this format:
 - **Affected areas:** Git history (rewritten), `.gitignore` (added patterns for `*backup.sql`, `*.dump`, `*.pgdump`, `*.sql.bak`, `pg_*.sql`).
 - **Migration needed?** No.
 - **Action required:** Rotate all CalDAV credentials exposed in the original backup dump.
+- **Collateral loss:** Uncommitted Calibre-Web/KOReader ebook sync work was lost during the history rewrite (the `.git` directory was replaced to apply the rewritten history). The stashed work (KOReader partial MD5, calibre-web sync route, cover proxy, migration 013, tests) needs to be recreated. Roadmap updated to track this.
 
 ---
 

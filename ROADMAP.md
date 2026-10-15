@@ -139,6 +139,21 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## 🏗️ Immediate (Next 1–2 weeks)
 
+### Media Tracking
+- [~] **Ebook sync: Calibre-Web + KOReader** 🟡 (NEEDS RECREATION)
+  *Sync ebook library from Calibre-Web and reading progress from KOReader using KOReader-compatible partial MD5 checksums. Architecture: Hermes-side worker reads Calibre metadata.db, calculates checksums for ebook files, reads KOReader sync database, matches progress via checksums, POSTs normalized data to /api/v2/media/sync/calibre-web. Core implementation was completed but code was lost during BUG-019 git history rewrite — needs to be recreated from DEVLOG.md (2026-10-05 entry) documentation.*
+  **Status:** 🟡 In Progress (code lost, needs recreation)
+  **Reported:** 2026-10-05 (via Hermes, from Dave)
+  **Lost files (need recreation):**
+  - `src/media/lib/koreader.ts` — KOReader partial MD5 algorithm
+  - `src/app/api/v2/media/sync/calibre-web/route.ts` — POST endpoint for ebook data
+  - `src/app/api/v2/media/covers/calibre-web/[id]/route.ts` — Cover proxy endpoint
+  - `src/media/lib/__tests__/` — Unit tests
+  - `src/migrations/013_series_position_real.sql` — series_position INTEGER → REAL
+  - UI updates to `src/app/media/page.tsx` (Ebooks sync button)
+  - Hermes sync worker script at `~/.hermes/scripts/calibre-web-sync.py` (already on disk, unaffected)
+  **Note:** The `ebook` media_type already exists in the schema (migration 012). Database supports it.
+
 ### Radio & Audio
 - [x] **Radio mini-player in the app shell + Now Playing** 🟢
   *Dave: "Expand the functionality of the Docket to better make the radio stuff more available and visible (currently have to go to Focus, turn it on, and there's only a small pill showing what is playing)." Persistent bottom-corner player that adapts: idle = slim station selector; playing = mini-player with album art, live track, play/pause, station switch, stop. Polls AzuraCast public `/api/nowplaying` (CORS verified, no auth). Builds on the completed "Persistent ambient audio across pages + floating sound indicator" (2026-07-13). Full brief in `.hermes/OPENCODE-HANDOFF.md`.*
