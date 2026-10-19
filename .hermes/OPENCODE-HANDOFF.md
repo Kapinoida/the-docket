@@ -162,6 +162,42 @@ The existing read-only Docket Today widget remains unchanged.
 - Do not rotate or modify `WIDGET_TOKEN`.
 - Do not touch Sportarr, DVR, or recording pipeline code.
 
+## Current Handoff: Fix Service Worker Response Conversion Error
+
+Dave reports this browser error after the mobile capture deployment:
+
+`sw.js:1 Uncaught (in promise) TypeError: Failed to convert value to 'Response'.`
+
+### Root-cause evidence
+
+`public/sw.js` handles `/capture` and `/page/*` with:
+
+```js
+fetch(event.request).catch(() => caches.match(event.request))
+```
+
+`caches.match()` can resolve to `undefined` when no cached response exists. `event.respondWith()` requires a `Response` (or a promise resolving to one), so an offline/network failure on an uncached route produces the reported conversion error. The stale-while-revalidate path has the same latent issue when both network and cache miss.
+
+### Required fix
+
+- Ensure every `event.respondWith()` branch resolves to an actual `Response`, never `undefined`.
+- Preserve current behavior: API and Next.js assets remain untouched; `/capture` and `/page/*` prefer a fresh network response with cache fallback; app-shell routes remain stale-while-revalidate.
+- For an uncached network failure, return a minimal valid offline `Response` (plain text or an appropriate cached shell fallback) rather than undefined. Do not fabricate a successful app page that could hide auth failures.
+- Add regression tests that make fetch reject and caches.match return undefined for `/capture` and for a normal app-shell route, asserting the resulting value is a `Response`.
+- Update the service worker cache version if needed so clients receive the corrected worker.
+- Update DEVLOG.md and ROADMAP.md only if consistent with the project's conventions.
+
+### Verification
+
+Run the focused service-worker tests, `npm test`, `npx tsc --noEmit`, and `npm run build`. Deploy with `bash update.sh` after they pass. Verify the deployed `/capture` route remains authenticated and the new service worker is served.
+
+### What MUST NOT CHANGE
+
+- Do not modify push notification behavior, tokens, or VAPID keys.
+- Do not modify AIO Launcher integration.
+- Do not modify task capture behavior or API semantics.
+- Do not touch Sportarr, DVR, or recording pipeline code.
+
 ## End
 
 Do not treat this as a request to modify Sportarr or the DVR pipeline. Touch only the Docket app surface and its documentation.
