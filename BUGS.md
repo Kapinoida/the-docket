@@ -1,5 +1,55 @@
 # Known Bugs
 
+## BUG-023 — Service worker threw "Failed to convert value to 'Response'"
+
+**Status:** ✅ Fixed
+**Reported:** 2026-10-19 (via Hermes, from Dave)
+**Area:** `public/sw.js`, `src/__tests__/service-worker.test.ts`
+
+### User-visible symptom
+
+After the mobile capture deploy, the browser console showed on every page load:
+
+```
+sw.js:1 Uncaught (in promise) TypeError: Failed to convert value to 'Response'.
+```
+
+The app still rendered (the browser retried the request without the service worker), but the worker was failing its own fetch events, so offline caching and the always-fresh `/capture` rule were unreliable.
+
+### Investigation (Hermes, 2026-10-19)
+
+1. `public/sw.js` handled the network-first routes with `fetch(event.request).catch(() => caches.match(event.request))`. `caches.match()` resolves to `undefined` on a cache miss, so an offline (or otherwise failed) network request on an uncached route handed `event.respondWith()` an `undefined`.
+2. `event.respondWith()` requires a `Response` (or a promise resolving to one). Resolving with `undefined` makes the browser reject the fetch event with `TypeError: Failed to convert value to 'Response'`.
+3. The stale-while-revalidate branch had the same latent defect: `return cached || fetchPromise` where `fetchPromise` fell back to `.catch(() => cached)` — again `undefined` when both the network and the cache missed.
+
+### Implementation
+
+1. **Never hand `respondWith()` an `undefined`** — a module-scope `offlineResponse()` returns a minimal plain-text `Response` with status `503` (`Content-Type: text/plain; charset=utf-8`). The status is deliberately non-2xx so an offline failure can never be mistaken for a rendered app page (which could mask authentication failures).
+2. **`cacheMatch()` helper** wraps `caches.match()` so a cache lookup can neither reject nor yield a non-Response value; every branch ends in `cached || offlineResponse()`.
+3. **Behavior preserved** — API and Next.js asset requests are still untouched; `/capture` and `/page/{id}` remain network-first with a cache fallback; app-shell routes remain stale-while-revalidate; the push and notification-click handlers are unchanged.
+4. **Cache version bumped** `docket-v5` → `docket-v6` so clients install the corrected worker and re-precache the app shell; stale caches are still removed on activate.
+
+### Acceptance criteria
+
+- [x] `/capture` with a failed network request and no cached copy resolves to a `Response`
+- [x] `/page/{id}` with a failed network request and no cached copy resolves to a `Response`
+- [x] An app-shell route with a failed network request and no cached copy resolves to a `Response`
+- [x] A cached copy is still served when the network fails
+- [x] The offline fallback is a non-2xx plain-text response, not a fabricated app page
+- [x] The offline fallback is never written into the app-shell cache
+- [x] The cache version is bumped and stale caches are deleted on activate
+- [x] Push, notification-click, auth, and capture behavior unchanged
+- [x] `npm test` (594), `npx tsc --noEmit` (4 pre-existing `.next/types` errors only), and `npm run build` all clean
+
+### Fixed files
+
+- `public/sw.js` (offline fallback, `cacheMatch()` helper, cache version bump)
+- `src/__tests__/service-worker.test.ts` (8 new regression tests)
+
+**Commit:** `0ae48e7` — fix: return valid responses from service worker
+
+---
+
 ## BUG-022 — Push reminders never reached the phone (cron trigger unauthorized)
 
 **Status:** ✅ Fixed
