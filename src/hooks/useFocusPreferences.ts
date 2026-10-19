@@ -41,7 +41,7 @@ export function useFocusPreferences() {
         if (migrated.ambienceMode && !['brown-noise', 'rain', 'snow', 'orbit', 'none'].includes(migrated.ambienceMode)) {
           delete migrated.ambienceMode;
         }
-        if (migrated.musicSource && !['pentatonic', 'runtime_loop', 'warm_boot', 'none'].includes(migrated.musicSource)) {
+        if (migrated.musicSource && !['pentatonic', 'none'].includes(migrated.musicSource)) {
           delete migrated.musicSource;
         }
 

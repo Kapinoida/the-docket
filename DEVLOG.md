@@ -10,6 +10,17 @@ Use this format:
 
 ---
 
+## [2026-10-19] – Retire Radio and Recordings surfaces
+- **What changed:**
+  Removed `/radio` and `/recordings` product surfaces from the Docket UI. Deleted radio page, recordings dashboard, all related components, API routes, types, and database helpers. Removed AzuraCast integration files (azuracast.ts, radioStations.ts, azuracast types) and useNowPlaying hook. Cleaned up sound system: removed stream playback logic from useAmbience (startStream, stopStream), updated SoundContext to use stopMusic instead of stopMusicAndStream, simplified SidebarSoundPanel and FloatingSoundIndicator to remove station/channel UI. Removed runtime_loop and warm_boot from MusicSource type. Updated Sidebar navigation to remove Radio and Recordings links. Kept recording_schedules database table intact for Sportarr sync pipeline.
+- **Why:**
+  Sportarr handles the DVR pipeline independently with reliable torrent sources for replays. The Docket UI surfaces for Radio and Recordings were redundant and added maintenance burden. The procedural ambience and soundscape foundation in the sound player remains for future audio features.
+- **Affected areas:** `src/app/radio/` (deleted), `src/app/recordings/` (deleted), `src/components/radio/` (deleted), `src/components/recordings/` (deleted), `src/pages/api/v2/recordings/` (deleted), `src/__tests__/api/v2/recordings/` (deleted), `src/lib/azuracast.ts` (deleted), `src/lib/radioStations.ts` (deleted), `src/types/azuracast.ts` (deleted), `src/hooks/useNowPlaying.ts` (deleted), `src/hooks/useAmbience.ts` (stream logic removed, MusicSource type simplified), `src/contexts/SoundContext.tsx` (stopMusicAndStream → stopMusic, validation updated), `src/components/focus/SidebarSoundPanel.tsx` (stream UI removed, Radio → Sound), `src/components/focus/FloatingSoundIndicator.tsx` (stream UI removed), `src/components/v2/Sidebar.tsx` (Radio and Recordings nav items removed), `src/types/index.ts` (recording types removed), `src/lib/db.ts` (recording helpers removed), AGENTS.md (retirement note added), ROADMAP.md (retirement entry added).
+- **Migration needed?** No. recording_schedules table retained.
+- **Testing:** Updated useAmbience and SidebarSoundPanel tests.
+
+---
+
 ## [2026-10-15] – Recreate Calibre-Web/KOReader ebook sync system
 - **What changed:**
   Recreated complete ebook synchronization system lost in BUG-019 git history rewrite. Implemented KOReader partial MD5 checksum algorithm (`src/media/lib/koreader.ts`) that samples 1024 bytes at exponentially spaced positions for matching reading progress to Calibre books. Created POST `/api/v2/media/sync/calibre-web` endpoint with full payload validation, transaction-based sync logic that preserves manual status/progress overrides, and proper progress mapping (0→owned, 0<x<1→in_progress, 1→completed). Added GET `/api/v2/media/covers/calibre-web/[id]` cover proxy with path traversal protection and JPG/PNG fallback. Migration 013 changes `series_position` from INTEGER to REAL to support fractional Calibre series indexes. UI updated with Ebooks sync button (green #059669).

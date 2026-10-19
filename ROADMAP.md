@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Retire Radio and Recordings surfaces** 🟢
+  Removed `/radio` and `/recordings` product surfaces from the Docket UI. Deleted radio page, recordings dashboard, all related components, API routes, types, and database helpers. Removed AzuraCast integration (azuracast.ts, radioStations.ts, useNowPlaying hook) and stream playback logic from sound system. Retained procedural ambience (brown-noise, rain, snow, orbit) and pentatonic music generator in sound player. Kept `recording_schedules` database table intact for Sportarr sync pipeline. Updated AGENTS.md with retirement note. Sound player UI now shows "Sound" instead of "Radio" with only ambience and pentatonic music options.
+  *Completed: 2026-10-19*
+
 - [x] **Ebook sync: Calibre-Web + KOReader** 🟢
   Recreated ebook synchronization system lost in BUG-019 git history rewrite. Implemented KOReader partial MD5 checksum algorithm (`src/media/lib/koreader.ts`) that samples 1024 bytes at exponentially spaced positions for matching reading progress to Calibre books. Created POST `/api/v2/media/sync/calibre-web` endpoint with full payload validation, transaction-based sync logic that preserves manual status/progress overrides, and proper progress mapping (0→owned, 0<x<1→in_progress, 1→completed). Added GET `/api/v2/media/covers/calibre-web/[id]` cover proxy with path traversal protection and JPG/PNG fallback. Migration 013 changes `series_position` from INTEGER to REAL to support fractional Calibre series indexes. UI updated with Ebooks sync button (green #059669). 17 new tests (9 KOReader checksum, 8 database sync). All 623 tests pass. TypeScript clean.
   *Completed: 2026-10-15*

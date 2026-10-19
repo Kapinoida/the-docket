@@ -1,9 +1,8 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
-import { getStationStreamUrl } from '@/lib/radioStations';
 
 export type AmbienceMode = 'brown-noise' | 'rain' | 'snow' | 'orbit' | 'none';
 
-export type MusicSource = 'pentatonic' | 'runtime_loop' | 'warm_boot' | 'none';
+export type MusicSource = 'pentatonic' | 'none';
 
 interface SoundLayer {
   mode: AmbienceMode;
@@ -18,10 +17,6 @@ export default function useAmbience() {
   const [volume, setVolumeState] = useState(0.6);
   const volumeRef = useRef<number>(0.6);
   const activeLayersRef = useRef<SoundLayer[]>([]);
-  const streamAudioRef = useRef<HTMLAudioElement | null>(null);
-  const streamSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const streamGainRef = useRef<GainNode | null>(null);
-  const streamStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initAudio = () => {
     if (!contextRef.current) {
@@ -185,79 +180,6 @@ export default function useAmbience() {
     activeLayersRef.current = [];
   }, []);
 
-  /* --- Stream Logic (AzuraCast) --- */
-  const startStream = useCallback((url: string) => {
-    const ctx = initAudio();
-    if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume();
-
-    // Stop any existing stream first
-    if (streamAudioRef.current) {
-      stopStream();
-    }
-
-    const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
-    audio.src = url;
-    audio.loop = false; // Live stream, no loop needed
-    audio.preload = 'none';
-
-    let mediaSource: MediaElementAudioSourceNode;
-    try {
-      mediaSource = ctx.createMediaElementSource(audio);
-    } catch (e) {
-      console.error('Failed to create media element source', e);
-      return;
-    }
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + 3); // Fade in over 3s
-
-    mediaSource.connect(gainNode);
-    gainNode.connect(masterGainRef.current || ctx.destination);
-
-    streamAudioRef.current = audio;
-    streamSourceRef.current = mediaSource;
-    streamGainRef.current = gainNode;
-
-    audio.play().catch(e => console.error('Stream playback failed', e));
-  }, []);
-
-  const stopStream = useCallback(() => {
-    const ctx = contextRef.current;
-    const audio = streamAudioRef.current;
-    const source = streamSourceRef.current;
-    const gain = streamGainRef.current;
-    if (!audio) return;
-
-    // Null refs immediately so a subsequent startStream doesn't see stale refs
-    streamAudioRef.current = null;
-    streamSourceRef.current = null;
-    streamGainRef.current = null;
-
-    // Fade out over 2s
-    if (gain && ctx) {
-      const now = ctx.currentTime;
-      gain.gain.cancelScheduledValues(now);
-      gain.gain.setValueAtTime(gain.gain.value, now);
-      gain.gain.linearRampToValueAtTime(0, now + 2);
-    }
-
-    // Clear any pending stop timeout
-    if (streamStopTimeoutRef.current) {
-      clearTimeout(streamStopTimeoutRef.current);
-    }
-
-    streamStopTimeoutRef.current = setTimeout(() => {
-      audio.pause();
-      audio.src = '';
-      try { source?.disconnect(); } catch(e) {}
-      try { gain?.disconnect(); } catch(e) {}
-      streamStopTimeoutRef.current = null;
-    }, 2100);
-  }, []);
-
   /* --- Music Logic --- */
   // C Major Pentatonic Scale
   // C4, D4, E4, G4, A4, C5, D5, E5
@@ -333,20 +255,11 @@ export default function useAmbience() {
   /* --- Unified Music Source Dispatcher --- */
   const startMusicSource = useCallback((source: MusicSource) => {
     stopMusic();
-    stopStream();
 
     if (source === 'pentatonic') {
       startMusic();
-    } else {
-      const url = getStationStreamUrl(source);
-      if (url) startStream(url);
     }
-  }, [startMusic, stopMusic, startStream, stopStream]);
-
-  const stopMusicAndStream = useCallback(() => {
-    stopMusic();
-    stopStream();
-  }, [stopMusic, stopStream]);
+  }, [startMusic, stopMusic]);
 
   const setVolume = useCallback((v: number) => {
     const clamped = Math.max(0, Math.min(1, v));
@@ -357,13 +270,12 @@ export default function useAmbience() {
     }
   }, []);
 
-  // Ensure cleanup on unmount for music + streams
+  // Ensure cleanup on unmount for music
   useEffect(() => {
       return () => {
           stopMusic();
-          stopStream();
       };
-  }, [stopMusic, stopStream]);
+  }, [stopMusic]);
 
-  return { start, stop, startMusic, stopMusic, startStream, stopStream, startMusicSource, stopMusicAndStream, volume, setVolume };
+  return { start, stop, startMusic, stopMusic, startMusicSource, volume, setVolume };
 }

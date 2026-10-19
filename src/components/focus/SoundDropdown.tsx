@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Volume2, VolumeX, Waves, CloudRain, Snowflake, Orbit, Music, Radio, Coffee } from 'lucide-react';
+import { Check, Volume2, VolumeX, Waves, CloudRain, Snowflake, Orbit, Music } from 'lucide-react';
 import type { AmbienceMode, MusicSource } from '@/hooks/useAmbience';
 
 interface SoundDropdownProps {
@@ -31,8 +31,6 @@ export default function SoundDropdown({
 
   const musicOptions: { id: MusicSource; label: string; icon: React.ReactNode }[] = [
     { id: 'pentatonic', label: 'Pentatonic', icon: <Music size={14} /> },
-    { id: 'runtime_loop', label: 'Runtime Loop', icon: <Radio size={14} /> },
-    { id: 'warm_boot', label: 'Warm Boot', icon: <Coffee size={14} /> },
     { id: 'none', label: 'Off', icon: <VolumeX size={14} /> },
   ];
 

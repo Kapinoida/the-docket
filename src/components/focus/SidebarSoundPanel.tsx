@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Waves, CloudRain, Snowflake, Orbit, Music, Radio, Coffee, VolumeX, SkipForward, WifiOff, Volume2 } from 'lucide-react';
+import { X, Check, Waves, CloudRain, Snowflake, Orbit, Music, VolumeX, Volume2 } from 'lucide-react';
 import { useSound } from '@/contexts/SoundContext';
-import { useNowPlaying } from '@/hooks/useNowPlaying';
-import { getStationByShortcode } from '@/lib/radioStations';
 import type { AmbienceMode, MusicSource } from '@/hooks/useAmbience';
 
 const AMBIENCE_LABELS: Record<AmbienceMode, string> = {
@@ -17,8 +15,6 @@ const AMBIENCE_LABELS: Record<AmbienceMode, string> = {
 
 const MUSIC_LABELS: Record<MusicSource, string> = {
   'pentatonic': 'Pentatonic',
-  'runtime_loop': 'Runtime Loop',
-  'warm_boot': 'Warm Boot',
   'none': 'Off',
 };
 
@@ -32,14 +28,11 @@ const AMBIENCE_ICONS: Record<AmbienceMode, React.ReactNode> = {
 
 const MUSIC_ICONS: Record<MusicSource, React.ReactNode> = {
   'pentatonic': <Music size={14} />,
-  'runtime_loop': <Radio size={14} />,
-  'warm_boot': <Coffee size={14} />,
   'none': <VolumeX size={14} />,
 };
 
 export default function SidebarSoundPanel() {
   const { ambienceMode, musicSource, setAmbienceMode, setMusicSource, stopAll, isPlaying, volume, setVolume } = useSound();
-  const { isOffline, getStation } = useNowPlaying();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,20 +46,6 @@ export default function SidebarSoundPanel() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const isStreamPlaying = musicSource === 'runtime_loop' || musicSource === 'warm_boot';
-  const nowPlayingData = isStreamPlaying ? getStation(musicSource) : null;
-  const stationInfo = isStreamPlaying ? getStationByShortcode(musicSource) : null;
-  const song = isStreamPlaying && nowPlayingData ? nowPlayingData.now_playing.song : null;
-
-  const trackText = song?.artist && song?.title
-    ? `${song.artist} — ${song.title}`
-    : song?.text || null;
-
-  const handleSwitchStation = () => {
-    const otherStation = musicSource === 'runtime_loop' ? 'warm_boot' : 'runtime_loop';
-    setMusicSource(otherStation as MusicSource);
-  };
-
   if (!isPlaying) {
     return (
       <div ref={containerRef} className="relative">
@@ -75,8 +54,8 @@ export default function SidebarSoundPanel() {
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
           title="Select sound"
         >
-          <Radio size={16} className="flex-shrink-0" />
-          <span className="truncate">Radio</span>
+          <Volume2 size={16} className="flex-shrink-0" />
+          <span className="truncate">Sound</span>
         </button>
 
         {isOpen && (
@@ -107,7 +86,7 @@ export default function SidebarSoundPanel() {
             <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-text-muted font-medium">
               Music
             </div>
-            {(['pentatonic', 'runtime_loop', 'warm_boot', 'none'] as MusicSource[]).map((source) => (
+            {(['pentatonic', 'none'] as MusicSource[]).map((source) => (
               <button
                 key={source}
                 onClick={() => { setMusicSource(source); setIsOpen(false); }}
@@ -143,92 +122,6 @@ export default function SidebarSoundPanel() {
                 aria-label="Volume"
               />
             </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (isStreamPlaying && isOffline && !nowPlayingData) {
-    const parts: string[] = [];
-    if (ambienceMode !== 'none') parts.push(AMBIENCE_LABELS[ambienceMode]);
-    parts.push(MUSIC_LABELS[musicSource]);
-    const label = parts.join(' + ');
-
-    return (
-      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-bg-tertiary">
-        <WifiOff size={14} className="text-red-400 flex-shrink-0" />
-        <span className="text-xs text-text-muted truncate flex-1">{label}</span>
-        <button
-          onClick={stopAll}
-          className="p-0.5 rounded text-text-muted hover:text-text-primary transition-colors"
-          title="Stop all sounds"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  if (isStreamPlaying && nowPlayingData && stationInfo) {
-    return (
-      <div className="px-2 py-2 rounded-lg bg-bg-tertiary space-y-1.5">
-        <div className="flex items-center gap-2">
-          {song?.art ? (
-            <img
-              src={song.art}
-              alt="Album art"
-              className="w-8 h-8 rounded object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded bg-bg-secondary flex items-center justify-center flex-shrink-0">
-              <Radio size={14} className="text-text-muted" />
-            </div>
-          )}
-
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-text-primary truncate">{stationInfo.displayName}</div>
-            {trackText && (
-              <div className="text-[11px] text-text-muted truncate">{trackText}</div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={handleSwitchStation}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
-              title="Switch station"
-            >
-              <SkipForward size={14} />
-            </button>
-            <button
-              onClick={stopAll}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
-              title="Stop"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Volume2 size={12} className="text-text-muted flex-shrink-0" />
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="flex-1 h-1 accent-accent-blue cursor-pointer"
-            aria-label="Volume"
-          />
-        </div>
-
-        {ambienceMode !== 'none' && (
-          <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-            {AMBIENCE_ICONS[ambienceMode]}
-            <span>{AMBIENCE_LABELS[ambienceMode]}</span>
           </div>
         )}
       </div>

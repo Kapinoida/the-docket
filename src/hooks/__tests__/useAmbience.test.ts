@@ -119,18 +119,6 @@ describe('useAmbience', () => {
         });
     });
 
-    it('starts and stops a stream (AzuraCast)', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startStream('https://radio.dcplaskett.com/listen/runtime_loop/radio.mp3');
-        });
-
-        act(() => {
-            result.current.stopStream();
-        });
-    });
-
     it('startMusicSource dispatches to startMusic for pentatonic', () => {
         const { result } = renderHook(() => useAmbience());
 
@@ -139,81 +127,7 @@ describe('useAmbience', () => {
         });
 
         act(() => {
-            result.current.stopMusicAndStream();
-        });
-    });
-
-    it('startMusicSource dispatches to startStream for runtime_loop', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startMusicSource('runtime_loop');
-        });
-
-        act(() => {
-            result.current.stopMusicAndStream();
-        });
-    });
-
-    it('startMusicSource dispatches to startStream for warm_boot', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startMusicSource('warm_boot');
-        });
-
-        act(() => {
-            result.current.stopMusicAndStream();
-        });
-    });
-
-    it('switching between streams does not kill the new stream (stale ref bug)', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startMusicSource('runtime_loop');
-        });
-
-        // Switch to a different stream — the old stream's stopStream timeout
-        // should NOT nullify the new stream's audio element
-        act(() => {
-            result.current.startMusicSource('warm_boot');
-        });
-
-        // No assertion needed — if the bug is present, the new stream's refs
-        // would be null after 2100ms. We can't easily assert on internal refs,
-        // but this verifies switching runs without crashing.
-    });
-
-    it('switching from stream to pentatonic does not leave stream playing', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startMusicSource('runtime_loop');
-        });
-
-        act(() => {
-            result.current.startMusicSource('pentatonic');
-        });
-
-        act(() => {
-            result.current.stopMusicAndStream();
-        });
-    });
-
-    it('switching from pentatonic to stream does not leave pentatonic playing', () => {
-        const { result } = renderHook(() => useAmbience());
-
-        act(() => {
-            result.current.startMusicSource('pentatonic');
-        });
-
-        act(() => {
-            result.current.startMusicSource('warm_boot');
-        });
-
-        act(() => {
-            result.current.stopMusicAndStream();
+            result.current.stopMusic();
         });
     });
 
@@ -265,13 +179,13 @@ describe('useAmbience', () => {
         });
 
         act(() => {
-            result.current.startMusicSource('runtime_loop');
+            result.current.startMusicSource('pentatonic');
         });
 
         expect(result.current.volume).toBe(0.4);
 
         act(() => {
-            result.current.stopMusicAndStream();
+            result.current.stopMusic();
         });
     });
 });

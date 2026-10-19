@@ -27,7 +27,7 @@ export const useSound = () => {
 };
 
 export function SoundProvider({ children }: { children: ReactNode }) {
-  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusicAndStream, setVolume: setVolumeHook } = useAmbience();
+  const { start: startAmbience, stop: stopAmbience, startMusicSource, stopMusic, setVolume: setVolumeHook } = useAmbience();
   const [ambienceMode, setAmbienceModeState] = useState<AmbienceMode>('none');
   const [musicSource, setMusicSourceState] = useState<MusicSource>('none');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -65,7 +65,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
         if (['brown-noise', 'rain', 'snow', 'orbit', 'none'].includes(ambMode)) {
           setAmbienceModeState(ambMode);
         }
-        if (['pentatonic', 'runtime_loop', 'warm_boot', 'none'].includes(musSource)) {
+        if (['pentatonic', 'none'].includes(musSource)) {
           setMusicSourceState(musSource);
         }
         setVolumeState(vol);
@@ -116,11 +116,11 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     if (source !== 'none') {
       startMusicSource(source);
     } else {
-      stopMusicAndStream();
+      stopMusic();
     }
     persistSelections(ambienceMode, source, volumeState);
     updatePlayingState(ambienceMode, source);
-  }, [startMusicSource, stopMusicAndStream, ambienceMode, volumeState, persistSelections, updatePlayingState]);
+  }, [startMusicSource, stopMusic, ambienceMode, volumeState, persistSelections, updatePlayingState]);
 
   const setVolume = useCallback((v: number) => {
     const clamped = Math.max(0, Math.min(1, v));
@@ -131,24 +131,24 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 
   const stopAll = useCallback(() => {
     stopAmbience();
-    stopMusicAndStream();
+    stopMusic();
     setAmbienceModeState('none');
     setMusicSourceState('none');
     persistSelections('none', 'none', volumeState);
     setIsPlaying(false);
-  }, [stopAmbience, stopMusicAndStream, volumeState, persistSelections]);
+  }, [stopAmbience, stopMusic, volumeState, persistSelections]);
 
   // Cleanup only on tab close — NOT on React unmount (so audio persists across SPA navigation)
   useEffect(() => {
     const handleBeforeUnload = () => {
       stopAmbience();
-      stopMusicAndStream();
+      stopMusic();
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [stopAmbience, stopMusicAndStream]);
+  }, [stopAmbience, stopMusic]);
 
   return (
     <SoundContext.Provider value={{
