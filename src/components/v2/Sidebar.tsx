@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Calendar, Trash2, ListTodo, Timer, Settings, Hash, ClipboardCheck, Film } from 'lucide-react';
+import { Layout, Star, Clock, FileText, Inbox, ChevronRight, ChevronDown, Plus, Calendar, Trash2, ListTodo, Timer, Settings, Hash, ClipboardCheck, Film, Zap } from 'lucide-react';
 import { Page } from '../../types';
 import FolderTree from '../../components/FolderTree';
 import { useTaskEdit } from '../../contexts/TaskEditContext';
@@ -310,6 +310,7 @@ export default function Sidebar() {
         <div className="px-2 space-y-0.5">
             <NavItem href="/" icon={Layout} label="Dashboard" active={pathname === '/'} />
             <NavItem href="/inbox" icon={Inbox} label="Inbox" active={pathname === '/inbox'} />
+            <NavItem href="/capture" icon={Zap} label="Capture" active={pathname === '/capture'} />
             <NavItem href="/today" icon={Clock} label="Today" active={pathname === '/today'} />
             <NavItem href="/tasks" icon={ListTodo} label="All Tasks" active={pathname === '/tasks'} />
             <NavItem href="/calendar" icon={Calendar} label="Calendar" active={pathname === '/calendar'} />

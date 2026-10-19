@@ -112,6 +112,56 @@ Implement a secure, verifiable server-to-server trigger for push reminders:
 - Do not touch Sportarr, DVR, or recording pipeline code.
 - Do not weaken user authentication for ordinary Docket routes.
 
+## Current Handoff: Add Mobile Capture Page
+
+Dave wants a low-friction personal task capture page that can be opened from an AIO Launcher shortcut. Build and deploy this as the next vertical slice.
+
+### Product behavior
+
+Add an authenticated route at `/capture` optimized for Android phone use:
+
+- The page opens inside the normal Docket app shell and requires the existing session authentication.
+- It presents one prominent text input or textarea immediately, with autofocus where mobile browsers permit it.
+- The primary action is clearly labeled `Capture` or `Add to Inbox`.
+- Submitting creates a plain Inbox task through the existing authenticated task creation path.
+- Do not ask for a page, due date, priority, effort, project, or other metadata.
+- On success, show a clear confirmation and reset/focus the input so another thought can be captured quickly.
+- On failure, preserve the entered text and show an actionable error.
+- Support normal Android keyboard voice dictation; do not build custom speech recognition.
+- Include a link/button to Inbox for later processing.
+- Respect the existing mobile layout conventions and safe-area/bottom-tab spacing. Do not use `h-screen`, `h-dvh`, or `min-h-screen` inside the app shell.
+
+### AIO integration guidance
+
+Do not modify the AIO Lua widget in this task. The intended launcher integration is a simple shortcut opening:
+
+`https://docket.dcplaskett.com/capture`
+
+The existing read-only Docket Today widget remains unchanged.
+
+### Implementation requirements
+
+- Inspect the existing ProvidersWrapper, LayoutWrapper, mobile navigation, API client, and task creation route before editing.
+- Prefer a dedicated `src/app/capture/page.tsx` or equivalent route consistent with the current Next.js architecture.
+- Use the existing `apiFetch` helper and existing `/api/v2/tasks` POST path, or a small server action only if that is clearly more consistent.
+- Dispatch the existing `taskCreated` custom event or otherwise ensure task views can refresh after capture.
+- Add component/page tests covering render, successful creation/reset, empty input validation, API failure, and authentication behavior as practical.
+- Update `DEVLOG.md` and `ROADMAP.md`. Add a BUGS entry only if this exposes an existing bug.
+
+### Verification and deployment
+
+- Run `npm test`, `npx tsc --noEmit`, and `npm run build`.
+- Deploy with `bash update.sh` only after verification passes.
+- Verify `https://docket.dcplaskett.com/capture` returns the expected authenticated behavior after deployment.
+- Do not create a real task on Dave's behalf during verification.
+
+### What MUST NOT CHANGE
+
+- Do not modify push notification behavior, tokens, or VAPID keys.
+- Do not modify the existing AIO Lua widget.
+- Do not rotate or modify `WIDGET_TOKEN`.
+- Do not touch Sportarr, DVR, or recording pipeline code.
+
 ## End
 
 Do not treat this as a request to modify Sportarr or the DVR pipeline. Touch only the Docket app surface and its documentation.

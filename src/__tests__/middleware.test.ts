@@ -64,4 +64,22 @@ describe('middleware', () => {
 
     expect(res.status).toBe(401);
   });
+
+  it('redirects an unauthenticated capture page request to the login page', async () => {
+    const res = await middleware(request('/capture'));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toContain('/login?redirect=%2Fcapture');
+  });
+
+  it('lets the capture page through with a valid session cookie', async () => {
+    const res = await middleware(
+      new NextRequest('http://localhost:3000/capture', {
+        headers: { cookie: 'token=valid-session-token' },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+  });
 });

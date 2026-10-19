@@ -50,6 +50,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // /capture is opened cold from a launcher shortcut, so it must never be
+  // served from the HTML cache: a stale copy would reference JS chunks that
+  // no longer exist after a deploy, and a cached login redirect would mask
+  // the real page.
+  if (url.pathname === '/capture') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   // App shell + other routes: stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cached) => {
