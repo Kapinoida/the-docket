@@ -255,6 +255,75 @@ export default function PageView() {
       }
   };
 
+  const handlePageKindChange = async (newKind: string) => {
+      if (!page) return;
+      try {
+          const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ page_kind: newKind })
+          });
+          if (res.ok) {
+              const updatedPage = await res.json();
+              setPage({ ...page, page_kind: updatedPage.page_kind });
+              window.dispatchEvent(new Event('pageUpdated'));
+          }
+      } catch (err) {
+          console.error("Failed to update page kind", err);
+      }
+  };
+
+  const handleDesiredOutcomeChange = async (newOutcome: string) => {
+      if (!page) return;
+      try {
+          const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desired_outcome: newOutcome })
+          });
+          if (res.ok) {
+              const updatedPage = await res.json();
+              setPage({ ...page, desired_outcome: updatedPage.desired_outcome });
+          }
+      } catch (err) {
+          console.error("Failed to update desired outcome", err);
+      }
+  };
+
+  const handleCurrentStateChange = async (newState: string) => {
+      if (!page) return;
+      try {
+          const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ current_state: newState })
+          });
+          if (res.ok) {
+              const updatedPage = await res.json();
+              setPage({ ...page, current_state: updatedPage.current_state });
+          }
+      } catch (err) {
+          console.error("Failed to update current state", err);
+      }
+  };
+
+  const handleReviewDateChange = async (newDate: string) => {
+      if (!page) return;
+      try {
+          const res = await fetch(`/api/v2/pages?id=${page.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ review_date: newDate || null })
+          });
+          if (res.ok) {
+              const updatedPage = await res.json();
+              setPage({ ...page, review_date: updatedPage.review_date });
+          }
+      } catch (err) {
+          console.error("Failed to update review date", err);
+      }
+  };
+
   if (loading) return <PageSkeleton />;
   if (!page) return <div className="p-8">Page not found</div>;
 
@@ -388,6 +457,67 @@ export default function PageView() {
                     <span>Add Tag</span>
                 </button>
             )}
+        </div>
+
+        {/* Page Kind and Project Metadata */}
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-text-secondary">Type:</label>
+            <select
+              value={page.page_kind || 'reference'}
+              onChange={(e) => handlePageKindChange(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-border rounded-md bg-bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+            >
+              <option value="reference">Reference</option>
+              <option value="project">Project</option>
+              <option value="meeting">Meeting Notes</option>
+              <option value="journal">Journal</option>
+            </select>
+          </div>
+
+          {page.page_kind === 'project' && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-lg space-y-4">
+              <h3 className="text-sm font-semibold text-text-primary">Project Details</h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Desired Outcome
+                </label>
+                <textarea
+                  value={page.desired_outcome || ''}
+                  onChange={(e) => handleDesiredOutcomeChange(e.target.value)}
+                  placeholder="What does success look like?"
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm border border-border rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Current State
+                </label>
+                <textarea
+                  value={page.current_state || ''}
+                  onChange={(e) => handleCurrentStateChange(e.target.value)}
+                  placeholder="Where are we now?"
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm border border-border rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Review Date
+                </label>
+                <input
+                  type="date"
+                  value={page.review_date ? page.review_date.split('T')[0] : ''}
+                  onChange={(e) => handleReviewDateChange(e.target.value)}
+                  className="px-3 py-2 text-sm border border-border rounded-md bg-bg-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

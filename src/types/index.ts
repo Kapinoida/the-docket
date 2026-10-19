@@ -1,5 +1,6 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled' | 'waiting' | 'someday';
 export type CommitmentLevel = 'must' | 'should' | 'could';
+export type PageKind = 'area' | 'project' | 'reference' | 'journal' | 'template';
 
 export interface RecurrenceRule {
   type: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -38,6 +39,10 @@ export interface Page {
   content: any;
   folder_id?: number | null;
   is_favorite: boolean;
+  page_kind: PageKind;
+  desired_outcome?: string | null;
+  current_state?: string | null;
+  review_date?: string | null;
   created_at: Date;
   updated_at: Date;
   items?: PageItem[];
@@ -147,6 +152,10 @@ export interface PageRow {
   content: any;
   folder_id?: number | null;
   is_favorite: boolean;
+  page_kind?: PageKind;
+  desired_outcome?: string | null;
+  current_state?: string | null;
+  review_date?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -234,6 +243,10 @@ export function pageRowToPage(row: PageRow): Page {
     content: row.content,
     folder_id: row.folder_id,
     is_favorite: row.is_favorite,
+    page_kind: row.page_kind || 'reference',
+    desired_outcome: row.desired_outcome,
+    current_state: row.current_state,
+    review_date: row.review_date,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

@@ -54,7 +54,7 @@ export default async function handler(
 
       case 'POST':
         // Create page
-        const { title, content, folderId: pageFolderId, parentPageId } = req.body;
+        const { title, content, folderId: pageFolderId, parentPageId, page_kind, desired_outcome, current_state, review_date } = req.body;
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
         let finalFolderId = pageFolderId;
@@ -70,7 +70,15 @@ export default async function handler(
             }
         }
 
-        const newPage = await createPage(title, content, finalFolderId);
+        const newPage = await createPage(
+          title, 
+          content, 
+          finalFolderId,
+          page_kind,
+          desired_outcome,
+          current_state,
+          review_date
+        );
 
         // Link to parent if applicable
 if (parentPageId) {
@@ -81,7 +89,16 @@ if (parentPageId) {
 
       case 'PUT':
         if (!id) return res.status(400).json({ error: 'ID is required' });
-        const { content: newContent, title: newTitle, is_favorite: newIsFavorite, folderId: newFolderId } = req.body;
+        const { 
+          content: newContent, 
+          title: newTitle, 
+          is_favorite: newIsFavorite, 
+          folderId: newFolderId,
+          page_kind: newPageKind,
+          desired_outcome: newDesiredOutcome,
+          current_state: newCurrentState,
+          review_date: newReviewDate
+        } = req.body;
         
         const updateFields: string[] = [];
         const updateValues: any[] = [];
@@ -191,6 +208,22 @@ if (parentPageId) {
         if (newFolderId !== undefined) {
           updateFields.push(`folder_id = $${valueIdx++}`);
           updateValues.push(newFolderId);
+        }
+        if (newPageKind !== undefined) {
+          updateFields.push(`page_kind = $${valueIdx++}`);
+          updateValues.push(newPageKind);
+        }
+        if (newDesiredOutcome !== undefined) {
+          updateFields.push(`desired_outcome = $${valueIdx++}`);
+          updateValues.push(newDesiredOutcome || null);
+        }
+        if (newCurrentState !== undefined) {
+          updateFields.push(`current_state = $${valueIdx++}`);
+          updateValues.push(newCurrentState || null);
+        }
+        if (newReviewDate !== undefined) {
+          updateFields.push(`review_date = $${valueIdx++}`);
+          updateValues.push(newReviewDate || null);
         }
 
         updateFields.push(`updated_at = NOW()`);

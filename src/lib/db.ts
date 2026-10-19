@@ -17,10 +17,19 @@ export default pool;
 
 // V2 Data Access Functions
 
-export async function createPage(title: string, content: any = {}, folderId?: number): Promise<Page> {
+export async function createPage(
+  title: string, 
+  content: any = {}, 
+  folderId?: number,
+  pageKind?: string,
+  desiredOutcome?: string,
+  currentState?: string,
+  reviewDate?: string
+): Promise<Page> {
   const res = await pool.query(
-    'INSERT INTO pages (title, content, folder_id) VALUES ($1, $2, $3) RETURNING *',
-    [title, content, folderId || null]
+    `INSERT INTO pages (title, content, folder_id, page_kind, desired_outcome, current_state, review_date) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [title, content, folderId || null, pageKind || 'reference', desiredOutcome || null, currentState || null, reviewDate || null]
   );
   return res.rows[0];
 }
