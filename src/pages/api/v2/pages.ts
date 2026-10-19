@@ -14,7 +14,20 @@ export default async function handler(
   try {
     switch (method) {
       case 'GET':
-        const { view, folderId } = req.query;
+        const { view, folderId, backlinks, search } = req.query;
+
+        // Search endpoint for autocomplete
+        if (search) {
+          const searchTerm = `%${search}%`;
+          const searchResult = await pool.query(
+            `SELECT id, title, folder_id FROM pages 
+             WHERE title ILIKE $1 
+             ORDER BY title ASC 
+             LIMIT 20`,
+            [searchTerm]
+          );
+          return res.status(200).json(searchResult.rows);
+        }
 
         if (id) {
           // Get single page
@@ -26,8 +39,22 @@ export default async function handler(
 
           // Get tags
           const tags = await getTagsForItem(Number(id), 'page');
+
+          // Get backlinks if requested
+          let backlinksList = [];
+          if (backlinks === 'true') {
+            const backlinksResult = await pool.query(
+              `SELECT id, title FROM pages 
+               WHERE content::text LIKE '%"type":"v2PageLink"%' 
+               AND content::text LIKE '%"pageId":' || $1 || '%'
+               AND id != $1
+               ORDER BY title ASC`,
+              [Number(id)]
+            );
+            backlinksList = backlinksResult.rows;
+          }
           
-          return res.status(200).json({ ...page, items, tags });
+          return res.status(200).json({ ...page, items, tags, backlinks: backlinksList });
         } else {
           // List pages with filters
           let query = 'SELECT * FROM pages';

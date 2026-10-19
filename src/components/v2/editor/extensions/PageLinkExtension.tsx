@@ -1,9 +1,14 @@
 
 import { Node, mergeAttributes, InputRule } from '@tiptap/core';
-import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
+import { ReactNodeViewRenderer, NodeViewWrapper, ReactRenderer } from '@tiptap/react';
 import { useEffect, useState, useRef } from 'react';
 import { Page } from '../../../../types';
 import { FileText } from 'lucide-react';
+import Suggestion from '@tiptap/suggestion';
+import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
+import { PageLinkList } from '../PageLinkList';
+import { PluginKey } from '@tiptap/pm/state';
 
 const PageLinkNodeView = ({ node, updateAttributes, editor }: any) => {
   const { pageId, tempTitle } = node.attrs;
@@ -99,8 +104,6 @@ export const PageLinkExtension = Node.create({
     };
   },
   
-  // ... (rest unchanged)
-
   parseHTML() {
     return [{ tag: 'span[data-v2-page-link]' }];
   },
@@ -124,21 +127,130 @@ export const PageLinkExtension = Node.create({
     }
   },
 
-  addInputRules() {
-      return [
-          new InputRule({
-              find: /\[\[(.+?)\]\]$/,
-              handler: ({ state, range, match, chain }) => {
-                  const title = match[1];
-                  chain()
-                    .deleteRange(range)
-                    .insertPageLink({ tempTitle: title })
-                    .insertContent(' ') // Add space to move out of node
-                    .run();
+  addKeyboardShortcuts() {
+    return {
+      Backspace: () =>
+        this.editor.commands.command(({ tr, state }) => {
+          let isPageLink = false;
+          const { selection } = state;
+          const { empty, anchor } = selection;
+
+          if (!empty) {
+            return false;
+          }
+
+          state.doc.nodesBetween(anchor - 1, anchor, (node, pos) => {
+            if (node.type.name === this.name) {
+              isPageLink = true;
+              tr.insertText('', pos, pos + node.nodeSize);
+            }
+          });
+
+          return isPageLink;
+        }),
+    };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      Suggestion({
+        editor: this.editor,
+        char: '[[',
+        startOfLine: false,
+        pluginKey: new PluginKey('pageLinkSuggestion'),
+        allowSpaces: true,
+        command: ({ editor, range, props }) => {
+          const nodeAfter = editor.view.state.selection.$anchor.nodeAfter;
+          const overrideSpace = nodeAfter?.text?.startsWith(' ');
+
+          if (overrideSpace) {
+            props.to += 1;
+          }
+
+          editor
+            .chain()
+            .focus()
+            .insertContentAt(range, [
+              {
+                type: this.name,
+                attrs: props,
+              },
+              {
+                type: 'text',
+                text: ' ',
+              },
+            ])
+            .run();
+        },
+        items: async ({ query }) => {
+          try {
+            const res = await fetch(`/api/v2/pages?search=${encodeURIComponent(query)}`);
+            if (res.ok) {
+              const pages = await res.json();
+              return pages.slice(0, 10);
+            }
+            return [];
+          } catch (e) {
+            console.error("Failed to fetch pages", e);
+            return [];
+          }
+        },
+        render: () => {
+          let component: any;
+          let popup: any;
+
+          return {
+            onStart: (props: any) => {
+              component = new ReactRenderer(PageLinkList, {
+                props,
+                editor: props.editor,
+              });
+
+              if (!props.clientRect) {
+                return;
               }
-          })
-      ]
-  }
+
+              popup = tippy('body', {
+                getReferenceClientRect: props.clientRect,
+                appendTo: () => document.body,
+                content: component.element,
+                showOnCreate: true,
+                interactive: true,
+                trigger: 'manual',
+                placement: 'bottom-start',
+              });
+            },
+
+            onUpdate(props: any) {
+              component.updateProps(props);
+
+              if (!props.clientRect) {
+                return;
+              }
+
+              popup[0].setProps({
+                getReferenceClientRect: props.clientRect,
+              });
+            },
+
+            onKeyDown(props: any) {
+              if (props.event.key === 'Escape') {
+                popup[0].hide();
+                return true;
+              }
+
+              return component.ref?.onKeyDown(props);
+            },
+
+            onExit() {
+              popup[0].destroy();
+              component.destroy();
+            },
+          };
+        },
+      }),
+    ];
+  },
 });
 
 declare module '@tiptap/core' {

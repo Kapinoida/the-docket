@@ -21,6 +21,17 @@ Use this format:
 
 ---
 
+## [2026-10-19] – Inline page links with autocomplete + backlinks panel
+- **What changed:**
+  Added `[[` autocomplete for inline page links and a "Linked from" backlinks panel on page views. Created `PageLinkList.tsx` autocomplete dropdown (shows matching pages + "Create new page" option). Rewrote `PageLinkExtension.tsx` to use TipTap `Suggestion` plugin (replaces old `[[text]]` input rule — now triggers a popup as you type). Added lightweight page search endpoint (`GET /api/v2/pages?search=...`) for autocomplete. Added backlinks query (`GET /api/v2/pages?id=X&backlinks=true`) that finds pages whose content contains a `v2PageLink` pointing to the target page. Added `PageBacklink` type to `src/types/index.ts`. Page view fetches backlinks on load and displays them in a subtle panel above the editor.
+- **Why:**
+  The existing `[[page]]` syntax only created links *after* typing the closing `]]` — no way to find existing pages to link to. Autocomplete lets users link to any existing page by typing a few characters, and falls back to creating a new page if no match. Backlinks are the foundation of a knowledge graph — they surface "what links here" so you can navigate related pages without maintaining manual indexes.
+- **Affected areas:** `src/components/v2/editor/PageLinkList.tsx` (new), `src/components/v2/editor/extensions/PageLinkExtension.tsx` (rewrote to use Suggestion plugin), `src/pages/api/v2/pages.ts` (added search + backlinks handlers), `src/types/index.ts` (added PageBacklink), `src/app/page/[id]/page.tsx` (fetches + renders backlinks panel).
+- **Migration needed?** No.
+- **Testing:** TypeScript clean. All 521 tests pass.
+
+---
+
 ## [2026-10-15] – Recreate Calibre-Web/KOReader ebook sync system
 - **What changed:**
   Recreated complete ebook synchronization system lost in BUG-019 git history rewrite. Implemented KOReader partial MD5 checksum algorithm (`src/media/lib/koreader.ts`) that samples 1024 bytes at exponentially spaced positions for matching reading progress to Calibre books. Created POST `/api/v2/media/sync/calibre-web` endpoint with full payload validation, transaction-based sync logic that preserves manual status/progress overrides, and proper progress mapping (0→owned, 0<x<1→in_progress, 1→completed). Added GET `/api/v2/media/covers/calibre-web/[id]` cover proxy with path traversal protection and JPG/PNG fallback. Migration 013 changes `series_position` from INTEGER to REAL to support fractional Calibre series indexes. UI updated with Ebooks sync button (green #059669).

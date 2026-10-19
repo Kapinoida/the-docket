@@ -48,6 +48,19 @@ export interface Page {
   items?: PageItem[];
   folder?: { id: number; name: string } | null;
   parent_page?: { id: number; title: string } | null;
+  tags?: Tag[];
+  backlinks?: PageBacklink[];
+}
+
+export interface PageBacklink {
+  id: number;
+  title: string;
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
 }
 
 export interface PageItem {

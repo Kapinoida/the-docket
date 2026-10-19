@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput, Download, RefreshCw, CheckSquare } from 'lucide-react';
+import { ChevronRight, Folder, FileText, Trash2, Hash, X, Plus, Star, FolderInput, Download, RefreshCw, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import V2Editor from '../../../components/v2/editor/Editor';
 import { Page, Task } from '../../../types';
 
@@ -52,7 +52,7 @@ export default function PageView() {
 
   useEffect(() => {
     if (id) {
-      fetch(`/api/v2/pages?id=${id}`)
+      fetch(`/api/v2/pages?id=${id}&backlinks=true`)
          .then(res => res.json())
          .then(data => {
              setPage(data);
@@ -519,6 +519,28 @@ export default function PageView() {
             </div>
           )}
         </div>
+
+        {/* Backlinks */}
+        {page.backlinks && page.backlinks.length > 0 && (
+          <div className="mb-6 p-4 bg-bg-secondary border border-border rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <LinkIcon size={16} className="text-text-secondary" />
+              <h3 className="text-sm font-semibold text-text-primary">Linked from</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {page.backlinks.map((backlink: any) => (
+                <Link
+                  key={backlink.id}
+                  href={`/page/${backlink.id}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-sm bg-bg-primary hover:bg-bg-tertiary border border-border rounded-md transition-colors"
+                >
+                  <FileText size={12} className="text-text-muted" />
+                  <span className="text-text-primary">{backlink.title}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       <V2Editor
