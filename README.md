@@ -37,3 +37,31 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Configuration
+
+Copy `.env.example` to `.env.local` and fill in the values. `.env.local` is git-ignored; `.env` (same folder) is used by `docker compose` for variable interpolation.
+
+| Variable | Purpose |
+|----------|---------|
+| `DOCKET_PASSWORD` | Single-user login password |
+| `JWT_SECRET` | Signs session JWTs. Required — the app refuses to boot without it |
+| `DATABASE_URL` / `POSTGRES_*` | PostgreSQL connection |
+| `WIDGET_TOKEN` | Read-only launcher widget endpoint (`/api/widget/today`) |
+| `PUSH_TRIGGER_TOKEN` | Server-to-server credential for `/api/push/send` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push (VAPID) keys |
+
+### Push reminder trigger
+
+Timed task reminders are delivered by an external cron job that POSTs to
+`/api/push/send`. That endpoint is not unauthenticated — it accepts the
+`PUSH_TRIGGER_TOKEN` value in an `X-Push-Trigger-Token` header (or a normal
+session cookie):
+
+```bash
+curl -X POST http://localhost:8088/api/push/send \
+  -H "X-Push-Trigger-Token: $PUSH_TRIGGER_TOKEN"
+```
+
+The token is independent of `WIDGET_TOKEN` and the VAPID keys, so rotating one
+never invalidates another.

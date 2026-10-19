@@ -594,6 +594,11 @@ export async function getPushSubscriptions(): Promise<any[]> {
   return res.rows;
 }
 
+export async function getPushSubscriptionByEndpoint(endpoint: string): Promise<any | null> {
+  const res = await pool.query('SELECT * FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+  return res.rows[0] || null;
+}
+
 export async function getTasksDueSoon(): Promise<any[]> {
   const res = await pool.query(`
     SELECT id, content, due_date

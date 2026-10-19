@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Repair push notification delivery (BUG-022)** 🟢
+  Fixed the Android push reminder pipeline. `/api/push/send` now accepts a dedicated server-to-server trigger credential (`PUSH_TRIGGER_TOKEN` in the `X-Push-Trigger-Token` header) alongside normal session auth — the route is no longer a 401 dead end for the Hermes cron job, and it is still never unauthenticated. The Edge middleware passes the trigger through only when the credential is valid. Push accounting now records a notification only when at least one subscription delivery succeeds (previously a task was marked notified even when every push failed), expired 404/410 subscriptions are still pruned, and failures are reported as counts per status code without logging endpoints or keys. Added a session-authenticated `POST /api/push/test-notification` endpoint with a "Send test notification" button in Settings. 47 new tests (trigger helpers, route auth/accounting, middleware bypass, component).
+  *Completed: 2026-10-19*
+
 - [x] **Retire Radio and Recordings surfaces** 🟢
   Removed `/radio` and `/recordings` product surfaces from the Docket UI. Deleted radio page, recordings dashboard, all related components, API routes, types, and database helpers. Removed AzuraCast integration (azuracast.ts, radioStations.ts, useNowPlaying hook) and stream playback logic from sound system. Retained procedural ambience (brown-noise, rain, snow, orbit) and pentatonic music generator in sound player. Kept `recording_schedules` database table intact for Sportarr sync pipeline. Updated AGENTS.md with retirement note. Sound player UI now shows "Sound" instead of "Radio" with only ambience and pentatonic music options.
   *Completed: 2026-10-19*

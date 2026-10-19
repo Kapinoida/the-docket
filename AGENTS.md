@@ -42,7 +42,18 @@ Read `.hermes/OPENCODE-HANDOFF.md` for the collaboration workflow. Hermes invest
 - `src/lib/caldav.ts` — CalDAV sync (tasks + events), includes RRULE conversion
 - `src/lib/calendar.ts` — Shared calendar utilities, color system, event rendering
 - `src/lib/db.ts` — All data access functions, used by API routes
+- `src/lib/pushTrigger.ts` — Pure helpers for the server-to-server push trigger credential
 - `src/types/index.ts` — Canonical type definitions (snake_case matching DB)
+
+## Push Notifications
+
+- `POST /api/push/send` — sends reminders for tasks due in the next 10 minutes. It is **never** unauthenticated. Two credentials are accepted:
+  - `PUSH_TRIGGER_TOKEN` sent as the `X-Push-Trigger-Token` header — for the external Hermes cron job (`~/.hermes/scripts/docket_push.sh`). The middleware lets the request through only when the header validates.
+  - A normal session cookie — for in-app use.
+- `POST /api/push/test-notification` — session-authenticated test push to the caller's own device (Settings → "Send test notification").
+- Accounting rule: a row is written to `push_notifications` **only** when at least one subscription delivery succeeded. Failed tasks stay eligible for a later retry. Subscriptions that return HTTP 404/410 are deleted.
+- Never log push endpoints, `p256dh`, or `auth` values — report failure counts only.
+- `PUSH_TRIGGER_TOKEN` is separate from `WIDGET_TOKEN` and the VAPID keys on purpose. Do not rotate any of them without an explicit request.
 
 ## Retired Surfaces (2026-10-19)
 

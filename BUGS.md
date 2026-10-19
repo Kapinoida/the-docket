@@ -1,5 +1,51 @@
 # Known Bugs
 
+## BUG-022 — Push reminders never reached the phone (cron trigger unauthorized)
+
+**Status:** ✅ Fixed
+**Reported:** 2026-10-19 (via Hermes, from Dave)
+**Area:** `src/pages/api/push/send.ts`, `src/middleware.ts`, `~/.hermes/scripts/docket_push.sh`
+
+### User-visible symptom
+
+Timed task reminders never arrived on the Android phone. The Hermes cron job `docket-push-reminders` (`d525f7185ca7`) reported `ok` every minute, but nothing was ever pushed.
+
+### Investigation (Hermes, 2026-10-19)
+
+1. `~/.hermes/scripts/docket_push.sh` POSTed to `http://localhost:8088/api/push/send` with no credentials and ignored the HTTP status, so the cron always reported success.
+2. `src/pages/api/push/send.ts` was wrapped in `withAuth`, and `/api/push/send` is not in the middleware public allowlist — every live POST returned `401 Unauthorized` (confirmed in the cron output logs).
+3. The route recorded a row in `push_notifications` for every task it attempted, even when every `web-push` delivery failed, so a task could be marked as notified without the device ever receiving anything.
+
+### Implementation
+
+1. **Dedicated trigger credential** — new `PUSH_TRIGGER_TOKEN` env var, presented as the `X-Push-Trigger-Token` request header. `src/lib/pushTrigger.ts` (new) holds the pure, unit-tested helpers (constant-time comparison, header extraction). The route accepts either the trigger credential or a normal session cookie; it is never unauthenticated and `/api/push/send` was **not** added to the middleware public allowlist.
+2. **Targeted middleware bypass** — `src/middleware.ts` lets `/api/push/send` through only when the trigger header validates. Every other route still requires a session cookie.
+3. **Accurate accounting** — `push_notifications` is written only when at least one subscription delivery succeeded for that task; a task that failed to deliver stays eligible for a later retry. Expired subscriptions (404/410) are still deleted. The response reports `sent` (tasks notified), `delivered`, `failed`, `removed`, and `tasks`; the server log reports a per-status-code failure histogram with no endpoints or subscription keys.
+4. **Cron script** — `~/.hermes/scripts/docket_push.sh` (outside git) sends the credential, resolves it from `$PUSH_TRIGGER_TOKEN`, `~/.hermes/.docket_push_token` (0600), or the Docket's `.env.local`, and exits non-zero on any non-2xx response. It stays silent on a successful no-op.
+5. **Test path** — `POST /api/push/test-notification` (session authenticated) plus a "Send test notification" button in Settings. The endpoint must already be a known subscription, so a session cannot be used to push to arbitrary endpoints.
+
+### Acceptance criteria
+
+- [x] `POST /api/push/send` without the trigger credential returns `401`
+- [x] `POST /api/push/send` with the trigger credential is accepted and returns delivery counts
+- [x] `/api/push/send` is not in the middleware public allowlist
+- [x] A notification is recorded only when at least one delivery succeeds
+- [x] Subscriptions returning 404/410 are removed; other failures are counted, not removed
+- [x] Failure reports never contain endpoints, `p256dh`, or `auth` values
+- [x] Automated tests cover unauthorized trigger, authorized trigger, no subscribers, successful delivery, all-deliveries-failed, expired subscription cleanup, and the middleware bypass
+- [x] The cron script exits non-zero for unauthorized requests and zero for authorized no-ops
+- [x] No live task created and no real phone notification sent during verification
+- [x] `npm test` (568), `npx tsc --noEmit`, and `npm run build` all clean
+
+### Fixed files
+
+- `src/lib/pushTrigger.ts` (new), `src/middleware.ts`, `src/pages/api/push/send.ts`
+- `src/pages/api/push/test-notification.ts` (new), `src/lib/db.ts`, `src/components/NotificationToggle.tsx`
+- `.env.example` (new), `docker-compose.yml`, `jest.setup.ts`
+- External: `~/.hermes/scripts/docket_push.sh`, `~/.hermes/.docket_push_token`
+
+---
+
 ## BUG-018 — Media tracker migration missing source links and incorrect TV completion
 
 **Status:** ✅ Fixed  

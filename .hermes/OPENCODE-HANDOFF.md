@@ -69,6 +69,49 @@ Hermes investigates and writes focused handoffs. OpenCode implements, verifies, 
 - The sound control still appears in the app shell, ambience picks still work, volume works, `pentatonic` still plays, and no station/stream UI remains.
 - `curl -s -o /dev/null -w "%{http_code}" http://localhost:8088/` returns 200 after deploy.
 
+## Current Handoff: Repair Docket Push Notifications
+
+Dave wants Hermes/OpenCode to repair the Docket's Android phone push notification path.
+
+### Verified live findings
+
+- `~/.hermes/scripts/docket_push.sh` runs every minute via Hermes cron job `d525f7185ca7`.
+- The script currently POSTs to `http://localhost:8088/api/push/send` without authentication and does not fail on HTTP errors.
+- Live POST currently returns `401 Unauthorized` because `src/pages/api/push/send.ts` is wrapped in `withAuth` and `/api/push/send` is not public in `src/middleware.ts`.
+- The production database currently has 3 rows in `push_subscriptions`.
+- `src/pages/api/push/send.ts` records a push notification after attempting every subscription, even when all sends fail for non-404/410 errors.
+- `src/components/NotificationToggle.tsx` hardcodes the VAPID public key. Do not rotate VAPID keys or change the existing widget token in this task.
+- `public/sw.js` already handles push display and click navigation. Preserve its existing behavior unless tests show a necessary correction.
+
+### Required implementation
+
+Implement a secure, verifiable server-to-server trigger for push reminders:
+
+1. Add a dedicated environment variable such as `PUSH_TRIGGER_TOKEN` to the example/configuration documentation and use it in the push-send route or an equivalent internal-auth mechanism. Do not make `/api/push/send` broadly unauthenticated.
+2. Update `~/.hermes/scripts/docket_push.sh` separately if needed so the cron sends the trigger credential and exits nonzero on non-2xx responses. Do not commit the real token.
+3. Make push accounting accurate: record a notification only when at least one subscription delivery succeeds. Preserve removal of subscriptions returning HTTP 404/410. Log or report failure counts without exposing subscription secrets.
+4. Add automated tests for unauthorized trigger, authorized trigger, no subscribers, successful delivery, all-deliveries-failed, and expired subscription cleanup. Mock `web-push` and database helpers as appropriate.
+5. Add a test-notification path in Settings only if it can be implemented cleanly without weakening auth; otherwise leave UI for a follow-up.
+6. Update `DEVLOG.md` and `ROADMAP.md` with the completed push-notification repair. Add a BUGS.md entry if the project's bug workflow requires one.
+
+### Deployment and verification
+
+- Run `npm test`, `npx tsc --noEmit`, and `npm run build`.
+- Deploy with `bash update.sh` only after verification passes.
+- Configure the real `PUSH_TRIGGER_TOKEN` in the live environment and update the local cron script outside git. Never commit secrets.
+- Verify the live endpoint returns 401 without the trigger credential and 200 with it.
+- Verify the cron script returns failure for unauthorized requests and success for authorized no-op requests.
+- Verify the database push subscription count remains intact.
+- Do not create a disposable task or send a real phone notification without Dave explicitly asking for that live test.
+
+### What MUST NOT CHANGE
+
+- Do not rotate or modify `WIDGET_TOKEN`.
+- Do not rotate VAPID keys.
+- Do not modify AIO Launcher integration in this handoff.
+- Do not touch Sportarr, DVR, or recording pipeline code.
+- Do not weaken user authentication for ordinary Docket routes.
+
 ## End
 
 Do not treat this as a request to modify Sportarr or the DVR pipeline. Touch only the Docket app surface and its documentation.

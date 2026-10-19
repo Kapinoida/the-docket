@@ -19,6 +19,7 @@ services:
       POSTGRES_DB: the_docket
       JWT_SECRET: ${JWT_SECRET}
       WIDGET_TOKEN: ${WIDGET_TOKEN}
+      PUSH_TRIGGER_TOKEN: ${PUSH_TRIGGER_TOKEN}
     volumes:
       - uploads_data:/app/uploads
     depends_on:

@@ -13,6 +13,8 @@ export default function NotificationToggle() {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState('');
 
   useEffect(() => {
     checkStatus();
@@ -103,6 +105,41 @@ export default function NotificationToggle() {
     setLoading(false);
   }
 
+  async function sendTestNotification() {
+    setTesting(true);
+    setError('');
+    setTestResult('');
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        setError('No active subscription found on this device');
+        setTesting(false);
+        return;
+      }
+
+      const res = await fetch('/api/push/test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Failed to send test notification');
+        setTesting(false);
+        return;
+      }
+
+      setTestResult('Test notification sent — check your device.');
+    } catch (e: any) {
+      setError(e.message || 'Failed to send test notification');
+    }
+    setTesting(false);
+  }
+
   if (loading && !enabled) {
     return <div className="text-sm text-gray-500">Checking notification status...</div>;
   }
@@ -132,6 +169,18 @@ export default function NotificationToggle() {
       <p className="text-xs text-gray-500">
         Get reminded 10 minutes before timed tasks are due.
       </p>
+      {enabled && (
+        <div className="pt-1">
+          <button
+            onClick={sendTestNotification}
+            disabled={testing}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {testing ? 'Sending...' : 'Send test notification'}
+          </button>
+          {testResult && <p className="text-xs text-green-600 mt-1">{testResult}</p>}
+        </div>
+      )}
       {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );

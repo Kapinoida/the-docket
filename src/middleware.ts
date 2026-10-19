@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isValidPushTrigger } from './lib/pushTrigger';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is not set');
@@ -29,6 +30,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.endsWith('.ico') || pathname.endsWith('.png') || pathname.endsWith('.svg')) {
+    return NextResponse.next();
+  }
+
+  // Server-to-server push trigger. The external cron job has no user session,
+  // so it authenticates with a dedicated shared secret instead. The route
+  // handler validates the same credential again (defense in depth). If the
+  // secret is missing or wrong this falls through to normal session auth,
+  // which rejects the request with 401.
+  if (
+    pathname === '/api/push/send' &&
+    isValidPushTrigger(request.headers, process.env.PUSH_TRIGGER_TOKEN)
+  ) {
     return NextResponse.next();
   }
 
