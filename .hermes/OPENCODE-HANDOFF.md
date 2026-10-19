@@ -2,32 +2,73 @@
 
 ## Current Objective
 
-**Security and technical debt sprint (complete).** BUG-019, BUG-020, and BUG-021 are fixed.
+**Retire the Radio and Recordings surfaces from The Docket UI. Keep Sportarr and the DVR pipeline running untouched.**
 
-**Next priorities:**
-1. **ROADMAP**: Integration tests for critical flows (task CRUD → sync, calendar drag & drop, folder export ZIP integrity).
-2. **Recreate Calibre-Web/KOReader ebook sync** (code lost during BUG-019 history rewrite, tracked in ROADMAP).
+Dave's clarifications (2026-10-19):
+- Sportarr works perfectly with its current settings. Dave found a reliable torrent source for replays of missed recordings. The recording logic (scheduling, preemption) is in good shape and Sportarr catches the rest. **Do not touch Sportarr, the Sports Scheduler cron, or the DVR pipeline.**
+- The Recordings section and the Radio section must be removed from the Docket UI.
+- The small global sound player stays alive — it is the foundation for a future soundscape idea. Strip the live radio/channel/station logic from it, keep procedural ambience (rain, snow, brown noise, orbit, pentatonic), volume control, and stop control.
 
 ## Files to read first
 
 1. `AGENTS.md` — identity, conventions, deployment
-2. `BUGS.md` — all bugs fixed (BUG-019, BUG-020, BUG-021)
-3. `ROADMAP.md` — Immediate section for next priorities
+2. `ROADMAP.md` — product direction
+3. `BUGS.md` — bug tracker
 4. `DEVLOG.md` — recent changes context
-5. `.hermes/OPENCODE-HANDOFF.md` — this file (for operating rhythm)
+5. `.hermes/plans/2026-10-19-audio-recordings-retirement.md` — full staged plan and current verified state
+6. `.hermes/OPENCODE-HANDOFF.md` — this file (for operating rhythm)
 
 ### Operating Rhythm
 
 Hermes investigates and writes focused handoffs. OpenCode implements, verifies, documents, commits, and deploys.
 
 > Read `AGENTS.md`, `ROADMAP.md`, `BUGS.md`, `DEVLOG.md`, and this handoff. Implement only the current handoff as a complete vertical slice. Inspect the existing code first, add tests, run verification, update docs, commit, and deploy only if verification passes.
-``` 
 
-## Previous handoff context
+## Scope: what to change
 
-The prior radio handoff is retained in git history. 
-``` 
+### 1. Remove the Radio product surface
+
+- Delete `src/app/radio/page.tsx` and `src/components/radio/` (RadioView, StationCard, NowPlayingPanel, SongHistory + tests).
+- Remove the `Radio` nav item from `src/components/v2/Sidebar.tsx` (currently line ~318: `NavItem href="/radio" ...`).
+- Remove radio-only libs and hooks: `src/lib/azuracast.ts`, `src/lib/radioStations.ts`, `src/types/azuracast.ts`, `src/hooks/useNowPlaying.ts` + tests.
+- In `src/hooks/useAmbience.ts`: remove the AzuraCast stream path (`startStream`, `stopStream`, `getStationStreamUrl` usage, stream audio element) and the `runtime_loop` / `warm_boot` music sources. Keep procedural ambience (rain, snow, brown-noise, orbit) and the `pentatonic` music source. Keep the master `GainNode` + volume control.
+- In `src/contexts/SoundContext.tsx`, `src/components/focus/SoundDropdown.tsx`, `src/components/focus/SidebarSoundPanel.tsx`, `src/components/focus/FloatingSoundIndicator.tsx`: remove the radio/station/channel UI and stream branches. Keep ambience, volume, play/stop, and the small player so the future soundscape has a home.
+- Remove related radio tests (`useNowPlaying.test.ts`, radio component tests, stream-related `useAmbience` tests) and update the rest.
+
+### 2. Remove the Recordings product surface
+
+- Delete `src/app/recordings/page.tsx` and `src/components/recordings/` (RecordingDashboard, RecordingCard, StatusBadge, ConflictPanel, TimelineView, Filters, DashboardSkeleton, EmptyState + tests).
+- Remove the `Recordings` nav item from `src/components/v2/Sidebar.tsx` (currently line ~319).
+- Delete the recordings API routes: `src/pages/api/v2/recordings/` (index, [id], conflicts) + tests at `src/__tests__/api/v2/recordings/`.
+- Remove recording types from `src/types/index.ts` (RecordingSchedule, CreateRecordingInput, UpdateRecordingInput, ConflictPair, RecordingStatus, RecordingSource) and recording data-access functions from `src/lib/db.ts` (createRecording, getRecording, getRecordings, updateRecording, deleteRecording, getConflicts, upsertRecordingBySportarrId).
+- **Keep the `recording_schedules` table/data in Postgres** — no migration to drop it. It is the audit history for the DVR. Remove only the app-level surface. Verify no other UI imports recording types before deleting.
+
+### 3. What to keep
+
+- Sportarr container, config, and data. **Do not modify.**
+- Sports Scheduler cron (`2733c81afc1f`) — the DVR scheduling brain. **Do not disable.**
+- `Sportarr → Docket recording sync` cron (`4613cb407355`) — keep enabled for now; it writes to the retained `recording_schedules` table for history. It is harmless with the UI gone. (Hermes will confirm with Dave whether to keep it once the app surface is gone.)
+- `~/.hermes/scripts/recording_api.py`, `sports-scheduler.py`, `sportarr-docket-sync.py`, the `sports-recording-pipeline` skill, and everything in the DVR pipeline.
+- Procedural sound system: `SoundContext`, `useAmbience` ambience modes, pentatonic music, volume, `FloatingSoundIndicator` / `SidebarSoundPanel` (minus radio).
+- `/Volumes/storage24tb/Music` — unrelated to radio removal.
+
+### 4. Housekeeping
+
+- Disable the `azuracast-backup` cron (`2c7af5a004b7`) — its target container (`azuracast`) does not exist, so the job errors weekly. Hermes will handle this via cron tooling, not repo code.
+- Update `AGENTS.md` — replace the "Recording Schedule Module" and radio sound-stream references with a short "Retired surfaces" note so OpenCode does not treat them as active.
+- Add a ROADMAP entry under "Recently Completed" or an "Immediate" retirement section.
+- Keep `DEVLOG.md` additions for after implementation.
+
+## Verification checklist
+
+- `npm test` — full suite passes after removals (tests were 623+; expect fewer after radio/recording test removal).
+- `npx tsc --noEmit` — clean.
+- `npm run build` — clean.
+- No remaining references to `/radio`, `/recordings`, `azuracast`, `radioStations`, `useNowPlaying`, or `RADIO_STATIONS` in `src/` (grep before commit).
+- Sidebar shows no Radio or Recordings entries.
+- The sound control still appears in the app shell, ambience picks still work, volume works, `pentatonic` still plays, and no station/stream UI remains.
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:8088/` returns 200 after deploy.
 
 ## End
 
-Do not treat this as a request to modify application code from Hermes. Dave's established workflow is Hermes investigates and files; OpenCode writes the code.
+Do not treat this as a request to modify Sportarr or the DVR pipeline. Touch only the Docket app surface and its documentation.
