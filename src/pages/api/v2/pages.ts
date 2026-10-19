@@ -40,18 +40,40 @@ export default async function handler(
           // Get tags
           const tags = await getTagsForItem(Number(id), 'page');
 
-          // Get backlinks if requested
+          // Get backlinks if requested - use JSONB path for accurate matching
           let backlinksList = [];
           if (backlinks === 'true') {
-            const backlinksResult = await pool.query(
-              `SELECT id, title FROM pages 
-               WHERE content::text LIKE '%"type":"v2PageLink"%' 
-               AND content::text LIKE '%"pageId":' || $1 || '%'
-               AND id != $1
-               ORDER BY title ASC`,
-              [Number(id)]
-            );
-            backlinksList = backlinksResult.rows;
+            try {
+              const backlinksResult = await pool.query(
+                `SELECT id, title FROM pages 
+                 WHERE content @> $1::jsonb
+                 AND id != $2
+                 ORDER BY title ASC`,
+                [
+                  JSON.stringify({ content: [{ type: 'v2PageLink', attrs: { pageId: Number(id) } }] }),
+                  Number(id)
+                ]
+              );
+              // If the @> approach is too strict, fall back to a more flexible text search
+              if (backlinksResult.rows.length === 0) {
+                const pageIdNum = Number(id);
+                const fallbackResult = await pool.query(
+                  `SELECT DISTINCT p.id, p.title FROM pages p
+                   WHERE p.content::text LIKE '%v2PageLink%'
+                   AND p.content::text ~ ('"pageId":' || $1 || '[^0-9]')
+                   AND p.id != $2
+                   ORDER BY p.title ASC`,
+                  [String(pageIdNum), pageIdNum]
+                );
+                backlinksList = fallbackResult.rows;
+              } else {
+                backlinksList = backlinksResult.rows;
+              }
+            } catch (err) {
+              console.error('Failed to fetch backlinks:', err);
+              // Don't fail the whole request - just return empty backlinks
+              backlinksList = [];
+            }
           }
           
           return res.status(200).json({ ...page, items, tags, backlinks: backlinksList });
