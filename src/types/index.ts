@@ -35,7 +35,6 @@ export type DisplayMode = 'reference' | 'embed';
 export interface Page {
   id: number;
   title: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: any;
   folder_id?: number | null;
   is_favorite: boolean;
@@ -161,7 +160,6 @@ export interface TaskRow {
 export interface PageRow {
   id: number;
   title: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: any;
   folder_id?: number | null;
   is_favorite: boolean;

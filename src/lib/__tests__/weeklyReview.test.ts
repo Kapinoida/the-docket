@@ -113,9 +113,11 @@ describe('getStaleTasks', () => {
     expect(stale[0].id).toBe(3);
   });
 
-  it('excludes tasks updated exactly 14 days ago', () => {
+  it('excludes tasks updated exactly 14 days ago (at start of day)', () => {
+    // Create a date that's exactly 14 days ago at midnight local time
     const exactly14 = new Date();
     exactly14.setDate(exactly14.getDate() - 14);
+    exactly14.setHours(0, 0, 0, 0);
     const tasks = [createTask({ id: 1, updated_at: exactly14.toISOString() })];
     const stale = getStaleTasks(tasks);
     expect(stale).toHaveLength(0);
@@ -383,9 +385,12 @@ describe('getWeekRange', () => {
     expect(range.label).toContain('–');
   });
 
-  it('end is 6 days after start', () => {
+  it('end is 6 days after start (calendar days)', () => {
     const range = getWeekRange();
-    const diffDays = Math.floor((range.end.getTime() - range.start.getTime()) / (24 * 60 * 60 * 1000));
+    // Compare calendar dates only (not time of day) to avoid DST skew
+    const startDay = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
+    const endDay = new Date(range.end.getFullYear(), range.end.getMonth(), range.end.getDate());
+    const diffDays = Math.round((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
     expect(diffDays).toBe(6);
   });
 });

@@ -282,7 +282,7 @@ export default function DiscoverPage() {
         <div className="media-empty" style={{ marginTop: 40 }}>
           <p style={{ fontSize: 16, marginBottom: 8 }}>Start typing to search</p>
           <p style={{ fontSize: 13 }}>
-            Search for movies and TV shows to add to your library as "wanted" items.
+            Search for movies and TV shows to add to your library as &ldquo;wanted&rdquo; items.
           </p>
         </div>
       )}

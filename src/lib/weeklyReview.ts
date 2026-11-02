@@ -38,11 +38,14 @@ export function getLooseEnds(tasks: Task[]): LooseEnds {
 }
 
 export function getStaleTasks(tasks: Task[]): Task[] {
-  const now = new Date();
-  const threshold = new Date(now.getTime() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const thresholdDate = new Date(today);
+  thresholdDate.setDate(today.getDate() - STALE_THRESHOLD_DAYS);
   return getActiveTasks(tasks).filter(t => {
     const updated = new Date(t.updated_at);
-    return updated < threshold;
+    updated.setHours(0, 0, 0, 0);
+    return updated.getTime() < thresholdDate.getTime();
   });
 }
 

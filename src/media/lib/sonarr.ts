@@ -128,8 +128,8 @@ class SonarrClient {
     const items = series.map((show) => {
       // Determine status based on ownership (hasFile), not watched state
       let status: 'wanted' | 'owned' | 'in_progress' | 'completed' | 'abandoned';
-      let progress = 0; // Progress will be calculated from watched episodes
-      let completedAt: string | null = null;
+      const progress = 0; // Progress will be calculated from watched episodes
+      const completedAt: string | null = null;
 
       if (show.statistics.percentOfEpisodes === 100) {
         // All episodes downloaded - mark as owned

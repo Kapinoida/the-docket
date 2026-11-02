@@ -5,7 +5,7 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
-export async function resolveCalibreCover(bookId: number) {
+async function resolveCalibreCover(bookId: number) {
   // Look up the book in the database
   const bookResult = await pool.query(
     `SELECT metadata 
@@ -53,7 +53,7 @@ export async function resolveCalibreCover(bookId: number) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuthAppRouter(request);
@@ -65,7 +65,8 @@ export async function GET(
   }
 
   try {
-    const calibreId = parseInt(params.id, 10);
+    const { id } = await params;
+    const calibreId = parseInt(id, 10);
     
     if (isNaN(calibreId)) {
       return NextResponse.json(

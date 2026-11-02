@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { MediaItemWithSources } from '@/media/lib/database';
 
 function DetailCoverImage({ item }: { item: MediaItemWithSources }) {
@@ -85,7 +86,7 @@ export default function DetailPage() {
 
   return (
     <main className="media-content">
-      <a href="/" className="media-back-link">← Back to library</a>
+      <Link href="/" className="media-back-link">← Back to library</Link>
       
       <div className="media-detail-layout">
         <DetailCoverImage item={item} />

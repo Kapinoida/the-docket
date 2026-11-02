@@ -151,7 +151,7 @@ export default function LibraryPage() {
         <div>
           <p className="media-eyebrow">Your collection</p>
           <h1>Media library</h1>
-          <p className="media-lede">A calm, current view of everything you're reading, watching, and listening to.</p>
+          <p className="media-lede">A calm, current view of everything you&apos;re reading, watching, and listening to.</p>
         </div>
       </div>
 

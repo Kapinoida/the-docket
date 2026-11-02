@@ -98,8 +98,8 @@ class RadarrClient {
     const items = movies.map((movie) => {
       // Determine status based on ownership (hasFile), not watched state
       let status: 'wanted' | 'owned' | 'in_progress' | 'completed' | 'abandoned';
-      let progress = 0; // Progress will be set by Plex when watched
-      let completedAt: string | null = null;
+      const progress = 0; // Progress will be set by Plex when watched
+      const completedAt: string | null = null;
 
       if (movie.hasFile) {
         // Movie is downloaded - mark as owned

@@ -13,7 +13,7 @@ export interface CalibreWebSyncPayload {
   };
 }
 
-export async function processCalibreWebSync(payload: CalibreWebSyncPayload) {
+async function processCalibreWebSync(payload: CalibreWebSyncPayload) {
   // Start sync log
   const syncLogId = await startSyncLog('calibre-web');
   
@@ -58,7 +58,7 @@ export async function processCalibreWebSync(payload: CalibreWebSyncPayload) {
   }
 }
 
-export function validateCalibreWebPayload(body: any): string | null {
+function validateCalibreWebPayload(body: any): string | null {
   // Validate required fields
   if (!body.books || !Array.isArray(body.books)) {
     return 'books array is required';
