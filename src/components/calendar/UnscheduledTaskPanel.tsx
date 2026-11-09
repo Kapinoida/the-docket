@@ -8,6 +8,7 @@ import { parseLocalDateNode } from '@/lib/dateUtils';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
+import { createTaskFromCapture } from '@/lib/taskCapture';
 import { parseCaptureText } from '@/lib/captureParser';
 import CaptureDatePreview from '@/components/v2/CaptureDatePreview';
 
@@ -36,26 +37,26 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
     e.preventDefault();
     if (!quickAddValue.trim()) return;
 
-    const dueDate = parsedQuickAddDate ?? new Date();
-    if (!parsedQuickAddDate && quickAddDate === 'today') dueDate.setHours(12, 0, 0, 0);
-    if (!parsedQuickAddDate && quickAddDate === 'tomorrow') {
-      dueDate.setDate(dueDate.getDate() + 1);
-      dueDate.setHours(12, 0, 0, 0);
+    // Determine dueDate based on parsed date or dropdown selection
+    let dueDate: Date | null = parsedQuickAddDate;
+    if (!parsedQuickAddDate) {
+      if (quickAddDate === 'today') {
+        dueDate = new Date();
+        dueDate.setHours(12, 0, 0, 0);
+      } else if (quickAddDate === 'tomorrow') {
+        dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 1);
+        dueDate.setHours(12, 0, 0, 0);
+      } else {
+        dueDate = null; // 'none' selected
+      }
     }
 
     try {
-      await apiFetch('/api/v2/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: quickAddValue.trim(),
-          ...(quickAddDate !== 'none' || parsedQuickAddDate ? { dueDate: dueDate.toISOString() } : {}),
-        }),
-      });
+      await createTaskFromCapture(quickAddValue.trim(), dueDate, 'panel');
       setQuickAddValue('');
       setParsedQuickAddDate(null);
       inputRef.current?.focus();
-      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
     } catch (e) {
       if (e instanceof AuthError) { return; }
       console.error('Failed to create task', e);

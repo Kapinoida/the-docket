@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Inbox, Loader2, PencilLine, TriangleAlert } from 'lucide-react';
 import { Task } from '@/types';
-import { apiFetch, AuthError } from '@/lib/api';
+import { AuthError } from '@/lib/api';
+import { createTaskFromCapture } from '@/lib/taskCapture';
 import { parseCaptureText } from '@/lib/captureParser';
 import CaptureDatePreview from './CaptureDatePreview';
 
@@ -60,18 +61,15 @@ export default function CaptureView() {
     setStatus({ kind: 'submitting' });
 
     try {
-      const task = await apiFetch<Task>('/api/v2/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, ...(parsedDate ? { dueDate: parsedDate.toISOString() } : {}) }),
+      const { task } = await createTaskFromCapture({
+        content,
+        dueDate: parsedDate,
+        source: 'captureView',
       });
 
       setValue('');
       setParsedDate(null);
       setStatus({ kind: 'success', message: 'Captured to your Inbox.' });
-      window.dispatchEvent(
-        new CustomEvent('taskCreated', { detail: { task, source: 'captureView' } })
-      );
       focusInput();
     } catch (error) {
       // `apiFetch` already signalled `auth:expired`; the app shell handles the

@@ -16,6 +16,7 @@ import SidebarSoundPanel from '../focus/SidebarSoundPanel';
 
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { apiFetch } from '@/lib/api';
+import { createTaskFromCapture } from '@/lib/taskCapture';
 import { parseCaptureText } from '@/lib/captureParser';
 import CaptureDatePreview from './CaptureDatePreview';
 
@@ -287,22 +288,12 @@ export default function Sidebar() {
 
                         setIsQuickAdding(true);
                         try {
-                            // Creating via API to ensure 'Inbox' context (no pageId)
-                            // Or use context if available
-                             await apiFetch('/api/v2/tasks', {
-                                 method: 'POST',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ content: value, ...(quickAddDate ? { dueDate: quickAddDate.toISOString() } : {}) })
-                             });
+                            await createTaskFromCapture(value, { dueDate: quickAddDate }, 'sidebar');
 
-                             setQuickAddValue('');
-                             setQuickAddDate(null);
+                            setQuickAddValue('');
+                            setQuickAddDate(null);
                             // Refresh logic
                              setRefreshTrigger(prev => prev + 1);
-                             // If on inbox/tasks page, they might need refresh too? 
-                             // We are relying on window event from createPage but we task creation might not emit?
-                             // Let's emit a global event for now or just trust navigation
-                             window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'sidebar' } }));
 
                         } catch (err) {
                             console.error('Failed to quick add', err);
