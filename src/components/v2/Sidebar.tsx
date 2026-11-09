@@ -288,7 +288,11 @@ export default function Sidebar() {
 
                         setIsQuickAdding(true);
                         try {
-                            await createTaskFromCapture(value, { dueDate: quickAddDate }, 'sidebar');
+                            await createTaskFromCapture({
+                              content: value,
+                              dueDate: quickAddDate,
+                              source: 'sidebar',
+                            });
 
                             setQuickAddValue('');
                             setQuickAddDate(null);

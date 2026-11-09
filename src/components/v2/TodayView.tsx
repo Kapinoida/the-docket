@@ -14,6 +14,8 @@ import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
 import { apiFetch, AuthError } from '@/lib/api';
 import { groupTasksByCommitment, sortTodayTasks } from '@/lib/todayPlanning';
+import { createTaskFromCapture } from '@/lib/taskCapture';
+import { parseCaptureText } from '@/lib/captureParser';
 
 export default function TodayView() {
   const { tasks, events, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
@@ -29,20 +31,20 @@ export default function TodayView() {
     if (!inputValue.trim()) return;
 
     try {
-      const dueDate = new Date();
-      dueDate.setHours(12, 0, 0, 0);
+      // Parse natural language dates, default to today at noon if none found
+      const parsed = parseCaptureText(inputValue);
+      let dueDate = parsed.dueDate;
+      if (!dueDate) {
+        dueDate = new Date();
+        dueDate.setHours(12, 0, 0, 0);
+      }
 
-      const task = await apiFetch<Task>('/api/v2/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            content: inputValue,
-            dueDate: dueDate.toISOString()
-        }),
+      await createTaskFromCapture({
+        content: inputValue,
+        dueDate,
+        source: 'today',
       });
-
       setInputValue('');
-      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'todayView' } }));
     } catch (error) {
       if (error instanceof AuthError) { return; }
       console.error('Failed to create task', error);

@@ -53,7 +53,11 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
     }
 
     try {
-      await createTaskFromCapture(quickAddValue.trim(), dueDate, 'panel');
+      await createTaskFromCapture({
+        content: quickAddValue.trim(),
+        dueDate,
+        source: 'calendar',
+      });
       setQuickAddValue('');
       setParsedQuickAddDate(null);
       inputRef.current?.focus();

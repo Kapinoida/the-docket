@@ -13,6 +13,7 @@ import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
+import { createTaskFromCapture } from '@/lib/taskCapture';
 
 export default function InboxView() {
   const { tasks, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
@@ -55,14 +56,12 @@ export default function InboxView() {
     if (!inputValue.trim()) return;
 
     try {
-      const task = await apiFetch<Task>('/api/v2/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: inputValue }),
+      await createTaskFromCapture({
+        content: inputValue,
+        dueDate: undefined, // No date parsing for inbox - plain text only
+        source: 'inbox',
       });
-
       setInputValue('');
-      window.dispatchEvent(new CustomEvent('taskCreated', { detail: { task, source: 'inboxView' } }));
     } catch (error) {
       if (error instanceof AuthError) return;
       console.error('Failed to create task', error);

@@ -64,7 +64,7 @@ export default function CaptureView() {
       const { task } = await createTaskFromCapture({
         content,
         dueDate: parsedDate,
-        source: 'captureView',
+        source: 'capture',
       });
 
       setValue('');

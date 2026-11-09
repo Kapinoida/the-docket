@@ -115,7 +115,7 @@ describe('CaptureView', () => {
     // Other views are told to refresh.
     expect(created).toHaveBeenCalledTimes(1);
     expect((created.mock.calls[0][0] as CustomEvent).detail).toEqual(
-      expect.objectContaining({ source: 'captureView', task: CREATED_TASK })
+      expect.objectContaining({ source: 'capture', task: CREATED_TASK })
     );
 
     window.removeEventListener('taskCreated', created);
