@@ -17,8 +17,7 @@ import SidebarSoundPanel from '../focus/SidebarSoundPanel';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { apiFetch } from '@/lib/api';
 import { createTaskFromCapture } from '@/lib/taskCapture';
-import { parseCaptureText } from '@/lib/captureParser';
-import CaptureDatePreview from './CaptureDatePreview';
+import TaskCaptureInput from './TaskCaptureInput';
 
 interface Tag {
     id: number;
@@ -269,45 +268,38 @@ export default function Sidebar() {
 
         {/* Quick Add */}
         <div className="relative">
-            <input
-                type="text"
-                placeholder="Quick add..."
-                disabled={isQuickAdding}
-                className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-transparent rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:bg-bg-primary focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                 value={quickAddValue}
-                 onChange={(e) => {
-                     const nextValue = e.target.value;
-                     setQuickAddValue(nextValue);
-                     setQuickAddDate(parseCaptureText(nextValue).dueDate);
-                 }}
-                 onKeyDown={async (e) => {
-                     if (e.key === 'Enter') {
-                         e.preventDefault();
-                         const value = quickAddValue.trim();
-                         if (!value) return;
+            <TaskCaptureInput
+              source="sidebar"
+              placeholder="Quick add..."
+              className="pl-9 pr-3 py-2"
+              value={quickAddValue}
+              onChange={(value, parsedDate) => {
+                setQuickAddValue(value);
+                setQuickAddDate(parsedDate);
+              }}
+              onSubmit={async () => {
+                const value = quickAddValue.trim();
+                if (!value) return;
 
-                        setIsQuickAdding(true);
-                        try {
-                            await createTaskFromCapture({
-                              content: value,
-                              dueDate: quickAddDate,
-                              source: 'sidebar',
-                            });
+                setIsQuickAdding(true);
+                try {
+                  await createTaskFromCapture({
+                    content: value,
+                    dueDate: quickAddDate,
+                    source: 'sidebar',
+                  });
 
-                            setQuickAddValue('');
-                            setQuickAddDate(null);
-                            // Refresh logic
-                             setRefreshTrigger(prev => prev + 1);
-
-                        } catch (err) {
-                            console.error('Failed to quick add', err);
-                        } finally {
-                            setIsQuickAdding(false);
-                        }
-                    }
-                }}
-             />
-            <CaptureDatePreview date={quickAddDate} onChange={setQuickAddDate} />
+                  setQuickAddValue('');
+                  setQuickAddDate(null);
+                  setRefreshTrigger(prev => prev + 1);
+                } catch (err) {
+                  console.error('Failed to quick add', err);
+                } finally {
+                  setIsQuickAdding(false);
+                }
+              }}
+              disabled={isQuickAdding}
+            />
             <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
                 <Plus size={14} />
             </div>

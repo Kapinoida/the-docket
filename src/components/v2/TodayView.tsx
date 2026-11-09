@@ -6,7 +6,7 @@ import { CalendarEvent, isTrulyAllDay } from '@/lib/calendar';
 import { EventCard } from '@/components/calendar/EventCard';
 import { useSync } from '@/contexts/SyncContext';
 import { TaskItem } from './TaskItem';
-import { Clock, Plus, Calendar, Flag } from 'lucide-react';
+import { Clock, Calendar, Flag } from 'lucide-react';
 import DailyJournalEditor from './DailyJournalEditor';
 import { parseLocalDateNode } from '@/lib/dateUtils';
 import { TaskListSkeleton } from './Skeleton';
@@ -14,41 +14,14 @@ import { PullToRefresh } from './PullToRefresh';
 import EventDetailModal from '../modals/EventDetailModal';
 import { apiFetch, AuthError } from '@/lib/api';
 import { groupTasksByCommitment, sortTodayTasks } from '@/lib/todayPlanning';
-import { createTaskFromCapture } from '@/lib/taskCapture';
-import { parseCaptureText } from '@/lib/captureParser';
+import TaskCaptureInput from './TaskCaptureInput';
 
 export default function TodayView() {
   const { tasks, events, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();
-  const [inputValue, setInputValue] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const handleRefresh = async () => {
     await refetch();
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    try {
-      // Parse natural language dates, default to today at noon if none found
-      const parsed = parseCaptureText(inputValue);
-      let dueDate = parsed.dueDate;
-      if (!dueDate) {
-        dueDate = new Date();
-        dueDate.setHours(12, 0, 0, 0);
-      }
-
-      await createTaskFromCapture({
-        content: inputValue,
-        dueDate,
-        source: 'today',
-      });
-      setInputValue('');
-    } catch (error) {
-      if (error instanceof AuthError) { return; }
-      console.error('Failed to create task', error);
-    }
   };
 
   const handleToggle = (id: number) => {
@@ -152,19 +125,15 @@ export default function TodayView() {
       </div>
 
       {/* Quick Add */}
-      <form onSubmit={handleCreate} className="mb-10 relative group">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent-orange transition-colors">
-          <Plus size={20} />
-        </div>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+      {/* Quick Add Input */}
+      <div className="mb-10">
+        <TaskCaptureInput
+          source="today"
           placeholder="Add a task for today..."
-          className="w-full pl-11 pr-4 py-3 bg-bg-secondary border border-transparent rounded-xl focus:bg-bg-primary focus:border-accent-orange focus:ring-4 focus:ring-orange-500/10 transition-all outline-none text-lg placeholder:text-text-muted text-text-primary"
           autoFocus
+          className="group-focus-within:bg-bg-primary group-focus-within:border-accent-orange group-focus-within:ring-4 group-focus-within:ring-orange-500/10 text-lg"
         />
-      </form>
+      </div>
 
       {/* Pull-to-refresh wrapper for task list */}
       <PullToRefresh onRefresh={handleRefresh} className="max-h-[50vh] md:max-h-none">

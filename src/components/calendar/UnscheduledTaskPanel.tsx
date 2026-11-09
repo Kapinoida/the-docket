@@ -8,9 +8,8 @@ import { parseLocalDateNode } from '@/lib/dateUtils';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
-import { createTaskFromCapture } from '@/lib/taskCapture';
-import { parseCaptureText } from '@/lib/captureParser';
-import CaptureDatePreview from '@/components/v2/CaptureDatePreview';
+import { createTaskFromCapture, getTaskDueDate } from '@/lib/taskCapture';
+import TaskCaptureInput from '@/components/v2/TaskCaptureInput';
 
 interface UnscheduledTaskPanelProps {
   isOpen: boolean;
@@ -32,40 +31,6 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
   const unscheduledTasks = tasks.filter(t => !t.due_date && t.status !== 'done' && t.status !== 'someday');
   const scheduledTasks = tasks.filter(t => t.due_date && t.status !== 'done' && t.status !== 'someday');
   const completedTasks = tasks.filter(t => t.status === 'done');
-
-  const handleQuickAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickAddValue.trim()) return;
-
-    // Determine dueDate based on parsed date or dropdown selection
-    let dueDate: Date | null = parsedQuickAddDate;
-    if (!parsedQuickAddDate) {
-      if (quickAddDate === 'today') {
-        dueDate = new Date();
-        dueDate.setHours(12, 0, 0, 0);
-      } else if (quickAddDate === 'tomorrow') {
-        dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 1);
-        dueDate.setHours(12, 0, 0, 0);
-      } else {
-        dueDate = null; // 'none' selected
-      }
-    }
-
-    try {
-      await createTaskFromCapture({
-        content: quickAddValue.trim(),
-        dueDate,
-        source: 'calendar',
-      });
-      setQuickAddValue('');
-      setParsedQuickAddDate(null);
-      inputRef.current?.focus();
-    } catch (e) {
-      if (e instanceof AuthError) { return; }
-      console.error('Failed to create task', e);
-    }
-  };
 
   const handleToggle = async (taskId: number) => {
     const task = tasks.find(t => t.id === taskId);
@@ -164,47 +129,36 @@ const handleTaskClick = (task: Task) => {
     >
       {/* Quick Add */}
       <div className="px-3 pt-3 pb-2 border-b border-border-default">
-        <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
-          <Plus size={16} className="text-text-muted shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={quickAddValue}
-            onChange={(e) => {
-              const nextValue = e.target.value;
-              setQuickAddValue(nextValue);
-              setParsedQuickAddDate(parseCaptureText(nextValue).dueDate);
-            }}
-            placeholder="Add task..."
-            className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
-          />
-          <select
-            value={quickAddDate}
-            onChange={(e) => {
-              const nextValue = e.target.value as 'today' | 'tomorrow' | 'none';
-              setQuickAddDate(nextValue);
-              if (nextValue === 'none') {
-                setParsedQuickAddDate(null);
-              } else {
-                const date = new Date();
-                if (nextValue === 'tomorrow') date.setDate(date.getDate() + 1);
-                date.setHours(12, 0, 0, 0);
-                setParsedQuickAddDate(date);
-              }
-            }}
-            className="text-[10px] px-1.5 py-0.5 rounded border border-border-default bg-bg-secondary text-text-muted"
-          >
-            <option value="today">Today</option>
-            <option value="tomorrow">Tomorrow</option>
-            <option value="none">No date</option>
-          </select>
-        </form>
-        <CaptureDatePreview
-          date={parsedQuickAddDate}
-          onChange={(date) => {
-            setParsedQuickAddDate(date);
-            if (!date) setQuickAddDate('none');
+        <TaskCaptureInput
+          source="calendar"
+          placeholder="Add task..."
+          className="bg-transparent text-sm pl-0 pr-0 py-0"
+          value={quickAddValue}
+          onChange={(value, parsedDate) => {
+            setQuickAddValue(value);
+            setParsedQuickAddDate(parsedDate);
           }}
+          onSubmit={async () => {
+            if (!quickAddValue.trim()) return;
+
+            const dueDate = getTaskDueDate('calendar', parsedQuickAddDate, quickAddDate);
+            
+            try {
+              await createTaskFromCapture({
+                content: quickAddValue.trim(),
+                dueDate,
+                source: 'calendar',
+              });
+              setQuickAddValue('');
+              setParsedQuickAddDate(null);
+              inputRef.current?.focus();
+            } catch (e) {
+              if (e instanceof AuthError) { return; }
+              console.error('Failed to create task', e);
+            }
+          }}
+          calendarSelection={quickAddDate}
+          onCalendarSelectionChange={setQuickAddDate}
         />
       </div>
 

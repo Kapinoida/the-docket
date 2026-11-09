@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Task, RecurrenceRule } from '../../types';
 import { TaskItem } from './TaskItem';
-import { Plus, Inbox as InboxIcon, ArrowRight, Play, SkipForward, CheckCircle, Calendar, ArrowRightCircle, Edit2, Trash2, X } from 'lucide-react';
+import { Inbox as InboxIcon, ArrowRight, Play, SkipForward, CheckCircle, Calendar, ArrowRightCircle, Edit2, Trash2, X } from 'lucide-react';
 import MoveToPageModal from './MoveToPageModal';
 import { DatePickerPopover } from './DatePickerPopover';
 import { TaskListSkeleton } from './Skeleton';
@@ -13,6 +13,7 @@ import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
+import TaskCaptureInput, { getTaskDueDate } from './TaskCaptureInput';
 import { createTaskFromCapture } from '@/lib/taskCapture';
 
 export default function InboxView() {
@@ -20,6 +21,7 @@ export default function InboxView() {
   const { showToast } = useToast();
   const { openTaskEdit } = useTaskEdit();
   const [inputValue, setInputValue] = useState('');
+  const [parsedDate, setParsedDate] = useState<Date | null>(null);
 
   // Move Logic
   const [movingTask, setMovingTask] = useState<Task | null>(null);
@@ -51,17 +53,18 @@ export default function InboxView() {
     await refetch();
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
     try {
       await createTaskFromCapture({
         content: inputValue,
-        dueDate: undefined, // No date parsing for inbox - plain text only
+        dueDate: getTaskDueDate('inbox', null),
         source: 'inbox',
       });
       setInputValue('');
+      setParsedDate(null);
     } catch (error) {
       if (error instanceof AuthError) return;
       console.error('Failed to create task', error);
@@ -439,17 +442,17 @@ const handleUpdate = async (id: number, updates: Partial<Task>) => {
       )}
 
       {/* Quick Add Input */}
-      <form onSubmit={handleCreate} className="mb-8 relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">
-          <Plus size={20} />
-        </div>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+      <form onSubmit={handleSubmit} className="mb-8">
+        <TaskCaptureInput
+          source="inbox"
           placeholder="Add a task to inbox..."
-          className="w-full pl-11 pr-4 py-4 bg-bg-primary border border-border-default rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-accent-blue transition-all text-lg placeholder:text-text-muted text-text-primary"
           autoFocus
+          className="bg-bg-primary border border-border-default rounded-2xl shadow-sm text-lg"
+          value={inputValue}
+          onChange={(value, parsedDate) => {
+            setInputValue(value);
+            setParsedDate(parsedDate);
+          }}
         />
       </form>
 
