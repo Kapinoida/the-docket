@@ -8,6 +8,8 @@ import { parseLocalDateNode } from '@/lib/dateUtils';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
 import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
+import { parseCaptureText } from '@/lib/captureParser';
+import CaptureDatePreview from '@/components/v2/CaptureDatePreview';
 
 interface UnscheduledTaskPanelProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
   const { tasks, initialLoading, updateLocalTask } = useSync();
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddDate, setQuickAddDate] = useState<'today' | 'tomorrow' | 'none'>('today');
+  const [parsedQuickAddDate, setParsedQuickAddDate] = useState<Date | null>(null);
   const [showScheduled, setShowScheduled] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -33,10 +36,9 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
     e.preventDefault();
     if (!quickAddValue.trim()) return;
 
-    const dueDate = new Date();
-    if (quickAddDate === 'today') {
-      dueDate.setHours(12, 0, 0, 0);
-    } else if (quickAddDate === 'tomorrow') {
+    const dueDate = parsedQuickAddDate ?? new Date();
+    if (!parsedQuickAddDate && quickAddDate === 'today') dueDate.setHours(12, 0, 0, 0);
+    if (!parsedQuickAddDate && quickAddDate === 'tomorrow') {
       dueDate.setDate(dueDate.getDate() + 1);
       dueDate.setHours(12, 0, 0, 0);
     }
@@ -47,10 +49,11 @@ export function UnscheduledTaskPanel({ isOpen }: UnscheduledTaskPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: quickAddValue.trim(),
-          ...(quickAddDate !== 'none' ? { dueDate: dueDate.toISOString() } : {}),
+          ...(quickAddDate !== 'none' || parsedQuickAddDate ? { dueDate: dueDate.toISOString() } : {}),
         }),
       });
       setQuickAddValue('');
+      setParsedQuickAddDate(null);
       inputRef.current?.focus();
       window.dispatchEvent(new CustomEvent('taskCreated', { detail: { source: 'panel' } }));
     } catch (e) {
@@ -162,13 +165,28 @@ const handleTaskClick = (task: Task) => {
             ref={inputRef}
             type="text"
             value={quickAddValue}
-            onChange={(e) => setQuickAddValue(e.target.value)}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setQuickAddValue(nextValue);
+              setParsedQuickAddDate(parseCaptureText(nextValue).dueDate);
+            }}
             placeholder="Add task..."
             className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
           />
           <select
             value={quickAddDate}
-            onChange={(e) => setQuickAddDate(e.target.value as 'today' | 'tomorrow' | 'none')}
+            onChange={(e) => {
+              const nextValue = e.target.value as 'today' | 'tomorrow' | 'none';
+              setQuickAddDate(nextValue);
+              if (nextValue === 'none') {
+                setParsedQuickAddDate(null);
+              } else {
+                const date = new Date();
+                if (nextValue === 'tomorrow') date.setDate(date.getDate() + 1);
+                date.setHours(12, 0, 0, 0);
+                setParsedQuickAddDate(date);
+              }
+            }}
             className="text-[10px] px-1.5 py-0.5 rounded border border-border-default bg-bg-secondary text-text-muted"
           >
             <option value="today">Today</option>
@@ -176,6 +194,13 @@ const handleTaskClick = (task: Task) => {
             <option value="none">No date</option>
           </select>
         </form>
+        <CaptureDatePreview
+          date={parsedQuickAddDate}
+          onChange={(date) => {
+            setParsedQuickAddDate(date);
+            if (!date) setQuickAddDate('none');
+          }}
+        />
       </div>
 
       {/* Task List */}

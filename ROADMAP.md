@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Natural-language dates in quick capture** 🟢
+  Quick Add, mobile `/capture`, and the calendar task panel now recognize phrases such as `tomorrow`, `next Friday`, `in 3 days`, and times such as `at 3pm`. A visible due-date preview can be edited or removed before submission, while the original task wording remains unchanged. No schema changes were needed.
+  *Completed: 2026-11-09*
+
 - [x] **Fix service worker Response conversion error (BUG-023)** 🟢
   Fixed the browser console error `TypeError: Failed to convert value to 'Response'`. The service worker handed `event.respondWith()` an `undefined` whenever a network request failed on a route that was not in the cache, because `caches.match()` resolves to `undefined` on a miss. Every branch of the fetch handler now resolves to a real `Response`: network-first routes (`/capture`, `/page/{id}`) and the stale-while-revalidate app-shell branch fall back to a cached copy when there is one, and otherwise to a minimal plain-text `503` offline response — deliberately non-2xx so an offline failure is never mistaken for a rendered app page that could mask auth failures. A `cacheMatch()` helper guarantees the cache lookup can neither reject nor yield a non-Response value. The cache version was bumped `docket-v5` → `docket-v6` so clients install the corrected worker. Caching semantics, API/asset passthrough, authentication, and push notification handling are unchanged. 8 new regression tests (594 total).
   *Completed: 2026-10-19*

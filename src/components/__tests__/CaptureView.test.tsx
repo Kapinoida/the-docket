@@ -135,6 +135,34 @@ describe('CaptureView', () => {
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ content: 'Buy milk' });
   });
 
+  it('previews and submits a parsed date while preserving the original wording', async () => {
+    render(<CaptureView />);
+
+    fireEvent.change(getTextarea(), { target: { value: 'Call the dentist tomorrow' } });
+
+    expect(screen.getByText(/Due:/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove parsed date/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^capture$/i }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.content).toBe('Call the dentist tomorrow');
+    expect(body.dueDate).toEqual(expect.any(String));
+  });
+
+  it('allows the interpreted date to be removed before capture', async () => {
+    render(<CaptureView />);
+    fireEvent.change(getTextarea(), { target: { value: 'Call the dentist tomorrow' } });
+    fireEvent.click(screen.getByRole('button', { name: /remove parsed date/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^capture$/i }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ content: 'Call the dentist tomorrow' });
+  });
+
   it('keeps the text and shows an actionable error when the API fails', async () => {
     fetchMock = jest.fn(async () => mockResponse(500, { error: 'Internal Server Error' }));
     global.fetch = fetchMock as unknown as typeof fetch;

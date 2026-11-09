@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { CheckCircle2, Inbox, Loader2, PencilLine, TriangleAlert } from 'lucide-react';
 import { Task } from '@/types';
 import { apiFetch, AuthError } from '@/lib/api';
+import { parseCaptureText } from '@/lib/captureParser';
+import CaptureDatePreview from './CaptureDatePreview';
 
 /**
  * Mobile-first quick capture surface.
@@ -25,6 +27,7 @@ type CaptureStatus =
 
 export default function CaptureView() {
   const [value, setValue] = useState('');
+  const [parsedDate, setParsedDate] = useState<Date | null>(null);
   const [status, setStatus] = useState<CaptureStatus>({ kind: 'idle' });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,7 +42,9 @@ export default function CaptureView() {
   }, [focusInput]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(e.target.value);
+    const nextValue = e.target.value;
+    setValue(nextValue);
+    setParsedDate(parseCaptureText(nextValue).dueDate);
     // A stale confirmation is confusing once the next thought starts typing.
     setStatus((prev) => (prev.kind === 'success' ? { kind: 'idle' } : prev));
   };
@@ -58,10 +63,11 @@ export default function CaptureView() {
       const task = await apiFetch<Task>('/api/v2/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...(parsedDate ? { dueDate: parsedDate.toISOString() } : {}) }),
       });
 
       setValue('');
+      setParsedDate(null);
       setStatus({ kind: 'success', message: 'Captured to your Inbox.' });
       window.dispatchEvent(
         new CustomEvent('taskCreated', { detail: { task, source: 'captureView' } })
@@ -129,9 +135,9 @@ export default function CaptureView() {
           className="w-full resize-y rounded-2xl border border-border-default bg-bg-primary p-4 text-lg text-text-primary shadow-sm outline-none transition-colors placeholder:text-text-muted focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
         />
         <p id="capture-help" className="mt-2 text-xs text-text-muted">
-          Tap the microphone on the keyboard to dictate. Captured items land in your
-          Inbox — no due date, no project, no fuss.
+          Tap the microphone on the keyboard to dictate. Dates are detected, but your wording is kept intact.
         </p>
+        <CaptureDatePreview date={parsedDate} onChange={setParsedDate} />
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
           <button

@@ -10,6 +10,15 @@ Use this format:
 
 ---
 
+## [2026-11-09] – Natural-language dates in quick capture
+- **What changed:** Added shared natural-language date parsing to Sidebar Quick Add, mobile `/capture`, and the calendar task panel. Inputs such as `Call the dentist tomorrow` and `Submit report next Friday at 3pm` now show an editable due-date preview. The original task wording is preserved; accepted date metadata is sent separately as `dueDate`. Users can edit or remove the interpretation before submitting.
+- **Why:** Quick capture should accept normal human phrasing without silently scheduling tasks. Making the interpretation visible provides confirmation while keeping capture fast.
+- **Affected areas:** `src/lib/captureParser.ts`, `src/components/v2/CaptureDatePreview.tsx`, `src/components/v2/CaptureView.tsx`, `src/components/v2/Sidebar.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`, parser and capture tests.
+- **Migration needed?** No. Existing task API and `due_date` column are used.
+- **Testing:** 5 parser tests and 2 capture interaction tests added; full Jest suite passes (601 tests). Lint passes with existing warnings. Typecheck remains blocked by pre-existing repository errors outside this change.
+
+---
+
 ## [2026-11-02] – Re-enable TypeScript and ESLint build gates
 - **What changed:**
   Fixed all blocking build errors and re-enabled strict TypeScript and ESLint validation in the build pipeline. Fixed 2 failing tests in `weeklyReview.ts` (stale task boundary condition and DST-aware week range calculation). Fixed 4 TypeScript errors in calibre-web App Router routes (removed non-route exports, updated params to Promise type per Next.js 15). Fixed 8 ESLint errors: 4 prefer-const in media sync routes, 2 unescaped quotes in media pages, 1 html-link-for-pages in media detail page, 1 unused eslint-disable directive. Disabled `no-explicit-any` rule in eslint.config.mjs to defer 213 any-type errors to future cleanup. Re-enabled `ignoreBuildErrors: false` and `ignoreDuringBuilds: false` in next.config.ts.

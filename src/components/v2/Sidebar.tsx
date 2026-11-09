@@ -15,6 +15,9 @@ import { SyncButton } from '../SyncButton';
 import SidebarSoundPanel from '../focus/SidebarSoundPanel';
 
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { apiFetch } from '@/lib/api';
+import { parseCaptureText } from '@/lib/captureParser';
+import CaptureDatePreview from './CaptureDatePreview';
 
 interface Tag {
     id: number;
@@ -101,6 +104,8 @@ export default function Sidebar() {
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isQuickAdding, setIsQuickAdding] = useState(false);
+  const [quickAddValue, setQuickAddValue] = useState('');
+  const [quickAddDate, setQuickAddDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -268,23 +273,30 @@ export default function Sidebar() {
                 placeholder="Quick add..."
                 disabled={isQuickAdding}
                 className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-transparent rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:bg-bg-primary focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                onKeyDown={async (e) => {
-                    if (e.key === 'Enter') {
-                        const target = e.target as HTMLInputElement;
-                        const value = target.value.trim();
-                        if (!value) return;
+                 value={quickAddValue}
+                 onChange={(e) => {
+                     const nextValue = e.target.value;
+                     setQuickAddValue(nextValue);
+                     setQuickAddDate(parseCaptureText(nextValue).dueDate);
+                 }}
+                 onKeyDown={async (e) => {
+                     if (e.key === 'Enter') {
+                         e.preventDefault();
+                         const value = quickAddValue.trim();
+                         if (!value) return;
 
                         setIsQuickAdding(true);
                         try {
                             // Creating via API to ensure 'Inbox' context (no pageId)
                             // Or use context if available
-                            await fetch('/api/v2/tasks', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ content: value })
-                            });
-                            
-                            target.value = '';
+                             await apiFetch('/api/v2/tasks', {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ content: value, ...(quickAddDate ? { dueDate: quickAddDate.toISOString() } : {}) })
+                             });
+
+                             setQuickAddValue('');
+                             setQuickAddDate(null);
                             // Refresh logic
                              setRefreshTrigger(prev => prev + 1);
                              // If on inbox/tasks page, they might need refresh too? 
@@ -299,7 +311,8 @@ export default function Sidebar() {
                         }
                     }
                 }}
-            />
+             />
+            <CaptureDatePreview date={quickAddDate} onChange={setQuickAddDate} />
             <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
                 <Plus size={14} />
             </div>
