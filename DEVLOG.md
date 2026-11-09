@@ -1145,3 +1145,33 @@ Use this format:
 - After every non‑trivial change, add an entry here.  
 - If a change touches the database schema, note the migration file and whether it needs to be run.  
 - Keep the log in reverse chronological order (newest on top).
+
+## [2026-11-09] Phase 2: Unified Capture Service - All Surfaces Migrated
+
+### What Changed
+Migrated all remaining task capture surfaces to use the unified `createTaskFromCapture` service:
+- InboxView: source 'inbox', no date parsing (plain text only)
+- TodayView: source 'today', defaults to today at noon when no date parsed
+- CaptureView: updated to use source 'capture'
+- Sidebar: updated to use source 'sidebar'  
+- UnscheduledTaskPanel: updated to use source 'calendar'
+- Updated test expectations for new source values
+
+### Why
+All 5 capture surfaces (mobile /capture, sidebar quick add, calendar panel, inbox, today) now use the same unified service, ensuring consistent behavior across:
+- Natural-language date parsing (where applicable)
+- API calls via apiFetch
+- Error handling and AuthError propagation
+- taskCreated event dispatch for view synchronization
+
+### Technical Details
+- Fixed TypeScript errors by using object parameter format: `createTaskFromCapture({ content, dueDate, source })`
+- InboxView intentionally uses no date parsing (plain text capture)
+- TodayView preserves today-noon default when no natural language date is detected
+- All 601 tests passing
+
+### Migration Status
+Phase 1 (Natural language dates) ✅
+Phase 2 (Unified service across all surfaces) ✅
+All capture surfaces now use unified service
+
