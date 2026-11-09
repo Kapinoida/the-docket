@@ -10,6 +10,14 @@ Use this format:
 
 ---
 
+## [2026-11-09] – Unified capture service (Phase 1)
+- **What changed:** Created `src/lib/taskCapture.ts` with a unified `createTaskFromCapture()` service that handles natural-language date parsing, API submission, error handling, and `taskCreated` event dispatch. Refactored three capture surfaces (mobile `/capture`, Sidebar Quick Add, calendar task panel) to use this shared service. Fixed edge case where `null` dueDate was being re-parsed (user explicitly removed date should not auto-parse from content). All 601 tests pass.
+- **Why:** Multiple capture surfaces were duplicating logic for parsing dates, calling the API, dispatching events, and handling errors. A unified service ensures consistent behavior and makes it easier to add new capture points (Inbox, Today, command palette) in the future.
+- **Affected areas:** `src/lib/taskCapture.ts` (new), `src/components/v2/CaptureView.tsx`, `src/components/v2/Sidebar.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`.
+- **Migration needed:** No. Uses existing task API and `due_date` column.
+
+---
+
 ## [2026-11-09] – Natural-language dates in quick capture
 - **What changed:** Added shared natural-language date parsing to Sidebar Quick Add, mobile `/capture`, and the calendar task panel. Inputs such as `Call the dentist tomorrow` and `Submit report next Friday at 3pm` now show an editable due-date preview. The original task wording is preserved; accepted date metadata is sent separately as `dueDate`. Users can edit or remove the interpretation before submitting.
 - **Why:** Quick capture should accept normal human phrasing without silently scheduling tasks. Making the interpretation visible provides confirmation while keeping capture fast.

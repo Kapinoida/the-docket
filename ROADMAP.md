@@ -7,6 +7,10 @@ Statuses: `🔴 Not Started` | `🟡 In Progress` | `🟢 Complete` | `⛔ Block
 
 ## ✅ Recently Completed
 
+- [x] **Unified capture service (Phase 1)** 🟢
+  Created `src/lib/taskCapture.ts` with a unified `createTaskFromCapture()` service. Refactored three capture surfaces (mobile `/capture`, Sidebar Quick Add, calendar task panel) to use the shared service. Handles natural-language date parsing, API submission, error handling, and `taskCreated` event dispatch. Fixed edge case where `null` dueDate was being re-parsed. All 601 tests pass. No schema changes.
+  *Completed: 2026-11-09*
+
 - [x] **Natural-language dates in quick capture** 🟢
   Quick Add, mobile `/capture`, and the calendar task panel now recognize phrases such as `tomorrow`, `next Friday`, `in 3 days`, and times such as `at 3pm`. A visible due-date preview can be edited or removed before submission, while the original task wording remains unchanged. No schema changes were needed.
   *Completed: 2026-11-09*
