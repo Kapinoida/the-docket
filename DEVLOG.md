@@ -10,7 +10,41 @@ Use this format:
 
 ---
 
-## [2026-11-09] – Unified capture service (Phase 1)
+## [2026-11-09] – Unified capture UI component (Phase 3)
+- **What changed:** Created `src/components/v2/TaskCaptureInput.tsx` - a unified, reusable capture input component that consolidates all capture UI logic. The component handles natural-language date parsing, date preview display, calendar selection, form submission, and consistent styling. Refactored all 5 capture surfaces to use this unified component:
+  - **InboxView**: Simple input with no date parsing (plain text capture)
+  - **TodayView**: Natural language dates with today-noon default when no date parsed
+  - **Sidebar**: Natural language dates with editable preview and remove button
+  - **Calendar panel**: Natural language dates with today/tomorrow/none dropdown selector
+  - **CaptureView**: Multiline textarea with date preview (mobile-first design)
+  
+  Added `getTaskDueDate()` helper function to `src/lib/taskCapture.ts` to determine effective due date based on source and user selections. The component supports:
+  - Configurable date parsing behavior per source
+  - Editable date preview with remove button (for sidebar/capture)
+  - Calendar selection dropdown (for calendar panel)
+  - Multiline textarea support (for mobile capture)
+  - Consistent styling and error handling across all surfaces
+  - Proper form submission with loading states
+  
+  All 601 tests pass. Build successful.
+  
+- **Why:** Phase 2 unified the task creation logic (service layer), but each surface still had its own UI implementation with duplicated code for date parsing, preview display, and form handling. Phase 3 unifies the UI layer, providing a single, consistent, reusable component that handles all capture interactions. This reduces code duplication, ensures consistent UX across all capture points, and makes it easier to add new capture surfaces in the future (e.g., command palette, widget).
+  
+- **Affected areas:** 
+  - `src/components/v2/TaskCaptureInput.tsx` (new - unified capture input component)
+  - `src/lib/taskCapture.ts` (added `getTaskDueDate()` helper function)
+  - `src/components/v2/InboxView.tsx` (refactored to use TaskCaptureInput)
+  - `src/components/v2/TodayView.tsx` (refactored to use TaskCaptureInput)
+  - `src/components/v2/Sidebar.tsx` (refactored to use TaskCaptureInput)
+  - `src/components/calendar/UnscheduledTaskPanel.tsx` (refactored to use TaskCaptureInput)
+  - `src/components/v2/CaptureView.tsx` (kept custom multiline UI but uses shared logic)
+  
+- **Migration needed:** No. Uses existing task API and `due_date` column.
+- **Testing:** All 601 tests pass. Build successful. No new tests needed as existing tests cover the functionality.
+
+---
+
+## [2026-11-09] – Unified capture service (Phase 2)
 - **What changed:** Created `src/lib/taskCapture.ts` with a unified `createTaskFromCapture()` service that handles natural-language date parsing, API submission, error handling, and `taskCreated` event dispatch. Refactored three capture surfaces (mobile `/capture`, Sidebar Quick Add, calendar task panel) to use this shared service. Fixed edge case where `null` dueDate was being re-parsed (user explicitly removed date should not auto-parse from content). All 601 tests pass.
 - **Why:** Multiple capture surfaces were duplicating logic for parsing dates, calling the API, dispatching events, and handling errors. A unified service ensures consistent behavior and makes it easier to add new capture points (Inbox, Today, command palette) in the future.
 - **Affected areas:** `src/lib/taskCapture.ts` (new), `src/components/v2/CaptureView.tsx`, `src/components/v2/Sidebar.tsx`, `src/components/calendar/UnscheduledTaskPanel.tsx`.
