@@ -13,8 +13,8 @@ import { useSync } from '@/contexts/SyncContext';
 import { apiFetch, AuthError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useTaskEdit } from '@/contexts/TaskEditContext';
-import TaskCaptureInput, { getTaskDueDate } from './TaskCaptureInput';
-import { createTaskFromCapture } from '@/lib/taskCapture';
+import TaskCaptureInput from './TaskCaptureInput';
+import { createTaskFromCapture, getTaskDueDate } from '@/lib/taskCapture';
 
 export default function InboxView() {
   const { tasks, initialLoading, refetch, updateLocalTask, removeLocalTask } = useSync();

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { CalendarDays, X } from 'lucide-react';
 import { parseCaptureText, formatCaptureDate } from '@/lib/captureParser';
+import { getTaskDueDate } from '@/lib/taskCapture';
 
 interface TaskCaptureInputProps {
   source: 'inbox' | 'today' | 'capture' | 'sidebar' | 'calendar';
@@ -117,6 +118,30 @@ export default function TaskCaptureInput({
     );
   };
 
+  // Date preview for sources that parse dates
+  const DatePreview = () => {
+    if (source === 'inbox' || source === 'calendar' || source === 'today') return null;
+    if (!parsedDate) return null;
+
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary" aria-label="Parsed date">
+        <CalendarDays size={14} className="text-blue-400" />
+        <span>Due: <strong className="font-medium text-text-primary">{formatCaptureDate(parsedDate)}</strong></span>
+        <button
+          type="button"
+          onClick={() => {
+            setParsedDate(null);
+            onChange(value, null);
+          }}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
+          aria-label="Remove parsed date"
+        >
+          <X size={13} /> Remove
+        </button>
+      </div>
+    );
+  };
+
   const baseInputClasses = `w-full pl-10 pr-4 py-3 bg-bg-secondary border border-transparent rounded-xl focus:bg-bg-primary focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none text-base placeholder:text-text-muted text-text-primary ${className}`;
 
   return (
@@ -157,33 +182,4 @@ export default function TaskCaptureInput({
       )}
     </div>
   );
-}
-
-// Export helper to get the effective due date
-export function getTaskDueDate(source: 'inbox' | 'today' | 'capture' | 'sidebar' | 'calendar', parsedDate: Date | null, calendarSelection?: 'today' | 'tomorrow' | 'none'): Date | null | undefined {
-  if (source === 'inbox') {
-    return undefined;
-  }
-  if (source === 'calendar') {
-    if (!calendarSelection || calendarSelection === 'none') return null;
-    if (calendarSelection === 'today') {
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
-      return today;
-    }
-    if (calendarSelection === 'tomorrow') {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(12, 0, 0, 0);
-      return tomorrow;
-    }
-  }
-  if (source === 'today') {
-    return parsedDate || (() => {
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
-      return today;
-    })();
-  }
-  return parsedDate;
 }

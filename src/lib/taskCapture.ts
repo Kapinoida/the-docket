@@ -64,3 +64,34 @@ export async function createTaskFromCapture(input: TaskCaptureInput): Promise<Ta
 
   return { task, source };
 }
+
+/**
+ * Helper to get the effective due date based on source and calendar selection
+ */
+export function getTaskDueDate(source: 'inbox' | 'today' | 'capture' | 'sidebar' | 'calendar', parsedDate: Date | null, calendarSelection?: 'today' | 'tomorrow' | 'none'): Date | null | undefined {
+  if (source === 'inbox') {
+    return undefined;
+  }
+  if (source === 'calendar') {
+    if (!calendarSelection || calendarSelection === 'none') return null;
+    if (calendarSelection === 'today') {
+      const today = new Date();
+      today.setHours(12, 0, 0, 0);
+      return today;
+    }
+    if (calendarSelection === 'tomorrow') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(12, 0, 0, 0);
+      return tomorrow;
+    }
+  }
+  if (source === 'today') {
+    return parsedDate || (() => {
+      const today = new Date();
+      today.setHours(12, 0, 0, 0);
+      return today;
+    })();
+  }
+  return parsedDate;
+}

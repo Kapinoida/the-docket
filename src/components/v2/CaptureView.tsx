@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Inbox, Loader2, PencilLine, TriangleAlert } from 'lucide-react';
-import { Task } from '@/types';
 import { AuthError } from '@/lib/api';
 import { createTaskFromCapture } from '@/lib/taskCapture';
 import { parseCaptureText } from '@/lib/captureParser';
@@ -45,7 +44,8 @@ export default function CaptureView() {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const nextValue = e.target.value;
     setValue(nextValue);
-    setParsedDate(parseCaptureText(nextValue).dueDate);
+    const parsed = parseCaptureText(nextValue);
+    setParsedDate(parsed.dueDate);
     // A stale confirmation is confusing once the next thought starts typing.
     setStatus((prev) => (prev.kind === 'success' ? { kind: 'idle' } : prev));
   };
@@ -61,7 +61,7 @@ export default function CaptureView() {
     setStatus({ kind: 'submitting' });
 
     try {
-      const { task } = await createTaskFromCapture({
+      await createTaskFromCapture({
         content,
         dueDate: parsedDate,
         source: 'capture',
